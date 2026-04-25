@@ -1,0 +1,151 @@
+<!-- 小打卡 - 学习统计页 -->
+<view class="stats-page">
+  <!-- 顶部 -->
+  <view class="page-header">
+    <view class="header-title">📊 学习统计</view>
+    <view class="header-subtitle">用数据见证你的成长</view>
+  </view>
+
+  <!-- 时间范围选择 -->
+  <view class="time-range">
+    <view 
+      wx:for="{{timeRanges}}" 
+      wx:key="key"
+      class="range-item {{activeRange === item.key ? 'active' : ''}}"
+      bindtap="switchRange"
+      data-key="{{item.key}}"
+    >{{item.label}}</view>
+  </view>
+
+  <!-- 核心数据卡片 -->
+  <view class="core-stats">
+    <view class="stat-row">
+      <view class="stat-card">
+        <view class="stat-icon">✅</view>
+        <view class="stat-value">{{stats.totalCheckins || 0}}</view>
+        <view class="stat-label">打卡次数</view>
+        <view class="stat-trend {{stats.checkinTrend >= 0 ? 'up' : 'down'}}">
+          {{stats.checkinTrend >= 0 ? '↑' : '↓'}} {{Math.abs(stats.checkinTrend || 0)}}%
+        </view>
+      </view>
+      
+      <view class="stat-card">
+        <view class="stat-icon">⭐</view>
+        <view class="stat-value">{{stats.totalStars || 0}}</view>
+        <view class="stat-label">获得星星</view>
+        <view class="stat-trend {{stats.starsTrend >= 0 ? 'up' : 'down'}}">
+          {{stats.starsTrend >= 0 ? '↑' : '↓'}} {{Math.abs(stats.starsTrend || 0)}}%
+        </view>
+      </view>
+    </view>
+
+    <view class="stat-row">
+      <view class="stat-card">
+        <view class="stat-icon">🔥</view>
+        <view class="stat-value">{{stats.maxStreak || 0}}</view>
+        <view class="stat-label">最长连续</view>
+        <view class="stat-trend up">天</view>
+      </view>
+
+      <view class="stat-card">
+        <view class="stat-icon">📚</view>
+        <view class="stat-value">{{stats.activePlans || 0}}</view>
+        <view class="stat-label">活跃计划</view>
+        <view class="stat-trend">个</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 科目分布 -->
+  <view class="section-card">
+    <view class="section-title">📖 科目打卡分布</view>
+    
+    <block wx:if="{{subjectData.length > 0}}">
+      <view class="subject-list">
+        <view 
+          wx:for="{{subjectData}}" 
+          wx:key="subject"
+          class="subject-item"
+        >
+          <view class="subject-left">
+            <view class="subject-emoji">{{item.icon}}</view>
+            <view class="subject-name">{{item.subject}}</view>
+          </view>
+          
+          <view class="subject-bar-area">
+            <view class="subject-bar-bg">
+              <view 
+                class="subject-bar-fill" 
+                style="width: {{item.percent}}%; background-color: {{item.color}}"
+              ></view>
+            </view>
+            <view class="subject-count">{{item.count}}次 ({{item.percent}}%)</view>
+          </view>
+        </view>
+      </view>
+    </block>
+
+    <view class="empty-hint" wx:else>暂无科目数据</view>
+  </view>
+
+  <!-- 每周打卡热力图 -->
+  <view class="section-card">
+    <view class="section-title">🗓️ 近期打卡情况</view>
+    
+    <view class="heatmap">
+      <view class="heatmap-weekdays">
+        <view wx:for="{{weekdays}}" wx:key="*this" class="hm-weekday">{{item}}</view>
+      </view>
+      
+      <view class="heatmap-grid">
+        <view 
+          wx:for="{{heatmapData}}" 
+          wx:key="date"
+          class="heatmap-cell level-{{item.level}}"
+          data-date="{{item.date}}"
+          bindtap="showDayDetail"
+        >
+          <text class="cell-day" wx:if="{{item.day}}">{{item.day}}</text>
+        </view>
+      </view>
+      
+      <view class="heatmap-legend">
+        <text>少</text>
+        <view class="legend-cells">
+          <view class="legend-cell level-0"></view>
+          <view class="legend-cell level-1"></view>
+          <view class="legend-cell level-2"></view>
+          <view class="legend-cell level-3"></view>
+        </view>
+        <text>多</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 打卡时间分布 -->
+  <view class="section-card">
+    <view class="section-title">⏰ 常用打卡时段</view>
+    
+    <view class="time-slots">
+      <view 
+        wx:for="{{timeSlots}}" 
+        wx:key="label"
+        class="time-slot"
+      >
+        <view class="slot-label">{{item.label}}</view>
+        <view class="slot-bar-bg">
+          <view 
+            class="slot-bar-fill" 
+            style="width: {{item.percent}}%"
+          ></view>
+        </view>
+        <view class="slot-count">{{item.count}}次</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 底部提示 -->
+  <view class="tips-section">
+    <view class="tips-text">💡 数据每小时更新，坚持记录，让成长看得见！</view>
+  </view>
+</view>

@@ -1,0 +1,116 @@
+<!-- 小打卡 - 每日签到页 -->
+<view class="dailycheckin-page">
+  <!-- 顶部 -->
+  <view class="page-header">
+    <view class="header-title">📅 每日签到</view>
+    <view class="header-subtitle">坚持签到，每天领取星星奖励</view>
+  </view>
+
+  <!-- 签到卡片 -->
+  <view class="checkin-card">
+    <!-- 未签到状态 -->
+    <block wx:if="{{!isCheckedIn}}">
+      <view class="checkin-emoji">📋</view>
+      <view class="checkin-text">今天还没签到哦</view>
+      <view class="checkin-reward">签到可获得 +{{todayReward}} ⭐</view>
+      
+      <button 
+        class="checkin-btn {{checking ? 'disabled' : ''}}"
+        bindtap="doCheckin"
+        disabled="{{checking}}"
+      >
+        {{checking ? '签到中...' : '🎉 立即签到'}}
+      </button>
+    </block>
+
+    <!-- 已签到状态 -->
+    <block wx:else>
+      <view class="checked-emoji">✅</view>
+      <view class="checked-text">今天已签到！</view>
+      <view class="checked-reward">已获得 +{{earnedStars}} ⭐</view>
+      <view class="checked-time">{{checkedTime}}</view>
+
+      <button class="checked-btn" disabled>已签到 ✓</button>
+    </block>
+  </view>
+
+  <!-- 连续签到信息 -->
+  <view class="streak-card">
+    <view class="streak-info">
+      <view class="streak-icon">🔥</view>
+      <view class="streak-detail">
+        <view class="streak-value">已连续签到 {{streakDays}} 天</view>
+        <view class="streak-desc" wx:if="{{streakDays > 0}}">
+          再签到 {{nextStreakRewardDay}} 天可获额外 +{{nextStreakBonus}} ⭐ 奖励
+        </view>
+        <view class="streak-desc" wx:else>开始连续签到，解锁更多奖励吧！</view>
+      </view>
+    </view>
+    
+    <!-- 连续签到里程碑 -->
+    <view class="milestones">
+      <view 
+        wx:for="{{milestones}}" 
+        wx:key="day"
+        class="milestone-item {{item.achieved ? 'achieved' : ''}} {{item.current ? 'current' : ''}}"
+      >
+        <view class="milestone-dot">
+          <text wx:if="{{item.achieved}}">✓</text>
+          <text wx:elif="{{item.current}}">●</text>
+          <text wx:else>{{index + 1}}</text>
+        </view>
+        <view class="milestone-day">{{item.day}}天</view>
+        <view class="milestone-bonus">+{{item.bonus}}</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 签到日历 -->
+  <view class="calendar-section">
+    <view class="section-title">📆 本月签到记录</view>
+    
+    <view class="calendar-header">
+      <view class="calendar-nav" bindtap="prevMonth">‹</view>
+      <view class="calendar-month">{{currentYear}}年{{currentMonth}}月</view>
+      <view class="calendar-nav" bindtap="nextMonth">›</view>
+    </view>
+
+    <view class="calendar-weekdays">
+      <view class="weekday" wx:for="{{weekdays}}" wx:key="*this">{{item}}</view>
+    </view>
+
+    <view class="calendar-days">
+      <view 
+        wx:for="{{calendarDays}}" 
+        wx:key="date"
+        class="calendar-day {{item.isCurrentMonth ? '' : 'other-month'}} {{item.isCheckedIn ? 'checked' : ''}} {{item.isToday ? 'today' : ''}}"
+      >
+        <view class="day-number">{{item.day}}</view>
+        <view class="day-check" wx:if="{{item.isCheckedIn && item.isCurrentMonth}}">✓</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 签到规则说明 -->
+  <view class="rules-section">
+    <view class="section-title">📜 签到规则</view>
+    <view class="rule-list">
+      <view class="rule-item">
+        <view class="rule-dot"></view>
+        <view class="rule-text">每天可签到一次，获得基础星星奖励</view>
+      </view>
+      <view class="rule-item">
+        <view class="rule-dot"></view>
+        <view class="rule-text">连续签到有额外奖励，断签后重新计算</view>
+      </view>
+      <view class="rule-item">
+        <view class="rule-dot"></view>
+        <view class="rule-text">每月1号重置连续签到天数</view>
+      </view>
+      <view class="rule-item">
+        <view class="rule-dot"></view>
+        <view class="rule-text">签到奖励自动发放，可在积分明细中查看</view>
+      </view>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,137 @@
+<!-- 小打卡 - 帮助与反馈页 -->
+<view class="help-page">
+  <!-- 顶部 -->
+  <view class="page-header">
+    <view class="header-title">❓ 帮助与反馈</view>
+    <view class="header-subtitle">遇到问题？我们在这里帮你</view>
+  </view>
+
+  <!-- 常见问题 FAQ -->
+  <view class="section-card">
+    <view class="section-title">📖 常见问题</view>
+    
+    <view class="faq-list">
+      <view 
+        wx:for="{{faqs}}" 
+        wx:key="index"
+        class="faq-item"
+      >
+        <view 
+          class="faq-question" 
+          bindtap="toggleFaq"
+          data-index="{{index}}"
+        >
+          <text class="faq-q-text">{{item.question}}</text>
+          <text class="faq-arrow {{item.expanded ? 'expanded' : ''}}">›</text>
+        </view>
+        
+        <view class="faq-answer" wx:if="{{item.expanded}}">
+          {{item.answer}}
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 使用指南 -->
+  <view class="section-card">
+    <view class="section-title">🚀 新手指南</view>
+    
+    <view class="guide-steps">
+      <view 
+        wx:for="{{guides}}" 
+        wx:key="step"
+        class="guide-step"
+      >
+        <view class="step-number">{{item.step}}</view>
+        <view class="step-content">
+          <view class="step-title">{{item.title}}</view>
+          <view class="step-desc">{{item.desc}}</view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 反馈表单 -->
+  <view class="section-card">
+    <view class="section-title">💬 意见反馈</view>
+    
+    <!-- 问题类型选择 -->
+    <view class="form-group">
+      <view class="form-label">反馈类型</view>
+      <view class="type-list">
+        <view 
+          wx:for="{{feedbackTypes}}" 
+          wx:key="*this"
+          class="type-item {{selectedType === item ? 'active' : ''}}"
+          bindtap="selectType"
+          data-type="{{item}}"
+        >{{item}}</view>
+      </view>
+    </view>
+
+    <!-- 反馈内容 -->
+    <view class="form-group">
+      <view class="form-label">详细描述</view>
+      <textarea
+        class="feedback-input"
+        placeholder="请描述您遇到的问题或建议..."
+        value="{{feedbackContent}}"
+        bindinput="onFeedbackInput"
+        maxlength="500"
+        auto-height
+        show-confirm-bar="{{false}}"
+      ></textarea>
+      <view class="char-count">{{feedbackContent.length}}/500</view>
+    </view>
+
+    <!-- 联系方式（可选） -->
+    <view class="form-group">
+      <view class="form-label">联系方式（可选）</view>
+      <input
+        class="form-input"
+        type="text"
+        placeholder="手机号或邮箱，方便我们联系你"
+        value="{{contactInfo}}"
+        bindinput="onContactInput"
+      />
+    </view>
+
+    <button 
+      class="submit-btn {{submitting ? 'disabled' : ''}}"
+      bindtap="submitFeedback"
+      disabled="{{submitting}}"
+    >
+      {{submitting ? '提交中...' : '📤 提交反馈'}}
+    </button>
+  </view>
+
+  <!-- 联系我们 -->
+  <view class="contact-section">
+    <view class="contact-title">📞 其他联系方式</view>
+    
+    <view class="contact-list">
+      <view class="contact-item" bindtap="copyContact" data-value='xiaodaka@example.com'>
+        <view class="contact-icon">📧</view>
+        <view class="contact-info">
+          <view class="contact-name">邮件支持</view>
+          <view class="contact-detail">xiaodaka@example.com</view>
+        </view>
+        <view class="contact-action">复制</view>
+      </view>
+
+      <view class="contact-item" bindtap="copyContact" data-value='400-123-4567'>
+        <view class="contact-icon">📱</view>
+        <view class="contact-info">
+          <view class="contact-name">客服热线</view>
+          <view class="contact-detail">400-123-4567 (工作日 9:00-18:00)</view>
+        </view>
+        <view class="contact-action">复制</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 版本信息 -->
+  <view class="version-info">
+    小打卡 v1.0.0 · 让学习变成一种习惯 🌱
+  </view>
+</view>

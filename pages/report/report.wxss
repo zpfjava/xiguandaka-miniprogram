@@ -1,0 +1,182 @@
+/* 学习报告页样式 */
+.report-page {
+  min-height: 100vh;
+  background-color: #FFF8E1;
+  padding-bottom: 40rpx;
+}
+
+/* 顶部 */
+.page-header {
+  background: linear-gradient(135deg, #FFD93D 0%, #FF9A3C 100%);
+  padding: 30rpx 30rpx 36rpx;
+}
+.header-title { font-size: 38rpx; font-weight: bold; color: #333333; }
+.header-subtitle { font-size: 26rpx; color: rgba(51, 51, 51, 0.6); margin-top: 8rpx; }
+
+/* 时间范围 */
+.time-range {
+  display: flex;
+  margin: 20rpx 30rpx;
+  background-color: #FFFFFF;
+  border-radius: 16rpx;
+  padding: 6rpx;
+}
+.range-item {
+  flex: 1; text-align: center; padding: 16rpx 0; font-size: 26rpx; color: #999999; border-radius: 12rpx;
+}
+.range-item.active { background-color: #FFD93D; color: #333333; font-weight: bold; }
+
+/* 报告概览 */
+.report-overview {
+  display: flex;
+  align-items: center;
+  margin: 20rpx 30rpx;
+  padding: 28rpx;
+  background-color: #FFFFFF;
+  border-radius: 24rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+}
+
+.overview-score { margin-right: 32rpx; }
+
+.score-circle {
+  width: 140rpx;
+  height: 140rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #FFD93D 0%, #FF9A3C 100%);
+  border-radius: 50%;
+  box-shadow: 0 4rpx 16rpx rgba(255, 154, 60, 0.3);
+}
+
+.score-value { font-size: 52rpx; font-weight: bold; color: #333333; }
+.score-label { font-size: 20rpx; color: rgba(51, 51, 51, 0.7); margin-top: 4rpx; }
+
+.overview-details { 
+  flex: 1; 
+  display: flex; 
+  flex-wrap: wrap; 
+  gap: 10rpx; 
+}
+.detail-item {
+  width: calc(50% - 5rpx);
+  display: flex;
+  align-items: center;
+  padding: 12rpx;
+  background-color: #FAFAFA;
+  border-radius: 14rpx;
+}
+.detail-icon { font-size: 28rpx; margin-right: 10rpx; }
+.detail-info { }
+.detail-value { font-size: 26rpx; font-weight: bold; color: #333333; }
+.detail-label { font-size: 20rpx; color: #999999; }
+
+/* 区域卡片 */
+.section-card {
+  margin: 20rpx 30rpx;
+  padding: 28rpx;
+  background-color: #FFFFFF;
+  border-radius: 24rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+}
+.section-title { font-size: 32rpx; font-weight: bold; color: #333333; margin-bottom: 18rpx; }
+
+/* 学习亮点 */
+.highlight-list { }
+.highlight-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 12rpx 0;
+  border-bottom: 1rpx solid #F5F5F5;
+}
+.highlight-item:last-child { border-bottom: none; }
+.highlight-emoji { font-size: 32rpx; margin-right: 14rpx; flex-shrink: 0; }
+.highlight-text { font-size: 27rpx; color: #333333; line-height: 1.5; }
+
+/* 改进建议 */
+.suggestion-list { }
+.suggestion-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 12rpx 0;
+  border-bottom: 1rpx solid #F5F5F5;
+}
+.suggestion-item:last-child { border-bottom: none; }
+.suggestion-bullet {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background-color: #FF9A3C;
+  margin-top: 12rpx;
+  margin-right: 14rpx;
+  flex-shrink: 0;
+}
+.suggestion-text { font-size: 26rpx; color: #666666; line-height: 1.6; }
+
+/* 科目详情 */
+.subject-report-list { }
+.subject-report-item {
+  display: flex;
+  align-items: center;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid #F5F5F5;
+}
+.subject-report-item:last-child { border-bottom: none; }
+
+.sr-left {
+  width: 160rpx;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.sr-icon { font-size: 34rpx; margin-right: 10rpx; }
+.sr-name { font-size: 27rpx; color: #333333; }
+
+.sr-right { flex: 1; margin-left: 16rpx; }
+.sr-checkins { font-size: 23rpx; color: #999999; }
+.sr-stars { font-size: 23rpx; color: #FF9A3C; font-weight: bold; float: right; }
+
+.sr-bar-bg {
+  height: 10rpx;
+  background-color: #F0F0F0;
+  border-radius: 5rpx;
+  overflow: hidden;
+  margin-top: 8rpx;
+  clear: both;
+}
+.sr-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #FFD93D 0%, #FF9A3C 100%);
+  border-radius: 5rpx;
+}
+
+/* 一句话总结 */
+.summary-card {
+  margin: 20rpx 30rpx;
+  padding: 28rpx;
+  background: linear-gradient(135deg, #FFFDE7 0%, #FFF8E1 100%);
+  border-radius: 20rpx;
+  text-align: center;
+  border: 1rpx solid #FFECB3;
+}
+.summary-text { font-size: 30rpx; color: #333333; line-height: 1.7; font-style: italic; }
+.summary-date { font-size: 22rpx; color: #BBBBBB; margin-top: 12rpx; }
+
+/* 分享按钮 */
+.share-area { padding: 20rpx 30rpx; }
+.share-btn {
+  width: 100%;
+  height: 88rpx;
+  line-height: 88rpx;
+  background: linear-gradient(135deg, #FFD93D 0%, #FF9A3C 100%);
+  color: #333333;
+  font-size: 30rpx;
+  font-weight: bold;
+  border-radius: 44rpx;
+  text-align: center;
+  border: none;
+}
+.share-btn::after { border: none; }
+.share-btn:active { opacity: 0.85; }

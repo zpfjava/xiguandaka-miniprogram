@@ -1,0 +1,135 @@
+<!-- 小打卡 - 学习报告页 -->
+<view class="report-page">
+  <!-- 顶部 -->
+  <view class="page-header">
+    <view class="header-title">📈 学习报告</view>
+    <view class="header-subtitle">你的专属学习分析</view>
+  </view>
+
+  <!-- 时间范围 -->
+  <view class="time-range">
+    <view 
+      wx:for="{{periods}}" 
+      wx:key="key"
+      class="range-item {{activePeriod === item.key ? 'active' : ''}}"
+      bindtap="switchPeriod"
+      data-key="{{item.key}}"
+    >{{item.label}}</view>
+  </view>
+
+  <!-- 报告概览 -->
+  <view class="report-overview">
+    <view class="overview-score">
+      <view class="score-circle">
+        <view class="score-value">{{report.score || 'A'}}</view>
+        <view class="score-label">综合评分</view>
+      </view>
+    </view>
+    
+    <view class="overview-details">
+      <view class="detail-item">
+        <view class="detail-icon">✅</view>
+        <view class="detail-info">
+          <view class="detail-value">{{report.totalCheckins || 0}} 次</view>
+          <view class="detail-label">总打卡</view>
+        </view>
+      </view>
+      
+      <view class="detail-item">
+        <view class="detail-icon">📚</view>
+        <view class="detail-info">
+          <view class="detail-value">{{report.subjectCount || 0}} 科</view>
+          <view class="detail-label">涉及科目</view>
+        </view>
+      </view>
+
+      <view class="detail-item">
+        <view class="detail-icon">⭐</view>
+        <view class="detail-info">
+          <view class="detail-value">{{report.earnedStars || 0}} 颗</view>
+          <view class="detail-label">获得星星</view>
+        </view>
+      </view>
+
+      <view class="detail-item">
+        <view class="detail-icon">🔥</view>
+        <view class="detail-info">
+          <view class="detail-value">{{report.streakDays || 0}} 天</view>
+          <view class="detail-label">连续天数</view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 学习亮点 -->
+  <view class="section-card" wx:if="{{highlights.length > 0}}">
+    <view class="section-title">🌟 学习亮点</view>
+    
+    <view class="highlight-list">
+      <view 
+        wx:for="{{highlights}}" 
+        wx:key="index"
+        class="highlight-item"
+      >
+        <view class="highlight-emoji">{{item.emoji}}</view>
+        <view class="highlight-text">{{item.text}}</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 改进建议 -->
+  <view class="section-card" wx:if="{{suggestions.length > 0}}">
+    <view class="section-title">💡 改进建议</view>
+    
+    <view class="suggestion-list">
+      <view 
+        wx:for="{{suggestions}}" 
+        wx:key="index"
+        class="suggestion-item"
+      >
+        <view class="suggestion-bullet"></view>
+        <view class="suggestion-text">{{item}}</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 科目详情 -->
+  <view class="section-card" wx:if="{{subjectReports.length > 0}}">
+    <view class="section-title">📖 各科表现</view>
+    
+    <view class="subject-report-list">
+      <view 
+        wx:for="{{subjectReports}}" 
+        wx:key="subject"
+        class="subject-report-item"
+      >
+        <view class="sr-left">
+          <view class="sr-icon">{{item.icon}}</view>
+          <view class="sr-name">{{item.subject}}</view>
+        </view>
+        
+        <view class="sr-right">
+          <view class="sr-checkins">{{item.checkins}}次打卡</view>
+          <view class="sr-stars">+{{item.stars}}⭐</view>
+          
+          <view class="sr-bar-bg">
+            <view class="sr-bar-fill" style="width: {{item.percent}}%"></view>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 一句话总结 -->
+  <view class="summary-card">
+    <view class="summary-text">「{{summaryText}}」</view>
+    <view class="summary-date">—— 小打卡 · {{reportDate}}</view>
+  </view>
+
+  <!-- 分享按钮 -->
+  <view class="share-area">
+    <button class="share-btn" bindtap="shareReport">
+      📤 分享给家长
+    </button>
+  </view>
+</view>

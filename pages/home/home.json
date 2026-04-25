@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "小打卡",
+  "usingComponents": {
+    "mascot": "/components/mascot/mascot",
+    "progress-ring": "/components/progress-ring/progress-ring"
+  }
+}

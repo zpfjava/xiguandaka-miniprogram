@@ -1,0 +1,102 @@
+<!-- 小打卡 - 积分明细页 -->
+<view class="points-history-page">
+  <!-- 顶部 -->
+  <view class="page-header">
+    <view class="header-title">📜 积分明细</view>
+    <view class="header-subtitle">每一颗星星都有迹可循</view>
+  </view>
+
+  <!-- 筛选栏 -->
+  <view class="filter-bar">
+    <picker mode="selector" range="{{filterTypes}}" value="{{filterIndex}}" bindchange="onFilterChange">
+      <view class="filter-btn">{{filterTypes[filterIndex]}} ▼</view>
+    </picker>
+    
+    <picker 
+      mode="date" 
+      fields="month" 
+      value="{{filterMonth}}" 
+      bindchange="onMonthChange"
+    >
+      <view class="filter-btn date-filter">📅 {{displayMonth}}</view>
+    </picker>
+  </view>
+
+  <!-- 月度汇总 -->
+  <view class="summary-card">
+    <view class="summary-item income">
+      <view class="summary-label">收入</view>
+      <view class="summary-value">+{{monthIncome}} ⭐</view>
+    </view>
+    
+    <view class="summary-divider"></view>
+    
+    <view class="summary-item expense">
+      <view class="summary-label">支出</view>
+      <view class="summary-value">-{{monthExpense}} ⭐</view>
+    </view>
+    
+    <view class="summary-divider"></view>
+    
+    <view class="summary-item balance">
+      <view class="summary-label">净变化</view>
+      <view class="summary-value {{monthIncome - monthExpense >= 0 ? 'positive' : 'negative'}}">
+        {{monthIncome - monthExpense >= 0 ? '+' : ''}}{{monthIncome - monthExpense}} ⭐
+      </view>
+    </view>
+  </view>
+
+  <!-- 明细列表 -->
+  <block wx:if="{{records.length > 0}}">
+    <!-- 按日期分组 -->
+    <block wx:for="{{groupedRecords}}" wx:key="date">
+      <view class="date-group">
+        <view class="date-header">
+          <text class="date-text">{{item.date}}</text>
+          <text class="date-summary">
+            收入 +{{item.income}} · 支出 -{{item.expense}}
+          </text>
+        </view>
+        
+        <view class="record-list">
+          <view 
+            wx:for="{{item.records}}" 
+            wx:key="id"
+            class="record-item"
+          >
+            <view class="record-icon {{item.type === 'earn' ? 'icon-earn' : 'icon-spend'}}">
+              {{item.icon || (item.type === 'earn' ? '+' : '-')}}
+            </view>
+            
+            <view class="record-info">
+              <view class="record-desc">{{item.description}}</view>
+              <view class="record-time">{{item.time}}</view>
+            </view>
+            
+            <view class="record-amount {{item.type === 'earn' ? 'amount-earn' : 'amount-spend'}}">
+              {{item.amount > 0 ? '+' : ''}}{{item.amount}} ⭐
+            </view>
+          </view>
+        </view>
+      </view>
+    </block>
+  </block>
+
+  <!-- 空状态 -->
+  <block wx:else>
+    <view class="empty-state">
+      <view class="empty-icon">📜</view>
+      <view class="empty-text">暂无积分记录</view>
+      <view class="empty-desc">完成学习打卡或签到来获取星星吧！</view>
+    </view>
+  </block>
+
+  <!-- 加载更多 -->
+  <view class="load-more" wx:if="{{records.length > 0 && hasMore}}">
+    <text>加载更多...</text>
+  </view>
+  
+  <view class="no-more" wx:if="{{records.length > 0 && !hasMore}}">
+    <text>— 已经到底了 —</text>
+  </view>
+</view>

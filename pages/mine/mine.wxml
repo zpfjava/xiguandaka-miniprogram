@@ -1,0 +1,124 @@
+<!-- 小打卡 - 我的页面 -->
+<view class="mine-page">
+  <!-- 用户信息卡片 -->
+  <view class="user-card">
+    <view class="user-avatar">
+      {{userInfo.avatar || '😊'}}
+    </view>
+    <view class="user-info">
+      <view class="user-name">{{userInfo.nickname || '小朋友'}}</view>
+      <view class="user-grade">{{userInfo.grade || '小学三年级'}}</view>
+    </view>
+    
+    <!-- 编辑按钮 -->
+    <button class="edit-btn" bindtap="goToSettings">
+      ✏️ 编辑
+    </button>
+  </view>
+
+  <!-- 成长数据 -->
+  <view class="growth-section">
+    <mascot 
+      totalDays="{{stats.totalCheckins || 0}}" 
+      size="medium"
+      state="{{growthState}}"
+    />
+    <view class="growth-info">
+      <view class="stage-name">{{stageName}}</view>
+      <view class="stage-desc">{{stageDesc}}</view>
+      <view class="streak-info" wx:if="{{stats.streak > 0}}">
+        🔥 已连续打卡 {{stats.streak}} 天
+      </view>
+    </view>
+  </view>
+
+  <!-- 数据概览 -->
+  <view class="data-overview">
+    <view class="data-item">
+      <view class="data-value">{{stats.totalPlans || 3}}</view>
+      <view class="data-label">学习计划</view>
+    </view>
+    <view class="data-divider"></view>
+    <view class="data-item">
+      <view class="data-value">{{stats.totalCheckins || 7}}</view>
+      <view class="data-label">累计打卡</view>
+    </view>
+    <view class="data-divider"></view>
+    <view class="data-item">
+      <view class="data-value">{{stats.streak || 2}}</view>
+      <view class="data-label">连续天数</view>
+    </view>
+  </view>
+
+  <!-- 功能菜单列表 -->
+  <view class="menu-section">
+    <view class="menu-group">
+      <view class="menu-item" bindtap="goToWishlist">
+        <view class="menu-icon">🎁</view>
+        <view class="menu-text">愿望清单</view>
+        <view class="menu-arrow">›</view>
+      </view>
+
+      <view class="menu-item" bindtap="goToDailyCheckin">
+        <view class="menu-icon">📅</view>
+        <view class="menu-text">每日签到</view>
+        <view class="menu-badge" wx:if="{{!dailyCheckedIn}}">未签</view>
+        <view class="menu-arrow">›</view>
+      </view>
+
+      <view class="menu-item" bindtap="goToAchievements">
+        <view class="menu-icon">🏆</view>
+        <view class="menu-text">我的成就</view>
+        <view class="menu-arrow">›</view>
+      </view>
+    </view>
+
+    <view class="menu-group">
+      <view class="menu-item" bindtap="goToStats">
+        <view class="menu-icon">📊</view>
+        <view class="menu-text">学习统计</view>
+        <view class="menu-arrow">›</view>
+      </view>
+
+      <view class="menu-item" bindtap="goToReport">
+        <view class="menu-icon">📈</view>
+        <view class="menu-text">学习报告</view>
+        <view class="menu-arrow">›</view>
+      </view>
+
+      <view class="menu-item" bindtap="goToLeaderboard">
+        <view class="menu-icon">🏅</view>
+        <view class="menu-text">排行榜</view>
+        <view class="menu-arrow">›</view>
+      </view>
+    </view>
+
+    <view class="menu-group">
+      <view class="menu-item" bindtap="goToParent">
+        <view class="menu-icon">👨‍👩‍👧</view>
+        <view class="menu-text">家长绑定</view>
+        <view class="menu-arrow">›</view>
+      </view>
+
+      <view class="menu-item" bindtap="goToHelp">
+        <view class="menu-icon">❓</view>
+        <view class="menu-text">帮助与反馈</view>
+        <view class="menu-arrow">›</view>
+      </view>
+
+      <view class="menu-item" bindtap="goToSettings">
+        <view class="menu-icon">⚙️</view>
+        <view class="menu-text">设置</view>
+        <view class="menu-arrow">›</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 退出登录 -->
+  <view class="logout-area">
+    <button class="logout-btn" bindtap="handleLogout">退出登录</button>
+  </view>
+
+  <!-- 版本信息 -->
+  <view class="version-info">小打卡 v1.0.0 · 让学习变成一种习惯 🌱</view>
+</view>

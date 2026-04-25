@@ -1,0 +1,159 @@
+<!-- 小打卡 - 首页 -->
+<view class="home-page">
+  <!-- 顶部区域 - 问候 + 吉祥物 + 日期 -->
+  <view class="home-header">
+    <view class="greeting-row">
+      <view class="greeting-left">
+        <view class="mascot-mini">
+          <mascot 
+            totalDays="{{stats.totalCheckins || 0}}" 
+            size="small" 
+            state="idle"
+          />
+        </view>
+        <view class="greeting-text">
+          <view class="greeting-hello">{{greeting}}，</view>
+          <view class="greeting-name">{{userInfo.nickname || '小朋友'}}</view>
+        </view>
+      </view>
+      <view class="date-badge">
+        <text class="date-icon">📅</text>
+        <text>{{todayDate}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 进度区域 - 进度环 + 星星卡片 -->
+  <view class="progress-section">
+    <!-- 左侧：进度环 -->
+    <view class="progress-card">
+      <view class="progress-card-title">今日完成</view>
+      <view class="progress-ring-wrapper">
+        <progress-ring 
+          progress="{{progressPercent}}" 
+          size="medium" 
+          label=""
+        />
+      </view>
+      <view class="progress-ring-label">
+        {{completedCount}}/{{totalCount}} 任务
+      </view>
+    </view>
+    
+    <!-- 右侧：星星卡片 -->
+    <view class="stars-card-mini">
+      <view class="stars-icon-big">⭐</view>
+      <view class="stars-amount-big">{{userInfo.currentStars || 0}}</view>
+      <view class="stars-label">我的星星</view>
+    </view>
+  </view>
+
+  <!-- 快捷操作 -->
+  <view class="quick-actions">
+    <view class="action-btn" bindtap="goToPlans">
+      <view class="action-icon">📚</view>
+      <view class="action-label">学习计划</view>
+    </view>
+    <view class="action-btn" bindtap="goToDailyCheckin">
+      <view class="action-icon">📅</view>
+      <view class="action-label">每日签到</view>
+    </view>
+    <view class="action-btn" bindtap="goToStats">
+      <view class="action-icon">📊</view>
+      <view class="action-label">学习统计</view>
+    </view>
+    <view class="action-btn" bindtap="goToWishlist">
+      <view class="action-icon">🎁</view>
+      <view class="action-label">愿望清单</view>
+    </view>
+  </view>
+
+  <!-- 今日任务 -->
+  <view class="section">
+    <view class="section-header">
+      <view class="section-title">
+        <text class="section-title-icon">📝</text>
+        今日任务
+      </view>
+      <view class="section-subtitle">
+        {{completedCount}}/{{totalCount}} 已完成
+      </view>
+    </view>
+
+    <!-- 空状态 -->
+    <block wx:if="{{todayTasks.length === 0}}">
+      <view class="empty-state">
+        <view class="empty-icon">🌱</view>
+        <view class="empty-text">今天还没有任务哦</view>
+        <view class="add-task-btn" bindtap="goToPlans">添加任务</view>
+      </view>
+    </block>
+
+    <!-- 任务列表 -->
+    <block wx:else>
+      <view class="task-list">
+        <view 
+          wx:for="{{todayTasks}}" 
+          wx:key="id" 
+          class="task-item {{item.isCompleted ? 'completed' : ''}}"
+        >
+          <view class="task-icon">{{item.subjectIcon}}</view>
+          <view class="task-content">
+            <view class="task-title">{{item.title}}</view>
+            <view class="task-desc">{{item.subject}}</view>
+          </view>
+          <view class="task-right">
+            <block wx:if="{{item.isCompleted}}">
+              <view class="completed-badge">
+                <text>✓</text>
+              </view>
+            </block>
+            <block wx:else>
+              <view 
+                class="checkin-btn" 
+                data-plan-id="{{item.id}}"
+                bindtap="goToCheckin"
+              >去打卡</view>
+            </block>
+          </view>
+        </view>
+      </view>
+    </block>
+  </view>
+
+  <!-- 统计数据 -->
+  <view class="section">
+    <view class="section-header">
+      <view class="section-title">
+        <text class="section-title-icon">📊</text>
+        我的统计
+      </view>
+    </view>
+    <view class="stats-grid">
+      <view class="stat-card">
+        <view class="stat-icon">📋</view>
+        <view class="stat-value">{{stats.totalPlans || 0}}</view>
+        <view class="stat-label">总计划</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-icon">✅</view>
+        <view class="stat-value">{{stats.totalCheckins || 0}}</view>
+        <view class="stat-label">打卡次数</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-icon">⭐</view>
+        <view class="stat-value">{{stats.totalStars || userInfo.currentStars || 0}}</view>
+        <view class="stat-label">累计星星</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 底部小贴士 -->
+  <view class="tips-section">
+    <view class="tips-icon">💡</view>
+    <view class="tips-content">
+      <view class="tips-title">{{encouragement.title}}</view>
+      <view class="tips-text">{{encouragement.text}}</view>
+    </view>
+  </view>
+</view>

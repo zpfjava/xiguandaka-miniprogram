@@ -1,0 +1,104 @@
+<!-- 小打卡 - 登录页 -->
+<view class="login-page">
+  <!-- Logo 区域 -->
+  <view class="login-header">
+    <view class="logo">🌱</view>
+    <view class="app-name">小打卡</view>
+    <view class="app-slogan">让学习变成一种习惯</view>
+  </view>
+
+  <!-- 表单区域 -->
+  <view class="login-form">
+    <!-- 切换标签 -->
+    <view class="form-tabs">
+      <view 
+        class="tab {{mode === 'login' ? 'active' : ''}}" 
+        bindtap="switchMode" data-mode="login"
+      >登录</view>
+      <view 
+        class="tab {{mode === 'register' ? 'active' : ''}}"
+        bindtap="switchMode" data-mode="register"
+      >注册</view>
+    </view>
+
+    <!-- 输入框 -->
+    <view class="form-fields">
+      <!-- 手机号 -->
+      <view class="form-item">
+        <view class="input-icon">📱</view>
+        <input
+          class="form-input"
+          type="text"
+          placeholder="请输入手机号"
+          maxlength="11"
+          value="{{form.phone}}"
+          bindinput="onPhoneInput"
+        />
+      </view>
+
+      <!-- 密码 -->
+      <view class="form-item">
+        <view class="input-icon">🔒</view>
+        <input
+          class="form-input"
+          type="text"
+          password="{{true}}"
+          placeholder="请输入密码（至少6位）"
+          value="{{form.password}}"
+          bindinput="onPasswordInput"
+        />
+      </view>
+
+      <!-- 注册额外字段 -->
+      <block wx:if="{{mode === 'register'}}">
+        <!-- 昵称 -->
+        <view class="form-item">
+          <view class="input-icon">👤</view>
+          <input
+            class="form-input"
+            type="text"
+            placeholder="请输入昵称（可选）"
+            value="{{form.nickname}}"
+            bindinput="onNicknameInput"
+          />
+        </view>
+
+        <!-- 年级选择 -->
+        <view class="form-item">
+          <view class="input-icon">📚</view>
+          <picker mode="selector" range="{{grades}}" value="{{gradeIndex}}" bindchange="onGradeChange">
+            <view class="form-select">{{form.grade || '请选择年级'}} ▼</view>
+          </picker>
+        </view>
+      </block>
+    </view>
+
+    <!-- 提交按钮 -->
+    <button 
+      class="submit-btn {{loading ? 'disabled' : ''}}"
+      bindtap="handleSubmit"
+      disabled="{{loading}}"
+    >
+      {{loading ? '处理中...' : (mode === 'login' ? '登录' : '注册')}}
+    </button>
+
+    <!-- 演示模式 -->
+    <view class="demo-mode">
+      <text bindtap="handleDemoLogin">跳过登录，直接体验 →</text>
+    </view>
+  </view>
+
+  <!-- 底部说明 -->
+  <view class="login-footer">
+    <view class="footer-text">
+      {{mode === 'register' ? '注册即表示同意' : '登录即表示同意'}}
+      <text class="link">《用户协议》</text>和<text class="link">《隐私政策》</text>
+    </view>
+  </view>
+
+  <!-- 吉祥物装饰 -->
+  <view class="mascot-decoration">
+    <view class="mascot-text">🌱</view>
+    <view class="mascot-bubble">注册送50星星哦~</view>
+  </view>
+</view>

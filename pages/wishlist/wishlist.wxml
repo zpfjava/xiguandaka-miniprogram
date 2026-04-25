@@ -1,0 +1,181 @@
+<!-- 小打卡 - 愿望清单页 -->
+<view class="wishlist-page">
+  <!-- 顶部 -->
+  <view class="page-header">
+    <view class="header-title">🎁 我的愿望清单</view>
+    <view class="header-subtitle">用星星兑换你的心愿</view>
+  </view>
+
+  <!-- 星星余额 -->
+  <view class="balance-card">
+    <view class="balance-label">可用星星</view>
+    <view class="balance-amount">{{currentStars}} ⭐</view>
+    <button class="add-wish-btn" bindtap="showAddModal">+ 新增愿望</button>
+  </view>
+
+  <!-- Tab 切换 -->
+  <view class="tab-bar">
+    <view 
+      class="tab {{activeTab === 'all' ? 'active' : ''}}"
+      bindtap="switchTab"
+      data-tab="all"
+    >全部 ({{totalCount}})</view>
+    <view 
+      class="tab {{activeTab === 'pending' ? 'active' : ''}}"
+      bindtap="switchTab"
+      data-tab="pending"
+    >待兑换 ({{pendingCount}})</view>
+    <view 
+      class="tab {{activeTab === 'redeemed' ? 'active' : ''}}"
+      bindtap="switchTab"
+      data-tab="redeemed"
+    >已兑换 ({{redeemedCount}})</view>
+  </view>
+
+  <!-- 愿望列表 -->
+  <block wx:if="{{filteredWishes.length > 0}}">
+    <view class="wish-list">
+      <view 
+        wx:for="{{filteredWishes}}" 
+        wx:key="id"
+        class="wish-card {{item.status === 'redeemed' ? 'redeemed' : ''}}"
+      >
+        <view class="wish-emoji">{{item.emoji || '🎁'}}</view>
+        
+        <view class="wish-info">
+          <view class="wish-name">{{item.title}}</view>
+          <view class="wish-desc" wx:if="{{item.description}}">{{item.description}}</view>
+          
+          <!-- 进度条（待兑换状态） -->
+          <block wx:if="{{item.status !== 'redeemed'}}">
+            <view class="wish-progress">
+              <view class="progress-bar">
+                <view class="progress-fill" style="width: {{item.progressPercent}}%"></view>
+              </view>
+              <view class="progress-text">
+                已存 {{item.savedStars}} / {{item.costStars}} ⭐
+              </view>
+            </view>
+          </block>
+          
+          <!-- 已兑换标记 -->
+          <block wx:if="{{item.status === 'redeemed'}}">
+            <view class="redeemed-badge">✅ 已于 {{item.redeemedDate || '2026-04-20'}} 兑换</view>
+          </block>
+        </view>
+
+        <view class="wish-actions">
+          <!-- 待兑换：操作按钮 -->
+          <block wx:if="{{item.status === 'pending'}}">
+            <button 
+              class="action-btn save-btn"
+              data-id="{{item.id}}"
+              bindtap="saveStars"
+              wx:if="{{item.canSave}}"
+            >存入⭐</button>
+            
+            <button 
+              class="action-btn redeem-btn {{!item.canRedeem ? 'disabled' : ''}}"
+              data-item="{{item}}"
+              bindtap="redeemWish"
+              disabled="{{!item.canRedeem}}"
+            >兑换</button>
+          </block>
+        </view>
+
+        <!-- 删除按钮 -->
+        <view 
+          class="delete-wish"
+          data-id="{{item.id}}"
+          catchtap="deleteWish"
+        >×</view>
+      </view>
+    </view>
+  </block>
+
+  <!-- 空状态 -->
+  <block wx:else>
+    <view class="empty-state">
+      <view class="empty-icon">🎁</view>
+      <view class="empty-text">
+        {{activeTab === 'redeemed' ? '还没有兑换过愿望哦' : '愿望清单空空的'}}
+      </view>
+      <view class="empty-desc" wx:if="{{activeTab !== 'redeemed'}}">
+        添加你的第一个愿望，用学习赚来的星星来兑换吧！
+      </view>
+      <button 
+        class="empty-btn" 
+        wx:if="{{activeTab !== 'redeemed'}}"
+        bindtap="showAddModal"
+      >+ 添加愿望</button>
+    </view>
+  </block>
+</view>
+
+<!-- 新增愿望弹窗 -->
+<view class="modal-overlay" wx:if="{{showAddModal}}" catchtouchmove="preventMove">
+  <view class="modal-content wish-modal">
+    <view class="modal-header">新增愿望</view>
+    
+    <view class="modal-body">
+      <!-- 表情选择 -->
+      <view class="form-group">
+        <view class="form-label">选择图标</view>
+        <view class="emoji-picker">
+          <view 
+            wx:for="{{emojis}}" 
+            wx:key="*this"
+            class="emoji-option {{form.emoji === item ? 'selected' : ''}}"
+            bindtap="selectEmoji"
+            data-emoji="{{item}}"
+          >{{item}}</view>
+        </view>
+      </view>
+
+      <!-- 愿望名称 -->
+      <view class="form-group">
+        <view class="form-label">愿望名称 *</view>
+        <input
+          class="form-input"
+          placeholder="例如：冰淇淋、新玩具、去游乐园..."
+          value="{{form.title}}"
+          bindinput="onTitleInput"
+        />
+      </view>
+
+      <!-- 所需星星数 -->
+      <view class="form-group">
+        <view class="form-label">需要多少颗星星？*</view>
+        <view class="star-input-area">
+          <view class="star-minus" bindtap="decreaseStars">−</view>
+          <input
+            class="star-number-input"
+            type="number"
+            value="{{form.costStars}}"
+            bindinput="onCostInput"
+          />
+          <view class="star-plus" bindtap="increaseStars">+</view>
+          <text class="star-unit">⭐</text>
+        </view>
+      </view>
+
+      <!-- 描述 -->
+      <view class="form-group">
+        <view class="form-label">描述（可选）</view>
+        <textarea
+          class="form-textarea"
+          placeholder="描述一下这个愿望..."
+          value="{{form.description}}"
+          bindinput="onDescInput"
+        ></textarea>
+      </view>
+    </view>
+
+    <view class="modal-footer">
+      <button class="cancel-btn" bindtap="hideAddModal">取消</button>
+      <button class="confirm-btn" bindtap="saveWish" disabled="{{saving}}">
+        {{saving ? '保存中...' : '创建愿望'}}
+      </button>
+    </view>
+  </view>
+</view>

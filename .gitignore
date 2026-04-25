@@ -1,0 +1,25 @@
+# =============================================
+# 小打卡 - 微信小程序 .gitignore
+# =============================================
+
+# 个人开发环境配置（含本地调试偏好等）
+project.private.config.json
+
+# 微信开发者工具生成
+miniprogram_npm/
+project.config.backup
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# IDE
+.idea/
+.vscode/
+
+# 临时文件
+*.tmp
+*.temp
+*.log

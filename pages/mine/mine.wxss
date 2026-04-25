@@ -1,0 +1,148 @@
+/* 我的页面样式 */
+.mine-page {
+  min-height: 100vh;
+  background-color: #FFF8E1;
+  padding-bottom: 40rpx;
+}
+
+/* ====== 用户信息卡片 ====== */
+.user-card {
+  display: flex;
+  align-items: center;
+  background: linear-gradient(135deg, #FFD93D 0%, #FF9A3C 100%);
+  padding: 36rpx 30rpx;
+}
+
+.user-avatar {
+  width: 112rpx;
+  height: 112rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 56rpx;
+  background-color: rgba(255, 255, 255, 0.9);
+  margin-right: 24rpx;
+  flex-shrink: 0;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.1);
+}
+
+.user-info { flex: 1; }
+.user-name { 
+  font-size: 38rpx; 
+  font-weight: bold; 
+  color: #333333; 
+}
+.user-grade { 
+  font-size: 26rpx; 
+  color: rgba(51, 51, 51, 0.6); 
+  margin-top: 6rpx; 
+}
+
+.edit-btn {
+  height: 64rpx;
+  line-height: 64rpx;
+  padding: 0 28rpx;
+  background-color: rgba(255, 255, 255, 0.9);
+  color: #666666;
+  font-size: 24rpx;
+  border-radius: 32rpx;
+  text-align: center;
+  border: none;
+}
+.edit-btn::after { border: none; }
+.edit-btn:active { opacity: 0.85; }
+
+/* ====== 成长区域 ====== */
+.growth-section {
+  display: flex;
+  align-items: center;
+  padding: 30rpx;
+  gap: 20rpx;
+}
+
+.growth-info { }
+.stage-name { font-size: 28rpx; font-weight: bold; color: #333333; }
+.stage-desc { font-size: 24rpx; color: #999999; margin-top: 4rpx; }
+.streak-info { 
+  font-size: 24rpx; 
+  color: #FF9A3C; 
+  margin-top: 10rpx; 
+  font-weight: bold;
+}
+
+/* ====== 数据概览 ====== */
+.data-overview {
+  display: flex;
+  margin: 0 30rpx 24rpx;
+  padding: 28rpx;
+  background-color: #FFFFFF;
+  border-radius: 24rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+}
+
+.data-item { flex: 1; text-align: center; }
+.data-value { font-size: 42rpx; font-weight: bold; color: #333333; }
+.data-label { font-size: 22rpx; color: #999999; margin-top: 6rpx; }
+
+.data-divider {
+  width: 1rpx;
+  height: 60rpx;
+  background-color: #F0F0F0;
+  align-self: center;
+}
+
+/* ====== 菜单列表 ====== */
+.menu-section { padding: 0 30rpx; }
+
+.menu-group {
+  background-color: #FFFFFF;
+  border-radius: 24rpx;
+  overflow: hidden;
+  margin-bottom: 16rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  padding: 26rpx 24rpx;
+  border-bottom: 1rpx solid #F5F5F5;
+}
+.menu-item:last-child { border-bottom: none; }
+.menu-item:active { background-color: #FAFAFA; }
+
+.menu-icon { font-size: 36rpx; width: 48rpx; text-align: center; margin-right: 16rpx; }
+.menu-text { flex: 1; font-size: 29rpx; color: #333333; }
+.menu-arrow { font-size: 34rpx; color: #CCCCCC; }
+
+.menu-badge {
+  font-size: 20rpx;
+  color: #FFFFFF;
+  background-color: #FF9A3C;
+  padding: 4rpx 14rpx;
+  border-radius: 9999rpx;
+  margin-right: 16rpx;
+}
+
+/* ====== 退出登录 ====== */
+.logout-area { padding: 30rpx; }
+
+.logout-btn {
+  background-color: #FFFFFF;
+  color: #F44336;
+  font-size: 28rpx;
+  border-radius: 42rpx;
+  text-align: center;
+  border: none;
+}
+.logout-btn::after { border: none; }
+.logout-btn:active { opacity: 0.7; }
+
+/* 版本信息 */
+.version-info {
+  text-align: center;
+  font-size: 22rpx;
+  color: #BBBBBB;
+  padding: 20rpx 0;
+}

@@ -1,0 +1,105 @@
+<!-- 小打卡 - 积分（星星）页 -->
+<view class="points-page">
+  <!-- 星星卡片 -->
+  <view class="stars-card">
+    <view class="stars-bg">
+      <view class="stars-emoji">⭐</view>
+      <view class="stars-label">我的星星</view>
+      <view class="stars-count">{{summary.currentStars || 0}}</view>
+      <view class="stars-subtitle">累计获得 {{summary.totalEarned || 0}} 颗</view>
+      
+      <!-- 快捷操作 -->
+      <view class="stars-actions">
+        <button class="action-btn" bindtap="goToHistory">
+          📜 积分明细
+        </button>
+        <button class="action-btn" bindtap="goToWishlist">
+          🎁 兑换奖励
+        </button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 获取星星的方式 -->
+  <view class="section-card">
+    <view class="section-title">🌟 如何获取星星？</view>
+    
+    <view class="ways-list">
+      <view class="way-item">
+        <view class="way-icon">✅</view>
+        <view class="way-content">
+          <view class="way-name">完成学习打卡</view>
+          <view class="way-desc">每次打卡 +5 ⭐，连续打卡额外 +2 ⭐</view>
+        </view>
+        <view class="way-reward">+5~7</view>
+      </view>
+      
+      <view class="way-item">
+        <view class="way-icon">📅</view>
+        <view class="way-content">
+          <view class="way-name">每日签到</view>
+          <view class="way-desc">每天签到可领取星星奖励</view>
+        </view>
+        <view class="way-reward">+3</view>
+      </view>
+      
+      <view class="way-item">
+        <view class="way-icon">🏆</view>
+        <view class="way-content">
+          <view class="way-name">解锁成就</view>
+          <view class="way-desc">达成特定目标可获得大量星星</view>
+        </view>
+        <view class="way-reward">+10~50</view>
+      </view>
+
+      <view class="way-item">
+        <view class="way-icon">🎯</view>
+        <view class="way-content">
+          <view class="way-name">完成学习计划</view>
+          <view class="way-desc">按计划完成所有任务有额外奖励</view>
+        </view>
+        <view class="way-reward">+20</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 最近积分记录 -->
+  <view class="section-card" wx:if="{{recentRecords.length > 0}}">
+    <view class="section-header-row">
+      <view class="section-title">📊 最近记录</view>
+      <view class="section-more" bindtap="goToHistory">查看全部 →</view>
+    </view>
+    
+    <view class="records-list">
+      <view 
+        wx:for="{{recentRecords}}" 
+        wx:key="id"
+        class="record-item"
+      >
+        <view class="record-icon {{item.type === 'earn' ? 'earn' : 'spend'}}">
+          {{item.type === 'earn' ? '+' : '-'}}
+        </view>
+        <view class="record-info">
+          <view class="record-desc">{{item.description}}</view>
+          <view class="record-time">{{item.time}}</view>
+        </view>
+        <view class="record-amount {{item.type === 'earn' ? 'earn-text' : 'spend-text'}}">
+          {{item.amount > 0 ? '+' : ''}}{{item.amount}} ⭐
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 空状态提示 -->
+  <view class="empty-tip" wx:if="{{recentRecords.length === 0}}">
+    <text>还没有积分记录哦，快去打卡赚取第一颗星星吧！🌟</text>
+  </view>
+
+  <!-- 底部说明 -->
+  <view class="tips-section">
+    <view class="tips-icon">💡</view>
+    <view class="tips-content">
+      <view class="tips-text">星星可以用来兑换愿望清单中的奖励哦！去"我的"页面添加你的愿望吧~</view>
+    </view>
+  </view>
+</view>

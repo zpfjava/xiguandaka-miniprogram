@@ -1,0 +1,56 @@
+/* 进度环组件 */
+.pr-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.pr-wrap {
+  position: relative;
+  width: 160px;
+  height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pr-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.pr-text {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+}
+
+.pr-value {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333333;
+}
+
+.pr-unit {
+  font-size: 20rpx;
+  color: #999999;
+  margin-left: 1px;
+}
+
+.pr-label {
+  font-size: 22rpx;
+  color: #999999;
+  margin-top: 6px;
+}
+
+/* 尺寸变体 */
+.pr-small .pr-wrap { width: 120px; height: 120px; }
+.pr-small .pr-value { font-size: 26rpx; }
+.pr-small .pr-unit { font-size: 16rpx; }
+
+.pr-large .pr-wrap { width: 220px; height: 220px; }
+.pr-large .pr-value { font-size: 44rpx; }
+.pr-large .pr-unit { font-size: 28rpx; }

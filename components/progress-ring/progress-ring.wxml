@@ -1,0 +1,10 @@
+<view class="pr-container pr-{{size}}">
+  <view class="pr-wrap">
+    <canvas type="2d" id="progressCanvas" class="pr-canvas" style="width:{{canvasSize}}px;height:{{canvasSize}}px;"></canvas>
+    <view class="pr-text">
+      <text class="pr-value">{{displayProgress}}</text>
+      <text class="pr-unit">%</text>
+    </view>
+  </view>
+  <view class="pr-label" wx:if="{{label}}">{{label}}</view>
+</view>

@@ -1,0 +1,192 @@
+/* 排行榜页样式 */
+.leaderboard-page {
+  min-height: 100vh;
+  background-color: #FFF8E1;
+  padding-bottom: 40rpx;
+}
+
+/* 顶部 */
+.page-header {
+  background: linear-gradient(135deg, #FFD93D 0%, #FF9A3C 100%);
+  padding: 30rpx 30rpx 36rpx;
+}
+.header-title { font-size: 38rpx; font-weight: bold; color: #333333; }
+.header-subtitle { font-size: 26rpx; color: rgba(51, 51, 51, 0.6); margin-top: 8rpx; }
+
+/* Tab 切换 */
+.tab-bar {
+  display: flex;
+  margin: 20rpx 30rpx;
+  background-color: #FFFFFF;
+  border-radius: 16rpx;
+  padding: 6rpx;
+}
+
+.tab {
+  flex: 1;
+  text-align: center;
+  padding: 18rpx 0;
+  font-size: 26rpx;
+  color: #999999;
+  border-radius: 12rpx;
+}
+
+.tab.active {
+  background-color: #FFD93D;
+  color: #333333;
+  font-weight: bold;
+}
+
+/* 前三名展示 */
+.top-three {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  padding: 20rpx 30rpx 10rpx;
+  gap: 16rpx;
+}
+
+.top-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 180rpx;
+}
+
+.top-item.first { order: 2; }
+.top-item.second { order: 1; }
+.top-item.third { order: 3; }
+
+.crown { font-size: 36rpx; margin-bottom: -8rpx; }
+
+.rank-badge {
+  width: 44rpx;
+  height: 44rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 24rpx;
+  font-weight: bold;
+  color: white;
+  margin-bottom: 6rpx;
+}
+.rank-badge.gold { background: linear-gradient(135deg, #FFD700, #FFA500); }
+.rank-badge.silver { background: linear-gradient(135deg, #C0C0C0, #A0A0A0); }
+.rank-badge.bronze { background: linear-gradient(135deg, #CD7F32, #B8860B); }
+
+.top-avatar {
+  width: 80rpx;
+  height: 80rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 40rpx;
+  background-color: #FFFFFF;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.08);
+  margin-bottom: 8rpx;
+}
+
+.top-avatar-first { 
+  width: 100rpx; 
+  height: 100rpx; 
+  font-size: 52rpx; 
+  border: 4rpx solid #FFD700; 
+}
+
+.top-name { 
+  font-size: 24rpx; 
+  color: #666666; 
+  max-width: 160rpx; 
+  overflow: hidden; 
+  text-overflow: ellipsis; 
+  white-space: nowrap; 
+}
+.top-name-first { font-size: 28rpx; font-weight: bold; color: #333333; }
+
+.top-value { font-size: 24rpx; color: #999999; font-weight: bold; }
+.top-value-first { font-size: 28rpx; color: #FF9A3C; }
+
+/* 排行列表 */
+.rank-list { padding: 0 30rpx; }
+
+.rank-item {
+  display: flex;
+  align-items: center;
+  background-color: #FFFFFF;
+  border-radius: 16rpx;
+  padding: 20rpx 24rpx;
+  margin-bottom: 12rpx;
+  box-shadow: 0 1rpx 6rpx rgba(0, 0, 0, 0.04);
+}
+
+.rank-item.me {
+  background: linear-gradient(135deg, #FFFDE7 0%, #FFF8E1 100%);
+  border: 2rpx solid #FFD93D;
+}
+
+.rank-number { width: 56rpx; flex-shrink: 0; }
+.rank-num { 
+  font-size: 30rpx; 
+  font-weight: bold; 
+  color: #CCCCCC; 
+  display: block;
+  text-align: center;
+  width: 48rpx;
+}
+.rank-num.top-rank { color: #FF9A3C; }
+
+.user-info { flex: 1; display: flex; align-items: center; margin-left: 16rpx; }
+.user-avatar {
+  width: 64rpx;
+  height: 64rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 32rpx;
+  background-color: #F5F5F5;
+  margin-right: 14rpx;
+  flex-shrink: 0;
+}
+.user-detail { flex: 1; }
+.user-nickname { font-size: 28rpx; color: #333333; font-weight: 500; }
+.me-tag {
+  display: inline-block;
+  font-size: 18rpx;
+  color: white;
+  background-color: #FF9A3C;
+  padding: 2rpx 10rpx;
+  border-radius: 9999rpx;
+  margin-left: 8rpx;
+  vertical-align: middle;
+}
+.user-extra { font-size: 22rpx; color: #BBBBBB; margin-top: 4rpx; }
+
+.score-value { 
+  font-size: 30rpx; 
+  font-weight: bold; 
+  color: #FF9A3C; 
+  flex-shrink: 0;
+  margin-left: 16rpx;
+}
+
+/* 空状态 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 100rpx 60rpx;
+}
+.empty-icon { font-size: 80rpx; margin-bottom: 20rpx; }
+.empty-text { font-size: 30rpx; color: #666666; margin-bottom: 10rpx; }
+.empty-desc { font-size: 26rpx; color: #999999; }
+
+/* 底部说明 */
+.footer-note {
+  text-align: center;
+  font-size: 22rpx;
+  color: #BBBBBB;
+  padding: 30rpx 30rpx 20rpx;
+}

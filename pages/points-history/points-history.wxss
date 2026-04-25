@@ -1,0 +1,149 @@
+/* 积分明细页样式 */
+.points-history-page {
+  min-height: 100vh;
+  background-color: #FFF8E1;
+  padding-bottom: 40rpx;
+}
+
+/* 顶部 */
+.page-header {
+  background: linear-gradient(135deg, #FFD93D 0%, #FF9A3C 100%);
+  padding: 30rpx 30rpx 36rpx;
+}
+.header-title { font-size: 38rpx; font-weight: bold; color: #333333; }
+.header-subtitle { font-size: 26rpx; color: rgba(51, 51, 51, 0.6); margin-top: 8rpx; }
+
+/* 筛选栏 */
+.filter-bar {
+  display: flex;
+  gap: 14rpx;
+  padding: 20rpx 30rpx;
+}
+
+.filter-btn {
+  height: 64rpx;
+  line-height: 64rpx;
+  padding: 0 24rpx;
+  background-color: #FFFFFF;
+  font-size: 26rpx;
+  color: #666666;
+  border-radius: 16rpx;
+  border: none;
+}
+.filter-btn::after { border: none; }
+.date-filter { flex: 1; text-align: center; }
+
+/* 月度汇总 */
+.summary-card {
+  display: flex;
+  margin: 0 30rpx 24rpx;
+  padding: 24rpx;
+  background-color: #FFFFFF;
+  border-radius: 20rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+}
+
+.summary-item { flex: 1; text-align: center; }
+.summary-label { font-size: 24rpx; color: #999999; margin-bottom: 6rpx; }
+.summary-value { 
+  font-size: 32rpx; 
+  font-weight: bold; 
+}
+.income .summary-value { color: #4CAF50; }
+.expense .summary-value { color: #F44336; }
+.balance .summary-value.positive { color: #4CAF50; }
+.balance .summary-value.negative { color: #F44336; }
+
+.summary-divider {
+  width: 1rpx;
+  height: 48rpx;
+  background-color: #F0F0F0;
+  align-self: center;
+}
+
+/* 日期分组 */
+.date-group {
+  margin: 0 30rpx 16rpx;
+  background-color: #FFFFFF;
+  border-radius: 20rpx;
+  overflow: hidden;
+  box-shadow: 0 1rpx 6rpx rgba(0, 0, 0, 0.03);
+}
+
+.date-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18rpx 24rpx;
+  background-color: #FAFAFA;
+  border-bottom: 1rpx solid #F5F5F5;
+}
+
+.date-text { font-size: 26rpx; font-weight: bold; color: #333333; }
+.date-summary { font-size: 22rpx; color: #BBBBBB; }
+
+/* 记录列表 */
+.record-list { }
+
+.record-item {
+  display: flex;
+  align-items: center;
+  padding: 20rpx 24rpx;
+  border-bottom: 1rpx solid #F8F8F8;
+}
+.record-item:last-child { border-bottom: none; }
+
+.record-icon {
+  width: 52rpx;
+  height: 52rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 24rpx;
+  font-weight: bold;
+  margin-right: 16rpx;
+  flex-shrink: 0;
+}
+
+.icon-earn {
+  background-color: #E8F5E9;
+  color: #4CAF50;
+}
+
+.icon-spend {
+  background-color: #FFEBEE;
+  color: #F44336;
+}
+
+.record-info { flex: 1; }
+.record-desc { font-size: 27rpx; color: #333333; }
+.record-time { font-size: 22rpx; color: #CCCCCC; margin-top: 4rpx; }
+
+.record-amount { 
+  font-size: 30rpx; 
+  font-weight: bold; 
+  flex-shrink: 0;
+  margin-left: 12rpx;
+}
+.amount-earn { color: #4CAF50; }
+.amount-spend { color: #F44336; }
+
+/* 空状态 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 100rpx 60rpx;
+}
+.empty-icon { font-size: 80rpx; margin-bottom: 20rpx; }
+.empty-text { font-size: 30rpx; color: #666666; margin-bottom: 10rpx; }
+.empty-desc { font-size: 26rpx; color: #999999; text-align: center; line-height: 1.5; }
+
+/* 加载更多 */
+.load-more, .no-more {
+  text-align: center;
+  padding: 24rpx;
+  font-size: 24rpx;
+  color: #CCCCCC;
+}

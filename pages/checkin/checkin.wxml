@@ -1,0 +1,113 @@
+<!-- 小打卡 - 打卡页 -->
+<view class="checkin-page">
+  <!-- 顶部 -->
+  <view class="page-header">
+    <view class="header-title">✅ 学习打卡</view>
+    <view class="header-subtitle">记录你的每一次努力</view>
+  </view>
+
+  <!-- 计划信息卡片 -->
+  <view class="plan-info-card" wx:if="{{planInfo}}">
+    <view class="plan-icon-large">{{planInfo.subjectIcon}}</view>
+    <view class="plan-detail">
+      <view class="plan-name">{{planInfo.title || '学习打卡'}}</view>
+      <view class="plan-subject">{{planInfo.subject}}</view>
+    </view>
+    <view class="stars-reward">+{{planInfo.starsReward || 5}} ⭐</view>
+  </view>
+
+  <!-- 心情选择 -->
+  <view class="section-card">
+    <view class="section-label">今天心情如何？</view>
+    <view class="mood-list">
+      <view 
+        wx:for="{{moods}}" 
+        wx:key="value"
+        class="mood-item {{selectedMood === item.value ? 'active' : ''}}"
+        data-value="{{item.value}}"
+        bindtap="selectMood"
+      >
+        <view class="mood-emoji">{{item.emoji}}</view>
+        <view class="mood-text">{{item.label}}</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 打卡内容输入 -->
+  <view class="section-card">
+    <view class="section-label">打卡内容（可选）</view>
+    <textarea
+      class="content-input"
+      placeholder="写点什么吧，比如今天学了什么、有什么收获..."
+      value="{{content}}"
+      bindinput="onContentInput"
+      maxlength="500"
+      auto-height
+      show-confirm-bar="{{false}}"
+    ></textarea>
+    <view class="char-count">{{content.length}}/500</view>
+  </view>
+
+  <!-- 图片上传区域 -->
+  <view class="section-card">
+    <view class="section-label">添加图片（可选，最多3张）</view>
+    <view class="image-list">
+      <view 
+        wx:for="{{images}}" 
+        wx:key="*this"
+        class="image-item"
+      >
+        <image src="{{item}}" mode="aspectFill" class="preview-image"></image>
+        <view 
+          class="image-delete" 
+          data-index="{{index}}"
+          catchtap="deleteImage"
+        >×</view>
+      </view>
+      
+      <view 
+        class="image-add {{images.length >= 3 ? 'disabled' : ''}}"
+        wx:if="{{images.length < 3}}"
+        bindtap="chooseImage"
+      >
+        <text class="add-icon">+</text>
+        <text class="add-text">添加图片</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 提交按钮 -->
+  <view class="submit-area">
+    <button 
+      class="submit-btn {{submitting ? 'disabled' : ''}}"
+      bindtap="handleSubmit"
+      disabled="{{submitting}}"
+    >
+      {{submitting ? '提交中...' : '🎉 完成打卡'}}
+    </button>
+  </view>
+
+  <!-- 底部提示 -->
+  <view class="tips-section">
+    <view class="tips-icon">💡</view>
+    <view class="tips-content">
+      <view class="tips-text">打卡后可获得星星奖励，连续打卡还有额外奖励哦！🌟</view>
+    </view>
+  </view>
+</view>
+
+<!-- 打卡成功弹窗 -->
+<view class="modal-overlay" wx:if="{{showSuccessModal}}">
+  <view class="success-modal">
+    <view class="success-emoji">🎉</view>
+    <view class="success-title">打卡成功！</view>
+    <view class="success-message">{{encouragementText}}</view>
+    
+    <view class="reward-info" wx:if="{{earnedStars > 0}}">
+      <view class="reward-stars">+{{earnedStars}} ⭐</view>
+      <view class="reward-desc">星星已到账！</view>
+    </view>
+
+    <button class="success-btn" bindtap="goBack">太棒了！</button>
+  </view>
+</view>

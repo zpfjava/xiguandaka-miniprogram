@@ -1,0 +1,130 @@
+/* 设置页样式 */
+.settings-page {
+  min-height: 100vh;
+  background-color: #F5F5F5;
+  padding-bottom: 40rpx;
+}
+
+/* 个人信息区 */
+.profile-section {
+  background-color: #FFFFFF;
+  padding: 32rpx 30rpx;
+}
+
+.profile-header {
+  display: flex;
+  align-items: center;
+}
+
+.profile-avatar {
+  width: 112rpx;
+  height: 112rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 56rpx;
+  background-color: #FFF8E1;
+  margin-right: 24rpx;
+  flex-shrink: 0;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.08);
+}
+
+.profile-edit { flex: 1; }
+
+.nickname-input {
+  width: 100%;
+  height: 72rpx;
+  padding: 0 20rpx;
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333333;
+  background-color: #F8F8F8;
+  border-radius: 16rpx;
+  border: 2rpx solid transparent;
+  box-sizing: border-box;
+  margin-bottom: 14rpx;
+}
+.nickname-input:focus { border-color: #FFD93D; }
+
+.grade-picker {
+  height: 64rpx;
+  line-height: 64rpx;
+  padding: 0 20rpx;
+  font-size: 26rpx;
+  color: #666666;
+  background-color: #F8F8F8;
+  border-radius: 12rpx;
+}
+
+.save-profile-btn {
+  margin-top: 28rpx;
+  background: linear-gradient(135deg, #FFD93D 0%, #FF9A3C 100%);
+  color: #333333;
+  font-size: 30rpx;
+  font-weight: bold;
+  border-radius: 40rpx;
+  text-align: center;
+  border: none;
+}
+.save-profile-btn::after { border: none; }
+.save-profile-btn:active { opacity: 0.85; }
+
+/* 设置分组 */
+.setting-group {
+  margin-top: 20rpx;
+  background-color: #FFFFFF;
+}
+
+.group-title {
+  padding: 18rpx 30rpx 10rpx;
+  font-size: 24rpx;
+  color: #999999;
+  font-weight: bold;
+}
+
+.setting-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 26rpx 30rpx;
+  border-bottom: 1rpx solid #F5F5F5;
+}
+.setting-item:last-child { border-bottom: none; }
+.setting-item:active { background-color: #FAFAFA; }
+
+.item-left { display: flex; align-items: center; }
+.item-icon { font-size: 34rpx; margin-right: 14rpx; width: 40rpx; text-align: center; }
+.item-text { font-size: 29rpx; color: #333333; }
+
+.item-arrow {
+  font-size: 30rpx;
+  color: #CCCCCC;
+}
+
+.item-value {
+  font-size: 27rpx;
+  color: #999999;
+}
+
+/* 底部信息 */
+.footer-info {
+  padding: 60rpx 30rpx 30rpx;
+  text-align: center;
+}
+
+.footer-logo { 
+  font-size: 36rpx; 
+  font-weight: bold; 
+  color: #333333; 
+  margin-bottom: 6rpx; 
+}
+.footer-desc { 
+  font-size: 24rpx; 
+  color: #BBBBBB; 
+  margin-bottom: 10rpx; 
+}
+.footer-version { 
+  font-size: 20rpx; 
+  color: #DDDDDD; 
+}

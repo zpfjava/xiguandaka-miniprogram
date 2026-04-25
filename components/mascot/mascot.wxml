@@ -1,0 +1,5 @@
+<view class="mascot-container {{size === 'large' ? 'mascot-large' : ''}} {{size === 'small' ? 'mascot-small' : ''}} {{withBg ? 'mascot-with-bg' : ''}}">
+  <view class="mascot-emoji {{state}}">
+    {{emoji}}
+  </view>
+</view>

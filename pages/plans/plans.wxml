@@ -1,0 +1,161 @@
+<!-- 小打卡 - 学习计划页 -->
+<view class="plans-page">
+  <!-- 顶部标题 -->
+  <view class="page-header">
+    <view class="header-title">📚 我的学习计划</view>
+    <view class="header-subtitle">坚持每天打卡，养成好习惯</view>
+  </view>
+
+  <!-- 添加按钮 -->
+  <view class="add-btn-area">
+    <button class="add-plan-btn" bindtap="showAddModal">
+      + 新建学习计划
+    </button>
+  </view>
+
+  <!-- 计划列表 -->
+  <block wx:if="{{plans.length > 0}}">
+    <view class="plan-list">
+      <view 
+        wx:for="{{plans}}" 
+        wx:key="id" 
+        class="plan-card {{item.isActive ? 'active' : 'inactive'}}"
+      >
+        <!-- 计划头部 -->
+        <view class="plan-header">
+          <view class="plan-icon">{{item.subjectIcon}}</view>
+          <view class="plan-info">
+            <view class="plan-title">{{item.title}}</view>
+            <view class="plan-meta">
+              <text>{{item.subject}}</text>
+              <text class="divider">·</text>
+              <text>{{item.frequency}}</text>
+            </view>
+          </view>
+          <switch 
+            checked="{{item.isActive}}" 
+            color="#7ED957"
+            bindchange="togglePlanActive"
+            data-id="{{item.id}}"
+          />
+        </view>
+
+        <!-- 计划进度 -->
+        <view class="plan-progress">
+          <view class="progress-bar">
+            <view class="progress-fill" style="width: {{item.progressPercent || 0}}%"></view>
+          </view>
+          <view class="progress-text">
+            已完成 {{item.completedCount || 0}}/{{item.totalCount || 30}} 次
+          </view>
+        </view>
+
+        <!-- 操作按钮 -->
+        <view class="plan-actions">
+          <button 
+            class="action-btn checkin-btn-card" 
+            data-plan="{{item}}"
+            bindtap="goToCheckin"
+          >去打卡</button>
+          <button 
+            class="action-btn edit-btn" 
+            data-item="{{item}}"
+            bindtap="editPlan"
+          >编辑</button>
+          <button 
+            class="action-btn delete-btn" 
+            data-id="{{item.id}}"
+            bindtap="deletePlan"
+          >删除</button>
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <!-- 空状态 -->
+  <block wx:else>
+    <view class="empty-state">
+      <view class="empty-icon">🌱</view>
+      <view class="empty-text">还没有学习计划哦</view>
+      <view class="empty-desc">创建你的第一个学习计划，开始养成好习惯吧！</view>
+      <view class="empty-btn" bindtap="showAddModal">+ 创建第一个计划</view>
+    </view>
+  </block>
+
+  <!-- 底部提示 -->
+  <view class="tips-section">
+    <view class="tips-icon">💡</view>
+    <view class="tips-content">
+      <view class="tips-title">小贴士</view>
+      <view class="tips-text">建议每天设置 2-3 个学习任务，更容易坚持完成哦~</view>
+    </view>
+  </view>
+</view>
+
+<!-- 新建/编辑计划弹窗 -->
+<view class="modal-overlay" wx:if="{{showModal}}" catchtouchmove="preventMove">
+  <view class="modal-content plan-modal">
+    <view class="modal-header">
+      {{editingPlan ? '编辑计划' : '新建学习计划'}}
+    </view>
+    
+    <view class="modal-body">
+      <!-- 科目选择 -->
+      <view class="form-group">
+        <view class="form-label">科目 *</view>
+        <picker mode="selector" range="{{subjects}}" value="{{formSubjectIndex}}" bindchange="onSubjectChange">
+          <view class="form-picker">{{form.subject || '请选择科目'}} ▼</view>
+        </picker>
+      </view>
+
+      <!-- 任务名称 -->
+      <view class="form-group">
+        <view class="form-label">任务名称 *</view>
+        <input
+          class="form-input"
+          placeholder="例如：背诵古诗、做数学练习题..."
+          value="{{form.title}}"
+          bindinput="onTitleInput"
+        />
+      </view>
+
+      <!-- 频率 -->
+      <view class="form-group">
+        <view class="form-label">频率</view>
+        <picker mode="selector" range="{{frequencies}}" value="{{formFreqIndex}}" bindchange="onFrequencyChange">
+          <view class="form-picker">{{form.frequency || '每天'}} ▼</view>
+        </picker>
+      </view>
+
+      <!-- 目标次数 -->
+      <view class="form-group">
+        <view class="form-label">目标次数（天）</view>
+        <input
+          class="form-input"
+          type="number"
+          placeholder="例如：30"
+          value="{{form.targetCount}}"
+          bindinput="onTargetInput"
+        />
+      </view>
+
+      <!-- 备注 -->
+      <view class="form-group">
+        <view class="form-label">备注（可选）</view>
+        <textarea
+          class="form-textarea"
+          placeholder="添加一些备注信息..."
+          value="{{form.notes}}"
+          bindinput="onNotesInput"
+        ></textarea>
+      </view>
+    </view>
+
+    <view class="modal-footer">
+      <button class="cancel-btn" bindtap="hideAddModal">取消</button>
+      <button class="confirm-btn" bindtap="savePlan" disabled="{{saving}}">
+        {{saving ? '保存中...' : (editingPlan ? '更新' : '创建')}}
+      </button>
+    </view>
+  </view>
+</view>

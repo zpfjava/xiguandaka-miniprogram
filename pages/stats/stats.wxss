@@ -1,0 +1,223 @@
+/* 学习统计页样式 */
+.stats-page {
+  min-height: 100vh;
+  background-color: #FFF8E1;
+  padding-bottom: 40rpx;
+}
+
+/* 顶部 */
+.page-header {
+  background: linear-gradient(135deg, #FFD93D 0%, #FF9A3C 100%);
+  padding: 30rpx 30rpx 36rpx;
+}
+.header-title { font-size: 38rpx; font-weight: bold; color: #333333; }
+.header-subtitle { font-size: 26rpx; color: rgba(51, 51, 51, 0.6); margin-top: 8rpx; }
+
+/* 时间范围选择 */
+.time-range {
+  display: flex;
+  margin: 20rpx 30rpx;
+  background-color: #FFFFFF;
+  border-radius: 16rpx;
+  padding: 6rpx;
+}
+
+.range-item {
+  flex: 1;
+  text-align: center;
+  padding: 16rpx 0;
+  font-size: 26rpx;
+  color: #999999;
+  border-radius: 12rpx;
+}
+.range-item.active { background-color: #FFD93D; color: #333333; font-weight: bold; }
+
+/* 核心数据卡片 */
+.core-stats { padding: 0 30rpx; }
+
+.stat-row { display: flex; gap: 16rpx; margin-bottom: 16rpx; }
+
+.stat-card {
+  flex: 1;
+  background-color: #FFFFFF;
+  border-radius: 20rpx;
+  padding: 24rpx 20rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
+}
+
+.stat-icon { font-size: 36rpx; margin-bottom: 8rpx; }
+.stat-value { 
+  font-size: 42rpx; 
+  font-weight: bold; 
+  color: #333333; 
+}
+.stat-label { font-size: 22rpx; color: #999999; margin-top: 4rpx; }
+.stat-trend { 
+  font-size: 20rpx; 
+  margin-top: 6rpx; 
+  padding: 2rpx 10rpx; 
+  border-radius: 8rpx; 
+}
+.stat-trend.up { color: #4CAF50; background-color: #E8F5E9; }
+.stat-trend.down { color: #F44336; background-color: #FFEBEE; }
+
+/* 区域卡片 */
+.section-card {
+  margin: 20rpx 30rpx;
+  padding: 28rpx;
+  background-color: #FFFFFF;
+  border-radius: 24rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+}
+
+.section-title { font-size: 32rpx; font-weight: bold; color: #333333; margin-bottom: 20rpx; }
+
+/* 科目分布 */
+.subject-list { }
+.subject-item {
+  display: flex;
+  align-items: center;
+  padding: 14rpx 0;
+  border-bottom: 1rpx solid #F5F5F5;
+}
+.subject-item:last-child { border-bottom: none; }
+
+.subject-left {
+  width: 160rpx;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.subject-emoji { font-size: 32rpx; margin-right: 10rpx; }
+.subject-name { font-size: 26rpx; color: #333333; }
+
+.subject-bar-area { flex: 1; margin-left: 16rpx; }
+.subject-bar-bg {
+  height: 18rpx;
+  background-color: #F0F0F0;
+  border-radius: 9rpx;
+  overflow: hidden;
+  margin-bottom: 4rpx;
+}
+.subject-bar-fill { height: 100%; border-radius: 9rpx; transition: width 0.5s ease; }
+.subject-count { font-size: 20rpx; color: #BBBBBB; text-align: right; }
+
+.empty-hint { text-align: center; font-size: 26rpx; color: #CCCCCC; padding: 30rpx 0; }
+
+/* 热力图 */
+.heatmap { overflow-x: auto; }
+
+.heatmap-weekdays {
+  display: flex;
+  margin-bottom: 6rpx;
+  padding-left: 48rpx;
+}
+.hm-weekday {
+  flex: 1;
+  min-width: 28rpx;
+  text-align: center;
+  font-size: 20rpx;
+  color: #CCCCCC;
+  line-height: 2;
+}
+
+.heatmap-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4rpx;
+}
+
+.heatmap-cell {
+  width: calc((100% - 20rpx) / 7 - 4rpx);
+  aspect-ratio: 1;
+  border-radius: 6rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.cell-day {
+  font-size: 18rpx;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.heatmap-cell.level-0 { background-color: #F5F5F5; }
+.heatmap-cell.level-0 .cell-day { color: #CCCCCC; }
+.heatmap-cell.level-1 { background-color: #FFF3B0; }
+.heatmap-cell.level-2 { background-color: #FFE082; }
+.heatmap-cell.level-3 { background-color: #FFCA28; }
+
+.heatmap-legend {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8rpx;
+  margin-top: 12rpx;
+  font-size: 20rpx;
+  color: #CCCCCC;
+}
+
+.legend-cells { display: flex; gap: 4rpx; }
+.legend-cell {
+  width: 20rpx;
+  height: 20rpx;
+  border-radius: 4rpx;
+}
+.legend-cell.level-0 { background-color: #F5F5F5; }
+.legend-cell.level-1 { background-color: #FFF3B0; }
+.legend-cell.level-2 { background-color: #FFE082; }
+.legend-cell.level-3 { background-color: #FFCA28; }
+
+/* 时段分布 */
+.time-slots { }
+.time-slot {
+  display: flex;
+  align-items: center;
+  padding: 12rpx 0;
+  border-bottom: 1rpx solid #F5F5F5;
+}
+.time-slot:last-child { border-bottom: none; }
+
+.slot-label {
+  width: 140rpx;
+  font-size: 24rpx;
+  color: #666666;
+  flex-shrink: 0;
+}
+
+.slot-bar-bg {
+  flex: 1;
+  height: 20rpx;
+  background-color: #F0F0F0;
+  border-radius: 10rpx;
+  overflow: hidden;
+  margin: 0 16rpx;
+}
+
+.slot-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #FFD93D 0%, #FF9A3C 100%);
+  border-radius: 10rpx;
+  transition: width 0.5s ease;
+}
+
+.slot-count {
+  font-size: 22rpx;
+  color: #999999;
+  width: 60rpx;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* 底部提示 */
+.tips-section {
+  margin: 20rpx 30rpx;
+  padding: 20rpx;
+  background-color: #FFFDE7;
+  border-radius: 16rpx;
+}
+.tips-text { font-size: 24rpx; color: #666666; text-align: center; }

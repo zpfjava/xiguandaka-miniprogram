@@ -1,0 +1,77 @@
+<!-- 小打卡 - 成就页 -->
+<view class="achievements-page">
+  <!-- 顶部 -->
+  <view class="page-header">
+    <view class="header-title">🏆 我的成就</view>
+    <view class="header-subtitle">记录你的每一个里程碑</view>
+  </view>
+
+  <!-- 成就概览 -->
+  <view class="overview-card">
+    <view class="overview-item">
+      <view class="overview-value">{{unlockedCount}}</view>
+      <view class="overview-label">已解锁</view>
+    </view>
+    <view class="overview-divider"></view>
+    <view class="overview-item">
+      <view class="overview-value">{{totalCount}}</view>
+      <view class="overview-label">总成就</view>
+    </view>
+    <view class="overview-divider"></view>
+    <view class="overview-item">
+      <view class="overview-value">{{progressPercent}}%</view>
+      <view class="overview-label">完成度</view>
+    </view>
+  </view>
+
+  <!-- 成就列表 -->
+  <view class="section-title-bar">
+    <text>🎖️ 全部成就</text>
+  </view>
+
+  <view class="achievement-list">
+    <view 
+      wx:for="{{achievements}}" 
+      wx:key="id"
+      class="achievement-card {{item.unlocked ? 'unlocked' : 'locked'}}"
+    >
+      <view class="achievement-icon {{item.unlocked ? '' : 'gray'}}">
+        {{item.emoji}}
+      </view>
+      
+      <view class="achievement-info">
+        <view class="achievement-name">{{item.name}}</view>
+        <view class="achievement-desc">{{item.description}}</view>
+        
+        <!-- 进度（未解锁时显示） -->
+        <block wx:if="{{!item.unlocked && item.progress !== undefined}}">
+          <view class="achievement-progress">
+            <view class="progress-bar">
+              <view class="progress-fill" style="width: {{item.progressPercent}}%"></view>
+            </view>
+            <view class="progress-text">{{item.current}}/{{item.target}}</view>
+          </view>
+        </block>
+        
+        <!-- 解锁时间（已解锁时显示） -->
+        <block wx:if="{{item.unlocked}}">
+          <view class="unlock-time">📅 {{item.unlockedAt || '2026-04-15'}}</view>
+        </block>
+      </view>
+
+      <view class="achievement-reward">
+        <view class="reward-badge {{item.unlocked ? 'earned' : ''}}">
+          +{{item.reward}} ⭐
+        </view>
+        <view class="status-badge {{item.unlocked ? 'done' : 'todo'}}">
+          {{item.unlocked ? '✅ 已获得' : '🔒 未解锁'}}
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 空状态（无成就时） -->
+  <view class="empty-tip" wx:if="{{achievements.length === 0}}">
+    还没有成就数据，快去完成学习任务吧！
+  </view>
+</view>

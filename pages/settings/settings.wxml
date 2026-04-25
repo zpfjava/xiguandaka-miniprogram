@@ -1,0 +1,140 @@
+<!-- 小打卡 - 设置页 -->
+<view class="settings-page">
+  <!-- 个人信息编辑区 -->
+  <view class="profile-section">
+    <view class="profile-header">
+      <view class="profile-avatar" bindtap="changeAvatar">
+        {{userInfo.avatar || '😊'}}
+      </view>
+      
+      <view class="profile-edit">
+        <input
+          class="nickname-input"
+          placeholder="输入昵称"
+          value="{{userInfo.nickname}}"
+          bindinput="onNicknameInput"
+        />
+        <picker mode="selector" range="{{grades}}" value="{{gradeIndex}}" bindchange="onGradeChange">
+          <view class="grade-picker">{{userInfo.grade || '选择年级'}} ▼</view>
+        </picker>
+      </view>
+    </view>
+    
+    <button class="save-profile-btn" bindtap="saveProfile">保存修改</button>
+  </view>
+
+  <!-- 设置分组 - 通用 -->
+  <view class="setting-group">
+    <view class="group-title">通用设置</view>
+    
+    <view class="setting-item">
+      <view class="item-left">
+        <text class="item-icon">🔔</text>
+        <text class="item-text">打卡提醒</text>
+      </view>
+      <switch 
+        checked="{{settings.reminder}}" 
+        color="#7ED957"
+        bindchange="toggleSetting"
+        data-key="reminder"
+      />
+    </view>
+
+    <view class="setting-item">
+      <view class="item-left">
+        <text class="item-icon">🕐</text>
+        <text class="item-text">提醒时间</text>
+      </view>
+      <picker 
+        mode="time" 
+        value="{{settings.reminderTime}}" 
+        bindchange="onTimeChange"
+      >
+        <view class="item-value">{{settings.reminderTime}} ›</view>
+      </picker>
+    </view>
+
+    <view class="setting-item">
+      <view class="item-left">
+        <text class="item-icon">🌙</text>
+        <text class="item-text">深色模式</text>
+      </view>
+      <switch 
+        checked="{{settings.darkMode}}" 
+        color="#7ED957"
+        bindchange="toggleSetting"
+        data-key="darkMode"
+      />
+    </view>
+
+    <view class="setting-item">
+      <view class="item-left">
+        <text class="item-icon">📊</text>
+        <text class="item-text">显示统计数据</text>
+      </view>
+      <switch 
+        checked="{{settings.showStats}}" 
+        color="#7ED957"
+        bindchange="toggleSetting"
+        data-key="showStats"
+      />
+    </view>
+  </view>
+
+  <!-- 设置分组 - 隐私 -->
+  <view class="setting-group">
+    <view class="group-title">隐私与安全</view>
+
+    <view class="setting-item" bindtap="goToPrivacy">
+      <view class="item-left">
+        <text class="item-icon">🔒</text>
+        <text class="item-text">隐私设置</text>
+      </view>
+      <text class="item-arrow">›</text>
+    </view>
+
+    <view class="setting-item" bindtap="clearCache">
+      <view class="item-left">
+        <text class="item-icon">🗑️</text>
+        <text class="item-text">清除缓存</text>
+      </view>
+      <text class="item-arrow">{{cacheSize}} ›</text>
+    </view>
+  </view>
+
+  <!-- 设置分组 - 关于 -->
+  <view class="setting-group">
+    <view class="group-title">关于</view>
+
+    <view class="setting-item">
+      <view class="item-left">
+        <text class="item-icon">📱</text>
+        <text class="item-text">版本号</text>
+      </view>
+      <text class="item-value">v1.0.0</text>
+    </view>
+
+    <view class="setting-item" bindtap="checkUpdate">
+      <view class="item-left">
+        <text class="item-icon">🔄</text>
+        <text class="item-text">检查更新</text>
+      </view>
+      <text class="item-arrow">›</text>
+    </view>
+
+    <view class="setting-item" bindtap="showAbout">
+      <view class="item-left">
+        <text class="item-icon">ℹ️</text>
+        <text class="item-text">关于小打卡</text>
+      </view>
+      <text class="item-arrow">›</text>
+    </view>
+  </view>
+
+  <!-- 底部信息 -->
+  <view class="footer-info">
+    <view class="footer-logo">🌱 小打卡</view>
+    <view class="footer-desc">让学习变成一种习惯</view>
+    <view class="footer-version">Version 1.0.0 · Build 20260423</view>
+  </view>
+</view>

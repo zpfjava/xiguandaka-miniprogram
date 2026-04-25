@@ -1,0 +1,346 @@
+/* 愿望清单页样式 */
+.wishlist-page {
+  min-height: 100vh;
+  background-color: #FFF8E1;
+  padding-bottom: 40rpx;
+}
+
+/* 顶部 */
+.page-header {
+  background: linear-gradient(135deg, #FFD93D 0%, #FF9A3C 100%);
+  padding: 30rpx 30rpx 36rpx;
+}
+.header-title { font-size: 38rpx; font-weight: bold; color: #333333; }
+.header-subtitle { font-size: 26rpx; color: rgba(51, 51, 51, 0.6); margin-top: 8rpx; }
+
+/* 星星余额卡片 */
+.balance-card {
+  margin: -20rpx 30rpx 24rpx;
+  padding: 32rpx;
+  background: linear-gradient(135deg, #FFFFFF 0%, #FFFEF5 100%);
+  border-radius: 28rpx;
+  display: flex;
+  align-items: center;
+  box-shadow: 0 4rpx 16rpx rgba(255, 217, 61, 0.2);
+}
+
+.balance-label { font-size: 26rpx; color: #999999; }
+.balance-amount { 
+  flex: 1; 
+  font-size: 44rpx; 
+  font-weight: bold; 
+  color: #FF9A3C; 
+  text-align: center;
+}
+
+.add-wish-btn {
+  height: 64rpx;
+  line-height: 1.2;
+  padding: 0 28rpx;
+  background: linear-gradient(135deg, #FFD93D 0%, #FF9A3C 100%);
+  color: #333333 !important;
+  font-size: 24rpx;
+  font-weight: bold;
+  border-radius: 32rpx;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+.add-wish-btn::after { display: none !important; border: none; }
+.add-wish-btn:active { opacity: 0.85; }
+
+/* Tab 切换 */
+.tab-bar {
+  display: flex;
+  margin: 0 30rpx 20rpx;
+  background-color: #FFFFFF;
+  border-radius: 16rpx;
+  padding: 6rpx;
+}
+
+.tab {
+  flex: 1;
+  text-align: center;
+  padding: 18rpx 0;
+  font-size: 26rpx;
+  color: #999999;
+  border-radius: 12rpx;
+  transition: all 0.3s ease;
+}
+
+.tab.active {
+  background-color: #FFD93D;
+  color: #333333;
+  font-weight: bold;
+}
+
+/* 愿望列表 */
+.wish-list { padding: 0 30rpx; }
+
+.wish-card {
+  position: relative;
+  background-color: #FFFFFF;
+  border-radius: 24rpx;
+  padding: 28rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+  display: flex;
+  align-items: flex-start;
+}
+
+.wish-card.redeemed { opacity: 0.7; }
+
+.wish-emoji {
+  width: 80rpx;
+  height: 80rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #FFF8E1;
+  border-radius: 20rpx;
+  font-size: 40rpx;
+  margin-right: 20rpx;
+  flex-shrink: 0;
+}
+
+.wish-info { flex: 1; }
+.wish-name { font-size: 30rpx; font-weight: bold; color: #333333; }
+.wish-desc { font-size: 24rpx; color: #999999; margin-top: 6rpx; line-height: 1.4; }
+
+/* 进度条 */
+.wish-progress { margin-top: 14rpx; }
+.progress-bar {
+  height: 10rpx;
+  background-color: #F0F0F0;
+  border-radius: 5rpx;
+  overflow: hidden;
+  margin-bottom: 6rpx;
+}
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #FFD93D 0%, #FF9A3C 100%);
+  border-radius: 5rpx;
+  transition: width 0.3s ease;
+}
+.progress-text { font-size: 22rpx; color: #999999; }
+
+/* 已兑换标记 */
+.redeemed-badge {
+  display: inline-block;
+  font-size: 22rpx;
+  color: #4CAF50;
+  background-color: #E8F5E9;
+  padding: 6rpx 16rpx;
+  border-radius: 9999rpx;
+  margin-top: 10rpx;
+}
+
+/* 操作按钮 */
+.wish-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+  margin-left: 16rpx;
+  align-items: flex-end;
+}
+
+.action-btn {
+  min-width: 120rpx;
+  height: 56rpx;
+  line-height: 1.2;
+  padding: 0 20rpx;
+  font-size: 24rpx;
+  border-radius: 28rpx;
+  text-align: center;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+.action-btn::after { display: none !important; border: none; }
+
+.save-btn {
+  background-color: #E3F2FD;
+  color: #2196F3;
+}
+.save-btn:active { opacity: 0.7; }
+
+.redeem-btn {
+  background: linear-gradient(135deg, #FFD93D 0%, #FF9A3C 100%);
+  color: #333333;
+  font-weight: bold;
+}
+.redeem-btn:active { opacity: 0.85; }
+.redeem-btn.disabled { opacity: 0.4; }
+
+.delete-wish {
+  position: absolute;
+  top: 12rpx;
+  right: 12rpx;
+  width: 40rpx;
+  height: 40rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
+  color: #CCCCCC;
+}
+
+/* 空状态 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 100rpx 60rpx;
+}
+.empty-icon { font-size: 80rpx; margin-bottom: 20rpx; }
+.empty-text { font-size: 30rpx; color: #666666; margin-bottom: 10rpx; }
+.empty-desc { font-size: 26rpx; color: #999999; margin-bottom: 30rpx; text-align: center; line-height: 1.5; }
+.empty-btn {
+  background: linear-gradient(135deg, #FFD93D 0%, #FF9A3C 100%);
+  color: #333333 !important;
+  font-size: 28rpx;
+  font-weight: bold;
+  padding: 18rpx 48rpx;
+  border-radius: 9999rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+/* ====== 弹窗 ====== */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wish-modal {
+  width: 600rpx;
+  max-height: 80vh;
+  background-color: #FFFFFF;
+  border-radius: 24rpx;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  padding: 30rpx;
+  text-align: center;
+  font-size: 34rpx;
+  font-weight: bold;
+  border-bottom: 1rpx solid #F0F0F0;
+}
+
+.modal-body { padding: 30rpx; overflow-y: auto; max-height: 55vh; }
+
+.form-group { margin-bottom: 24rpx; }
+.form-label { font-size: 28rpx; font-weight: bold; color: #333333; margin-bottom: 12rpx; display: block; }
+
+.form-input {
+  width: 100%;
+  height: 84rpx;
+  padding: 0 24rpx;
+  font-size: 28rpx;
+  color: #333333;
+  background-color: #F8F8F8;
+  border-radius: 16rpx;
+  border: 2rpx solid transparent;
+  box-sizing: border-box;
+}
+
+.form-textarea {
+  width: 100%;
+  min-height: 140rpx;
+  padding: 20rpx 24rpx;
+  font-size: 28rpx;
+  color: #333333;
+  background-color: #F8F8F8;
+  border-radius: 16rpx;
+  border: 2rpx solid transparent;
+  box-sizing: border-box;
+}
+
+/* 表情选择器 */
+.emoji-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+
+.emoji-option {
+  width: 72rpx;
+  height: 72rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36rpx;
+  background-color: #F5F5F5;
+  border-radius: 16rpx;
+  border: 3rpx solid transparent;
+}
+
+.emoji-option.selected {
+  background-color: #FFF8E1;
+  border-color: #FFD93D;
+}
+
+/* 星星数量输入 */
+.star-input-area {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.star-minus, .star-plus {
+  width: 68rpx;
+  height: 68rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36rpx;
+  font-weight: bold;
+  background-color: #F5F5F5;
+  border-radius: 16rpx;
+  color: #666666;
+}
+.star-minus:active, .star-plus:active { background-color: #EEEEEE; }
+
+.star-number-input {
+  width: 140rpx;
+  height: 68rpx;
+  text-align: center;
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333333;
+  background-color: #F8F8F8;
+  border-radius: 16rpx;
+  border: 2rpx solid transparent;
+}
+
+.star-unit { font-size: 32rpx; }
+
+.modal-footer {
+  display: flex;
+  border-top: 1rpx solid #F0F0F0;
+}
+
+.success-btn {
+  text-align: center;
+  font-size: 30rpx;
+  background: none;
+  border: none;
+}
+.modal-footer button::after { border: none; }
+.cancel-btn { color: #999999; border-right: 1rpx solid #F0F0F0 !important; }
+.confirm-btn { color: #FF9A3C; font-weight: bold; }
+.confirm-btn[disabled] { color: #CCCCCC; }

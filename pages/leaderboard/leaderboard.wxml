@@ -1,0 +1,87 @@
+<!-- 小打卡 - 排行榜页 -->
+<view class="leaderboard-page">
+  <!-- 顶部 -->
+  <view class="page-header">
+    <view class="header-title">🏅 排行榜</view>
+    <view class="header-subtitle">看看谁最努力！</view>
+  </view>
+
+  <!-- Tab 切换 -->
+  <view class="tab-bar">
+    <view 
+      wx:for="{{tabs}}" 
+      wx:key="key"
+      class="tab {{activeTab === item.key ? 'active' : ''}}"
+      bindtap="switchTab"
+      data-key="{{item.key}}"
+    >{{item.label}}</view>
+  </view>
+
+  <!-- 前三名展示区 -->
+  <block wx:if="{{topThree.length > 0}}">
+    <view class="top-three">
+      <!-- 第二名 -->
+      <view class="top-item second" wx:if="{{topThree[1]}}">
+        <view class="rank-badge silver">2</view>
+        <view class="top-avatar">{{topThree[1].avatar || '😊'}}</view>
+        <view class="top-name">{{topThree[1].nickname || '同学B'}}</view>
+        <view class="top-value">{{topThree[1].value || 0}} {{unit}}</view>
+      </view>
+
+      <!-- 第一名 -->
+      <view class="top-item first" wx:if="{{topThree[0]}}">
+        <view class="crown">👑</view>
+        <view class="rank-badge gold">1</view>
+        <view class="top-avatar top-avatar-first">{{topThree[0].avatar || '🥇'}}</view>
+        <view class="top-name top-name-first">{{topThree[0].nickname || '学霸A'}}</view>
+        <view class="top-value top-value-first">{{topThree[0].value || 0}} {{unit}}</view>
+      </view>
+
+      <!-- 第三名 -->
+      <view class="top-item third" wx:if="{{topThree[2]}}">
+        <view class="rank-badge bronze">3</view>
+        <view class="top-avatar">{{topThree[2].avatar || '😊'}}</view>
+        <view class="top-name">{{topThree[2].nickname || '同学C'}}</view>
+        <view class="top-value">{{topThree[2].value || 0}} {{unit}}</view>
+      </view>
+    </view>
+  </block>
+
+  <!-- 排行列表 -->
+  <view class="rank-list">
+    <view 
+      wx:for="{{rankList}}" 
+      wx:key="id"
+      class="rank-item {{item.isMe ? 'me' : ''}}"
+    >
+      <view class="rank-number">
+        <text class="rank-num {{index < 3 ? 'top-rank' : ''}}">{{index + 4}}</text>
+      </view>
+      
+      <view class="user-info">
+        <view class="user-avatar">{{item.avatar || '😊'}}</view>
+        <view class="user-detail">
+          <view class="user-nickname">
+            {{item.nickname}}
+            <text class="me-tag" wx:if="{{item.isMe}}">我</text>
+          </view>
+          <view class="user-extra" wx:if="{{item.extra}}">{{item.extra}}</view>
+        </view>
+      </view>
+      
+      <view class="score-value">{{item.value}} {{unit}}</view>
+    </view>
+  </view>
+
+  <!-- 空状态 -->
+  <view class="empty-state" wx:if="{{rankList.length === 0 && topThree.length === 0}}">
+    <view class="empty-icon">🏅</view>
+    <view class="empty-text">暂无排行数据</view>
+    <view class="empty-desc">快来打卡，争取上榜吧！</view>
+  </view>
+
+  <!-- 底部说明 -->
+  <view class="footer-note">
+    排行榜每小时更新一次 · 数据保护隐私，昵称已脱敏
+  </view>
+</view>

@@ -1,0 +1,55 @@
+.mascot-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 尺寸 */
+.mascot-small .mascot-emoji { font-size: 48rpx; }
+.mascot-container:not(.mascot-small):not(.mascot-large) .mascot-emoji { font-size: 80rpx; }
+.mascot-large .mascot-emoji { font-size: 140rpx; }
+
+/* 带背景 */
+.mascot-with-bg {
+  background: linear-gradient(135deg, #FFFDE7 0%, #FFF8E1 100%);
+  border-radius: 50%;
+  padding: 24rpx;
+}
+
+/* 状态动画 */
+.mascot-emoji.idle {
+  animation: float 3s ease-in-out infinite;
+}
+
+.mascot-emoji.celebrating {
+  animation: celebrate 1s ease-in-out, bounce-in 0.5s ease-out;
+}
+
+.mascot-emoji.growing {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12rpx); }
+}
+
+@keyframes bounce-in {
+  0% { transform: scale(0.3); opacity: 0; }
+  50% { transform: scale(1.1); }
+  70% { transform: scale(0.9); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes celebrate {
+  0% { transform: scale(1) rotate(0deg); }
+  25% { transform: scale(1.2) rotate(-8deg); }
+  50% { transform: scale(1.2) rotate(8deg); }
+  75% { transform: scale(1.2) rotate(-4deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.08); opacity: 0.85; }
+}
