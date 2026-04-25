@@ -32,7 +32,7 @@
 .add-plan-btn:active { opacity: 0.85; }
 
 /* 计划列表 */
-.plan-list { padding: 0 30rpx; }
+.plan-list { padding: 24rpx 30rpx 0; }
 
 /* 计划卡片 */
 .plan-card {
@@ -107,6 +107,12 @@
   border-radius: 32rpx;
   border: none;
   padding: 0;
+  height: 64rpx;
+  line-height: 64rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
 }
 .action-btn::after { border: none; }
 
@@ -244,8 +250,20 @@
   font-size: 30rpx;
   background: none;
   border: none;
+  height: 96rpx;
+  line-height: 96rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
 }
 .modal-footer button::after { border: none; }
 .cancel-btn { color: #999999; border-right: 1rpx solid #F0F0F0 !important; }
 .confirm-btn { color: #FF9A3C; font-weight: bold; }
 .confirm-btn[disabled] { color: #CCCCCC; }
+
+/* 按钮加载态：半透明 + 降低对比度，让用户直观感受到"正在处理" */
+.confirm-btn.btn-loading {
+  opacity: 0.6;
+  color: #CCCCCC !important;
+}

@@ -38,13 +38,19 @@
 }
 
 .stars-actions .action-btn {
-  padding: 0 32rpx;
+  padding: 18rpx 36rpx;
+  height: 72rpx;
+  line-height: 36rpx;
   background-color: rgba(255, 255, 255, 0.95);
   color: #333333;
   font-size: 26rpx;
-  border-radius: 34rpx;
+  border-radius: 36rpx;
   text-align: center;
   border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
 }
 .stars-actions .action-btn::after { border: none; }
 .stars-actions .action-btn:active { opacity: 0.85; transform: scale(0.96); }

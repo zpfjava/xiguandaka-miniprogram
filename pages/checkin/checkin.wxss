@@ -181,6 +181,29 @@
   padding: 0;
   margin-top: 30rpx;
 }
+.submit-btn.btn-loading { opacity: 0.6; }
+
+/* 骨架屏：加载时显示，避免白屏 */
+.skeleton { display: flex; align-items: center; padding: 28rpx !important; }
+.skeleton-circle {
+  width: 80rpx; height: 80rpx; border-radius: 20rpx;
+  background: linear-gradient(90deg, #F0F0F0 25%, #E0E0E0 50%, #F0F0F0 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+  flex-shrink: 0; margin-right: 20rpx;
+}
+.skeleton-lines { flex: 1; }
+.skeleton-line {
+  height: 28rpx; border-radius: 8rpx; margin-bottom: 12rpx;
+  background: linear-gradient(90deg, #F0F0F0 25%, #E0E0E0 50%, #F0F0F0 75%);
+  background-size: 200% 100%; animation: skeleton-shimmer 1.5s infinite;
+}
+.skeleton-line.long { width: 70%; }
+.skeleton-line.short { width: 40%; }
+@keyframes skeleton-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
 .tips-section {
   display: flex;
   align-items: flex-start;

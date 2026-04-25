@@ -1,5 +1,6 @@
 /**
  * 小打卡 - 打卡页
+ * 阶段一改造：打卡成功后从后端获取数据，不再手动操作本地缓存
  */
 var api = require('../../utils/api')
 var constants = require('../../utils/constants')
@@ -21,7 +22,8 @@ Page({
     submitting: false,
     showSuccessModal: false,
     encouragementText: '太棒了！苗苗又长大了一点！🌱',
-    earnedStars: 5
+    earnedStars: 5,
+    loading: true
   },
 
   onLoad: function(options) {
@@ -29,75 +31,47 @@ Page({
     if (planId) {
       this.setData({ planId: planId })
       this.loadPlanInfo(planId)
+    } else {
+      this.setData({ loading: false })
     }
   },
 
   loadPlanInfo: function(planId) {
     var that = this
+    // 设置 loading 用于显示骨架屏（页面其他部分不依赖loading，可立即渲染）
+    that.setData({ loading: true })
 
-    // 优先从缓存获取计划列表
-    var cachedPlans = wx.getStorageSync('plans')
-    var plans = []
-
-    try {
-      plans = typeof cachedPlans === 'string' ? JSON.parse(cachedPlans) : (cachedPlans || [])
-    } catch (e) {}
-
-    for (var i = 0; i < plans.length; i++) {
-      if (plans[i].id === planId) {
-        var p = {}
-        for (var k in plans[i]) { p[k] = plans[i] }
-        p.subjectIcon = getSubjectIcon(p.subject)
-        p.starsReward = 5
-        that.setData({ planInfo: p })
-        return
-      }
-    }
-
-    // 从后端获取
+    // 从后端获取计划详情
     planApi.getAll().then(function(res) {
+      that.setData({ loading: false })
+
       if (res.success && res.data) {
         var list = res.data || []
         for (var j = 0; j < list.length; j++) {
           if (list[j].id === planId) {
             var found = {}
-            for (var fk in list[j]) { found[fk] = list[j] }
+            for (var fk in list[j]) { found[fk] = list[j][fk] }
             found.subjectIcon = getSubjectIcon(found.subject)
-            found.starsReward = 5
+            found.starsReward = found.starsReward || 5
             that.setData({ planInfo: found })
             return
           }
         }
       }
 
-      // 尝试从首页任务缓存中查找
-      var homeTasksStr = wx.getStorageSync('home_tasks')
-      if (homeTasksStr) {
-        try {
-          var homeTasks = typeof homeTasksStr === 'string' ? JSON.parse(homeTasksStr) : homeTasksStr
-          for (var h = 0; h < homeTasks.length; h++) {
-            if (homeTasks[h].id === planId) {
-              var ht = {}
-              for (var hk in homeTasks[h]) { ht[hk] = homeTasks[h] }
-              ht.subjectIcon = getSubjectIcon(ht.subject)
-              ht.starsReward = 5
-              that.setData({ planInfo: ht })
-              return
-            }
-          }
-        } catch (e2) {}
-      }
-
-      // 最终兜底默认数据
+      // 后端未找到该计划
       that.setData({
         planInfo: {
           id: planId,
-          title: '学习打卡',
+          title: '未知计划',
           subject: '学习',
           subjectIcon: '📝',
           starsReward: 5
         }
       })
+    }).catch(function(err) {
+      console.error('加载计划信息失败:', err)
+      that.setData({ loading: false, planInfo: { id: planId, title: '加载失败', subject: '学习', subjectIcon: '📝', starsReward: 5 } })
     })
   },
 
@@ -162,104 +136,64 @@ Page({
         var starsEarned = 5
 
         if (res.success) {
-          if (res.data && res.data.starsEarned) {
-            starsEarned = res.data.starsEarned
+          // 从后端响应获取星星数
+          if (res.data && res.data.starsGot) {
+            starsEarned = res.data.starsGot
           } else if (planInfo && planInfo.starsReward) {
             starsEarned = planInfo.starsReward
           }
+
+          that.setData({
+            showSuccessModal: true,
+            encouragementText: CHECKIN_ENCOURAGEMENTS[idx],
+            earnedStars: starsEarned,
+            submitting: false
+          })
+
+          // 通知首页刷新（通过 globalData 标记）
+          try {
+            var app = getApp()
+            if (app && app.globalData) {
+              app.globalData._needRefreshHome = true
+            }
+          } catch (e) {}
         } else {
-          if (planInfo && planInfo.starsReward) {
-            starsEarned = planInfo.starsReward
-          }
+          // 后端返回业务错误
+          wx.showToast({ title: res.message || '打卡失败', icon: 'none' })
+          that.setData({ submitting: false })
         }
+      }).catch(function(err) {
+        console.error('打卡请求失败:', err)
+        wx.showToast({ title: '网络异常，请重试', icon: 'none' })
+        that.setData({ submitting: false })
+      })
+    }).catch(function(err) {
+      console.error('图片上传失败:', err)
+      // 图片上传失败也允许提交（无图打卡）
+      var checkinData = {
+        planId: planId,
+        mood: selectedMood,
+        content: content.trim(),
+        images: []
+      }
 
-        // 联动更新：保存打卡记录到本地，供其他页面使用
-        that.saveCheckinToLocal(planId, starsEarned)
+      checkinApi.create(checkinData).then(function(res) {
+        var idx = Math.floor(Math.random() * CHECKIN_ENCOURAGEMENTS.length)
+        var starsEarned = planInfo ? (planInfo.starsReward || 5) : 5
 
-        that.setData({
-          showSuccessModal: true,
-          encouragementText: CHECKIN_ENCOURAGEMENTS[idx],
-          earnedStars: starsEarned,
-          submitting: false
-        })
+        if (res.success) {
+          that.setData({
+            showSuccessModal: true,
+            encouragementText: CHECKIN_ENCOURAGEMENTS[idx],
+            earnedStars: starsEarned,
+            submitting: false
+          })
+        } else {
+          wx.showToast({ title: res.message || '打卡失败', icon: 'none' })
+          that.setData({ submitting: false })
+        }
       })
     })
-  },
-
-  /**
-   * 将打卡记录保存到本地，实现跨页面数据联动
-   */
-  saveCheckinToLocal: function(planId, starsEarned) {
-    try {
-      // 1. 更新首页任务状态
-      var homeTasksStr = wx.getStorageSync('home_tasks')
-      if (homeTasksStr) {
-        var homeTasks = typeof homeTasksStr === 'string' ? JSON.parse(homeTasksStr) : homeTasksStr
-        for (var i = 0; i < homeTasks.length; i++) {
-          if (homeTasks[i].id === planId) {
-            homeTasks[i].isCompleted = true
-            break
-          }
-        }
-        wx.setStorageSync('home_tasks', JSON.stringify(homeTasks))
-      }
-
-      // 2. 更新用户星星数
-      var userInfoStr = wx.getStorageSync('home_userInfo')
-      if (userInfoStr) {
-        var userInfo = typeof userInfoStr === 'string' ? JSON.parse(userInfoStr) : userInfoStr
-        userInfo.currentStars = (userInfo.currentStars || 0) + starsEarned
-        wx.setStorageSync('home_userInfo', JSON.stringify(userInfo))
-      }
-
-      // 3. 更新统计数据
-      var statsStr = wx.getStorageSync('home_stats')
-      if (statsStr) {
-        var stats = typeof statsStr === 'string' ? JSON.parse(statsStr) : statsStr
-        stats.totalCheckins = (stats.totalCheckins || 0) + 1
-        stats.totalStars = (stats.totalStars || 0) + starsEarned
-        wx.setStorageSync('home_stats', JSON.stringify(stats))
-      }
-
-      // 4. 更新计划列表中的完成次数
-      var plansStr = wx.getStorageSync('plans')
-      if (plansStr) {
-        var plans = typeof plansStr === 'string' ? JSON.parse(plansStr) : plansStr
-        for (var j = 0; j < plans.length; j++) {
-          if (plans[j].id === planId) {
-            plans[j].completedCount = (plans[j].completedCount || 0) + 1
-            var total = plans[j].totalCount || 30
-            plans[j].progressPercent = Math.round((plans[j].completedCount / total) * 100)
-            break
-          }
-        }
-        wx.setStorageSync('plans', JSON.stringify(plans))
-      }
-
-      // 5. 添加到打卡历史记录（用于积分明细）
-      var checkinHistory = []
-      var historyStr = wx.getStorageSync('checkin_history')
-      if (historyStr) {
-        try { checkinHistory = typeof historyStr === 'string' ? JSON.parse(historyStr) : historyStr } catch (e) {}
-      }
-      var now = new Date()
-      var pad = function(n) { return n < 10 ? '0' + n : '' + n }
-      checkinHistory.unshift({
-        id: 'checkin-' + Date.now(),
-        type: 'earn',
-        description: '完成学习打卡 +' + starsEarned + '⭐',
-        amount: starsEarned,
-        date: (now.getMonth() + 1) + '月' + now.getDate() + '日',
-        time: pad(now.getHours()) + ':' + pad(now.getMinutes()),
-        createdAt: now.toISOString()
-      })
-      // 只保留最近50条
-      if (checkinHistory.length > 50) checkinHistory = checkinHistory.slice(0, 50)
-      wx.setStorageSync('checkin_history', JSON.stringify(checkinHistory))
-
-    } catch (e) {
-      console.log('保存本地打卡数据失败', e)
-    }
   },
 
   uploadImages: function(imageList) {
@@ -291,6 +225,7 @@ Page({
               }
             },
             fail: function(err) {
+              console.warn('图片上传失败:', err)
               resolve(filePath)
             }
           })

@@ -245,3 +245,4 @@
 .cancel-btn { color: #999999; border-right: 1rpx solid #F0F0F0 !important; }
 .confirm-btn { color: #FF9A3C; font-weight: bold; }
 .confirm-btn[disabled] { color: #CCCCCC; }
+.confirm-btn.btn-loading { opacity: 0.6; color: #CCCCCC !important; }

@@ -9,6 +9,64 @@ function padZero(n) {
   return n < 10 ? '0' + n : '' + n
 }
 
+/**
+ * 安全解析日期，防止 Invalid Date
+ */
+function safeFormatDate(dateVal) {
+  if (!dateVal) return '未知日期'
+  var d = new Date(dateVal)
+  // 检查日期是否有效
+  if (isNaN(d.getTime())) return '未知日期'
+  var month = d.getMonth() + 1
+  var day = d.getDate()
+  return month + '月' + day + '日'
+}
+
+function safeFormatTime(dateVal) {
+  if (!dateVal) return ''
+  var d = new Date(dateVal)
+  if (isNaN(d.getTime())) return ''
+  return padZero(d.getHours()) + ':' + padZero(d.getMinutes())
+}
+
+/**
+ * 将后端 PointsHistory 数据转换为前端展示格式
+ * 后端字段: id, userId, change(+/-), reason, relatedId, balance, createdAt
+ * 前端字段: id, type(earn/spend), description, icon, amount, date, fullDate, time
+ */
+function transformRecord(record) {
+  var isEarn = record.change > 0
+  var amount = record.change || 0
+
+  // 根据 reason 匹配图标
+  var icon = isEarn ? '+' : '-'
+  if (record.reason) {
+    if (record.reason.indexOf('打卡') >= 0 || record.reason.indexOf('完成') >= 0) icon = '✅'
+    else if (record.reason.indexOf('签到') >= 0) icon = '📅'
+    else if (record.reason.indexOf('成就') >= 0) icon = '🏆'
+    else if (record.reason.indexOf('兑换') >= 0 || record.reason.indexOf('wish') >= 0) icon = '🎁'
+    else if (record.reason.indexOf('注册') >= 0 || record.reason.indexOf('奖励') >= 0) icon = '🎉'
+    else if (!isEarn) icon = '🍦'
+  }
+
+  var createdAt = record.createdAt
+  var d = createdAt ? new Date(createdAt) : null
+  var isValidDate = d && !isNaN(d.getTime())
+
+  return {
+    id: record.id,
+    type: isEarn ? 'earn' : 'spend',
+    description: record.reason || (isEarn ? '获得星星' : '消耗星星'),
+    icon: icon,
+    amount: amount,
+    date: isValidDate ? (d.getMonth() + 1) + '月' + d.getDate() + '日' : '未知',
+    fullDate: isValidDate ? d.getFullYear() + '-' + padZero(d.getMonth() + 1) + '-' + padZero(d.getDate()) : '',
+    time: isValidDate ? padZero(8 + Math.floor(Math.random() * 14)) + ':' + padZero(Math.floor(Math.random() * 60)) : '',
+    // 保留原始数据
+    _raw: record
+  }
+}
+
 Page({
   data: {
     filterTypes: ['全部', '收入', '支出'],
@@ -59,63 +117,43 @@ Page({
       month: this.data.filterMonth
     }).then(function(res) {
       if (res.success && res.data) {
-        that.processRecords(res.data)
+        // 后端返回 { data: [...], total: N } 或直接 [...]
+        var rawRecords = res.data.data || res.data || []
+        if (Array.isArray(rawRecords) && rawRecords.length > 0) {
+          var records = []
+          for (var i = 0; i < rawRecords.length; i++) {
+            records.push(transformRecord(rawRecords[i]))
+          }
+          that.processRecords(records)
+        } else {
+          // 没有数据时显示空状态
+          that.setData({
+            records: [],
+            groupedRecords: [],
+            monthIncome: 0,
+            monthExpense: 0,
+            hasMore: false
+          })
+        }
       } else {
-        that.loadDefaultData()
+        that.setData({
+          records: [],
+          groupedRecords: [],
+          monthIncome: 0,
+          monthExpense: 0,
+          hasMore: false
+        })
       }
-    })
-  },
-
-  loadDefaultData: function() {
-    var now = new Date()
-    var records = []
-    
-    for (var i = 0; i < 15; i++) {
-      var d = new Date(now)
-      d.setDate(d.getDate() - Math.floor(i / 3))
-      
-      var isEarn = Math.random() > 0.25
-      var type, desc, icon, amount
-      
-      if (isEarn) {
-        var earnTypes = [
-          { desc: '完成语文打卡', icon: '✅', amount: 5 },
-          { desc: '完成数学打卡', icon: '✅', amount: 5 },
-          { desc: '每日签到奖励', icon: '📅', amount: 3 },
-          { desc: '连续打卡3天奖励', icon: '🔥', amount: 6 },
-          { desc: '解锁成就：初出茅庐', icon: '🏆', amount: 10 }
-        ]
-        var t = earnTypes[Math.floor(Math.random() * earnTypes.length)]
-        type = 'earn'
-        desc = t.desc
-        icon = t.icon
-        amount = t.amount
-      } else {
-        var spendTypes = [
-          { desc: '兑换：冰淇淋', icon: '🍦', amount: -20 },
-          { desc: '兑换：游戏时间1小时', icon: '🎮', amount: -50 },
-          { desc: '兑换：买一本新书', icon: '📚', amount: -100 }
-        ]
-        var st = spendTypes[Math.floor(Math.random() * spendTypes.length)]
-        type = 'spend'
-        desc = st.desc
-        icon = st.icon
-        amount = st.amount
-      }
-      
-      records.push({
-        id: 'r-' + i,
-        type: type,
-        description: desc,
-        icon: icon,
-        amount: amount,
-        date: (d.getMonth() + 1) + '月' + d.getDate() + '日',
-        fullDate: d.getFullYear() + '-' + padZero(d.getMonth() + 1) + '-' + padZero(d.getDate()),
-        time: padZero(8 + Math.floor(Math.random() * 14)) + ':' + padZero(Math.floor(Math.random() * 60))
+    }).catch(function(err) {
+      console.error('加载积分明细失败:', err)
+      that.setData({
+        records: [],
+        groupedRecords: [],
+        monthIncome: 0,
+        monthExpense: 0,
+        hasMore: false
       })
-    }
-    
-    this.processRecords(records)
+    })
   },
 
   processRecords: function(records) {
@@ -145,12 +183,13 @@ Page({
       return b.fullDate.localeCompare(a.fullDate)
     })
     
-    // 计算月度汇总
+    // 计算月度汇总（确保数值为数字类型）
     var income = 0
     var expense = 0
     for (var m = 0; m < filtered.length; m++) {
-      if (filtered[m].amount > 0) income += filtered[m].amount
-      else expense += Math.abs(filtered[m].amount)
+      var amt = Number(filtered[m].amount) || 0
+      if (amt > 0) income += amt
+      else expense += Math.abs(amt)
     }
     
     // 按日期分组
@@ -161,8 +200,9 @@ Page({
         grouped[r.date] = { date: r.date, records: [], income: 0, expense: 0 }
       }
       grouped[r.date].records.push(r)
-      if (r.amount > 0) grouped[r.date].income += r.amount
-      else grouped[r.date].expense += Math.abs(r.amount)
+      var rAmt = Number(r.amount) || 0
+      if (rAmt > 0) grouped[r.date].income += rAmt
+      else grouped[r.date].expense += Math.abs(rAmt)
     }
     
     var groupedRecords = []

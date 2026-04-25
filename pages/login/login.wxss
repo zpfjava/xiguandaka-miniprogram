@@ -1,4 +1,4 @@
-/* 登录页样式 */
+/* 登录页样式（支持三种登录方式） */
 .login-page {
   min-height: 100vh;
   background: linear-gradient(180deg, #FFF8E1 0%, #FFFFFF 100%);
@@ -10,8 +10,8 @@
 
 /* Logo 区域 */
 .login-header {
-  margin-top: 120rpx;
-  margin-bottom: 60rpx;
+  margin-top: 100rpx;
+  margin-bottom: 50rpx;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -36,7 +36,67 @@
   margin-top: 12rpx;
 }
 
-/* 表单区域 */
+/* ==================== 微信一键登录区域 ==================== */
+.wx-login-section {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.wx-login-btn {
+  width: 100% !important;
+  height: 96rpx !important;
+  line-height: 1.2 !important;
+  background: linear-gradient(135deg, #07C160 0%, #06AD56 100%) !important;
+  color: #FFFFFF !important;
+  font-size: 34rpx !important;
+  font-weight: bold;
+  border-radius: 48rpx !important;
+  text-align: center;
+  border: none !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  margin-bottom: 24rpx;
+}
+
+.wx-login-btn::after {
+  display: none !important;
+}
+
+.wx-login-btn .wx-icon {
+  font-size: 36rpx;
+  margin-right: 12rpx;
+}
+
+.wx-login-btn.disabled {
+  opacity: 0.6;
+}
+.wx-login-btn[disabled] { opacity: 0.6; }
+
+.wx-silent-login {
+  padding: 16rpx 0;
+}
+
+.wx-silent-login text {
+  font-size: 26rpx;
+  color: #999999;
+}
+
+.other-login-entry {
+  margin-top: 40rpx;
+  padding: 20rpx 0;
+}
+
+.other-login-entry text {
+  font-size: 26rpx;
+  color: #BBBBBB;
+}
+
+/* ==================== 表单区域 ==================== */
 .login-form {
   width: 100%;
   max-width: 600rpx;
@@ -44,6 +104,20 @@
   border-radius: 32rpx;
   padding: 40rpx 36rpx;
   box-shadow: 0 8rpx 40rpx rgba(255, 217, 61, 0.15);
+}
+
+.back-wx {
+  text-align: center;
+  margin-bottom: 24rpx;
+}
+
+.back-wx text {
+  font-size: 26rpx;
+  color: #07C160;
+}
+
+.back-wx .back-arrow {
+  font-size: 28rpx;
 }
 
 /* 切换标签 */
@@ -88,8 +162,6 @@
   transition: border-color 0.3s;
 }
 
-/* 微信小程序不支持 :focus-within，使用 focus 类替代 */
-
 .input-icon {
   font-size: 36rpx;
   margin-right: 16rpx;
@@ -112,6 +184,27 @@
   align-items: center;
 }
 
+/* 短信验证码输入 */
+.sms-code-item .code-input {
+  flex: 1;
+}
+
+.send-code-btn {
+  flex-shrink: 0;
+  font-size: 24rpx;
+  color: #FF9A3C;
+  padding: 12rpx 20rpx;
+  border: 2rpx solid #FF9A3C;
+  border-radius: 24rpx;
+  margin-left: 16rpx;
+  white-space: nowrap;
+}
+
+.send-code-btn.disabled {
+  color: #CCCCCC;
+  border-color: #EEEEEE;
+}
+
 /* 提交按钮 */
 .submit-btn {
   width: 100% !important;
@@ -130,7 +223,6 @@
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  overflow: visible;
 }
 
 .submit-btn::after {
@@ -140,10 +232,103 @@
 .submit-btn.disabled {
   opacity: 0.6;
 }
+.submit-btn.btn-loading { opacity: 0.6; }
 
-.submit-btn.active {
-  opacity: 0.85;
-  transform: scale(0.98);
+.register-btn {
+  margin-top: 10rpx;
+}
+
+.register-fields {
+  margin-top: 20rpx;
+  margin-bottom: 20rpx;
+}
+
+/* 表单额外操作 */
+.form-extra {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 24rpx;
+  font-size: 26rpx;
+}
+
+.form-extra .link {
+  color: #FF9A3C;
+  padding: 0 8rpx;
+}
+
+.form-extra .divider {
+  color: #DDDDDD;
+}
+
+/* ==================== 注册弹窗（Modal）==================== */
+.register-mask {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 100;
+  transition: opacity 0.25s ease;
+}
+
+.register-modal {
+  position: fixed;
+  bottom: -100%;
+  left: 0;
+  right: 0;
+  background-color: #FFFFFF;
+  border-radius: 32rpx 32rpx 0 0;
+  z-index: 101;
+  padding: 40rpx 36rpx 60rpx;
+  max-height: 85vh;
+  overflow-y: auto;
+  transition: bottom 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  box-shadow: 0 -8rpx 40rpx rgba(0, 0, 0, 0.12);
+}
+
+.register-modal.show {
+  bottom: 0;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32rpx;
+}
+
+.modal-title {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: #333333;
+}
+
+.modal-close {
+  width: 56rpx;
+  height: 56rpx;
+  line-height: 56rpx;
+  text-align: center;
+  font-size: 32rpx;
+  color: #999999;
+  border-radius: 50%;
+  background-color: #F5F5F5;
+}
+
+.modal-body {
+  margin-bottom: 24rpx;
+}
+
+.modal-footer {
+  text-align: center;
+}
+
+.reg-submit-btn {
+  margin-top: 16rpx;
+  margin-bottom: 16rpx;
+}
+
+.reg-tip {
+  font-size: 24rpx;
+  color: #FF9A3C;
 }
 
 /* 演示模式 */
@@ -153,8 +338,8 @@
 }
 
 .demo-mode text {
-  font-size: 26rpx;
-  color: #FF9A3C;
+  font-size: 24rpx;
+  color: #CCCCCC;
 }
 
 /* 底部说明 */
@@ -194,7 +379,7 @@
   background-color: #FFF8E1;
   padding: 10rpx 20rpx;
   border-radius: 20rpx;
-  border: 1rpx solid #FFECB3;
+  border: 1px solid #FFECB3;
 }
 
 @keyframes bounce {

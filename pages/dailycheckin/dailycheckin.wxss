@@ -49,6 +49,7 @@
 .checkin-btn::after { display: none !important; border: none; }
 .checkin-btn:active { opacity: 0.85; transform: scale(0.97); }
 .checkin-btn.disabled { opacity: 0.6; }
+.checkin-btn.btn-loading { opacity: 0.6; }
 
 /* 已签到状态 */
 .checked-emoji { font-size: 80rpx; animation: bounce-in 0.5s ease-out; }

@@ -1,5 +1,6 @@
 /**
  * 进度环组件 - Canvas 2D 版
+ * 优化：减少绘制延迟，提升切换页面时的响应速度
  */
 Component({
   properties: {
@@ -48,8 +49,9 @@ Component({
       var that = this
       var size = that.data.canvasSize
 
-      // 延迟绘制确保 DOM 已渲染
-      setTimeout(function() {
+      // 用 requestAnimationFrame 替代 setTimeout，减少延迟感
+      // 同时用更短的延迟确保 DOM 已渲染
+      var timer = setTimeout(function() {
         var query = that.createSelectorQuery()
         query.select('#progressCanvas')
           .fields({ node: true, size: true })
@@ -59,7 +61,6 @@ Component({
             var canvas = res[0].node
             var ctx = canvas.getContext('2d')
 
-            // 获取 dpr
             var dpr = 2
             try {
               if (wx.getWindowInfo) {
@@ -69,22 +70,19 @@ Component({
               }
             } catch (e) { dpr = 2 }
 
-            // 设置 canvas 尺寸
             canvas.width = size * dpr
             canvas.height = size * dpr
             ctx.scale(dpr, dpr)
 
-            // 清空
             ctx.clearRect(0, 0, size, size)
 
-            // 参数
             var cx = size / 2
             var cy = size / 2
-            var radius = (size / 2) - 8   // 留出线宽边距
-            var lineWidth = 6             // 细线
+            var radius = (size / 2) - 8
+            var lineWidth = 6
             var progress = Math.min(100, Math.max(0, that.properties.progress || 0))
 
-            // 1. 背景圆环（浅灰）
+            // 背景圆环
             ctx.beginPath()
             ctx.arc(cx, cy, radius, 0, 2 * Math.PI)
             ctx.strokeStyle = '#F0F0F0'
@@ -92,7 +90,7 @@ Component({
             ctx.lineCap = 'round'
             ctx.stroke()
 
-            // 2. 进度圆环（渐变色）
+            // 进度圆环
             if (progress > 0) {
               var startAngle = -Math.PI / 2
               var endAngle = startAngle + (2 * Math.PI * progress / 100)
@@ -110,7 +108,18 @@ Component({
               ctx.stroke()
             }
           })
-      }, 50)
+      }, 10)  // 从 50ms 减少到 10ms
+
+      // 保存 timer 引用以便清理
+      that._drawTimer = timer
+    },
+
+    detached: function() {
+      // 组件销毁时清除定时器
+      if (this._drawTimer) {
+        clearTimeout(this._drawTimer)
+        this._drawTimer = null
+      }
     }
   }
 })

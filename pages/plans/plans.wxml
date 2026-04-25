@@ -6,13 +6,6 @@
     <view class="header-subtitle">坚持每天打卡，养成好习惯</view>
   </view>
 
-  <!-- 添加按钮 -->
-  <view class="add-btn-area">
-    <button class="add-plan-btn" bindtap="showAddModal">
-      + 新建学习计划
-    </button>
-  </view>
-
   <!-- 计划列表 -->
   <block wx:if="{{plans.length > 0}}">
     <view class="plan-list">
@@ -153,8 +146,8 @@
 
     <view class="modal-footer">
       <button class="cancel-btn" bindtap="hideAddModal">取消</button>
-      <button class="confirm-btn" bindtap="savePlan" disabled="{{saving}}">
-        {{saving ? '保存中...' : (editingPlan ? '更新' : '创建')}}
+      <button class="confirm-btn {{saving ? 'btn-loading' : ''}}" bindtap="savePlan" disabled="{{saving}}">
+        {{editingPlan ? '更新' : '创建'}}
       </button>
     </view>
   </view>

@@ -35,17 +35,17 @@
   <!-- 数据概览 -->
   <view class="data-overview">
     <view class="data-item">
-      <view class="data-value">{{stats.totalPlans || 3}}</view>
+      <view class="data-value">{{stats.totalPlans || 0}}</view>
       <view class="data-label">学习计划</view>
     </view>
     <view class="data-divider"></view>
     <view class="data-item">
-      <view class="data-value">{{stats.totalCheckins || 7}}</view>
+      <view class="data-value">{{stats.totalCheckins || 0}}</view>
       <view class="data-label">累计打卡</view>
     </view>
     <view class="data-divider"></view>
     <view class="data-item">
-      <view class="data-value">{{stats.streak || 2}}</view>
+      <view class="data-value">{{stats.streakDays || stats.streak || 0}}</view>
       <view class="data-label">连续天数</view>
     </view>
   </view>

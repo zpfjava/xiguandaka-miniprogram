@@ -170,6 +170,7 @@
 .submit-btn::after { border: none; }
 .submit-btn:active { opacity: 0.85; }
 .submit-btn.disabled { opacity: 0.6; }
+.submit-btn.btn-loading { opacity: 0.6; }
 
 /* 联系我们 */
 .contact-section {

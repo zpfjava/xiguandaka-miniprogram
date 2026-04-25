@@ -173,8 +173,8 @@
 
     <view class="modal-footer">
       <button class="cancel-btn" bindtap="hideAddModal">取消</button>
-      <button class="confirm-btn" bindtap="saveWish" disabled="{{saving}}">
-        {{saving ? '保存中...' : '创建愿望'}}
+      <button class="confirm-btn {{saving ? 'btn-loading' : ''}}" bindtap="saveWish" disabled="{{saving}}">
+        创建愿望
       </button>
     </view>
   </view>

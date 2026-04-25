@@ -1,5 +1,6 @@
 /**
  * 小打卡 - 积分（星星）页
+ * 阶段一改造：删除硬编码假记录，数据全部来自后端
  */
 var api = require('../../utils/api')
 var constants = require('../../utils/constants')
@@ -10,13 +11,44 @@ var formatRelativeTime = constants.formatRelativeTime
 Page({
   data: {
     summary: { currentStars: 0, totalEarned: 0, totalSpent: 0 },
-    recentRecords: []
+    recentRecords: [],
+    loading: false,
+    isEmpty: false,
+    _loadingLock: false
   },
 
-  onShow: function() { this.loadPointsData() },
+  onShow: function() {
+    // 先从缓存恢复（瞬间显示），再静默刷新
+    this._restoreFromCache()
+    // 防抖：如果正在加载中则不重复请求
+    if (!this.data._loadingLock) {
+      this.loadPointsData()
+    }
+  },
+
+  /**
+   * 从缓存快速恢复
+   */
+  _restoreFromCache: function() {
+    try {
+      var cachedSummary = wx.getStorageSync('points_summary')
+      if (cachedSummary) {
+        this.setData({ summary: typeof cachedSummary === 'string' ? JSON.parse(cachedSummary) : cachedSummary })
+      }
+      var cachedRecords = wx.getStorageSync('points_recent_records')
+      if (cachedRecords) {
+        var records = typeof cachedRecords === 'string' ? JSON.parse(cachedRecords) : cachedRecords
+        if (records && records.length > 0) {
+          this.setData({ recentRecords: records })
+        }
+      }
+    } catch (e) { /* ignore */ }
+  },
 
   loadPointsData: function() {
     var that = this
+    that.setData({ _loadingLock: true })
+
     Promise.all([
       pointsApi.summary(),
       pointsApi.history({ limit: 5 })
@@ -28,68 +60,47 @@ Page({
       if (summaryRes.success && summaryRes.data) {
         hasData = true
         that.setData({ summary: summaryRes.data })
+        wx.setStorageSync('points_summary', JSON.stringify(summaryRes.data))
       }
 
       if (historyRes.success && historyRes.data) {
         hasData = true
-        var rawRecords = historyRes.data || []
+        var rawRecords = historyRes.data.data || historyRes.data || []
         var records = []
         for (var i = 0; i < rawRecords.length; i++) {
           var r = {}
           for (var k in rawRecords[i]) { r[k] = rawRecords[i][k] }
+          // 后端字段: change(+/-), reason, balance, createdAt
+          // 前端展示用 amount、description、type
+          if (r.change !== undefined) { r.amount = r.change }
+          if (!r.description && r.reason) { r.description = r.reason }
+          // 根据 change 正负判断类型
+          r.type = (Number(r.change) || 0) > 0 ? 'earn' : 'spend'
           r.time = formatRelativeTime(r.createdAt || r.date)
           records.push(r)
         }
-        that.setData({ recentRecords: records })
+        that.setData({ recentRecords: records, isEmpty: records.length === 0 })
+        wx.setStorageSync('points_recent_records', JSON.stringify(records))
       }
 
-      if (!hasData) { that.loadCachedData() }
-    })
-  },
-
-  loadCachedData: function() {
-    try {
-      var cachedUser = wx.getStorageSync('home_userInfo')
-      var currentStars = 50
-      if (cachedUser) {
-        var ui = typeof cachedUser === 'string' ? JSON.parse(cachedUser) : cachedUser
-        currentStars = ui.currentStars || 50
+      if (!hasData) {
+        that.setData({
+          isEmpty: true,
+          summary: { currentStars: 0, totalEarned: 0, totalSpent: 0 },
+          recentRecords: []
+        })
       }
 
-      // 尝试从打卡历史缓存读取积分记录
-      var records = []
-      var historyStr = wx.getStorageSync('checkin_history')
-      if (historyStr) {
-        try {
-          var history = typeof historyStr === 'string' ? JSON.parse(historyStr) : historyStr
-          for (var i = 0; i < history.length && i < 5; i++) {
-            records.push({
-              id: history[i].id || ('h-' + i),
-              type: history[i].type || 'earn',
-              description: history[i].description || '完成打卡',
-              amount: history[i].amount || 5,
-              time: history[i].time || formatRelativeTime(history[i].createdAt || new Date().toISOString())
-            })
-          }
-        } catch (e) {}
-      }
-
-      // 如果没有历史记录，使用默认数据
-      if (records.length === 0) {
-        records = [
-          { id: '1', type: 'earn', description: '完成语文打卡', amount: 5, time: '今天 14:30' },
-          { id: '2', type: 'earn', description: '每日签到奖励', amount: 3, time: '今天 08:00' },
-          { id: '3', type: 'spend', description: '兑换：冰淇淋', amount: -20, time: '昨天 18:00' },
-          { id: '4', type: 'earn', description: '连续打卡3天奖励', amount: 6, time: '昨天 15:20' },
-          { id: '5', type: 'earn', description: '完成数学打卡', amount: 5, time: '昨天 10:00' }
-        ]
-      }
-
-      this.setData({
-        summary: { currentStars: currentStars, totalEarned: currentStars * 5, totalSpent: currentStars * 4 },
-        recentRecords: records
+      that.setData({ _loadingLock: false })
+    }).catch(function(err) {
+      console.error('加载积分数据失败:', err)
+        that.setData({
+          _loadingLock: false,
+        isEmpty: true,
+        summary: { currentStars: 0, totalEarned: 0, totalSpent: 0 },
+        recentRecords: []
       })
-    } catch (e) {}
+    })
   },
 
   goToHistory: function() { wx.navigateTo({ url: '/pages/points-history/points-history' }) },

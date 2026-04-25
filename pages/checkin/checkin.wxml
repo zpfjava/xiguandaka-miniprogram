@@ -6,7 +6,7 @@
     <view class="header-subtitle">记录你的每一次努力</view>
   </view>
 
-  <!-- 计划信息卡片 -->
+  <!-- 计划信息卡片（有数据时展示，无数据时显示默认） -->
   <view class="plan-info-card" wx:if="{{planInfo}}">
     <view class="plan-icon-large">{{planInfo.subjectIcon}}</view>
     <view class="plan-detail">
@@ -14,6 +14,15 @@
       <view class="plan-subject">{{planInfo.subject}}</view>
     </view>
     <view class="stars-reward">+{{planInfo.starsReward || 5}} ⭐</view>
+  </view>
+
+  <!-- 加载中的骨架占位（避免白屏） -->
+  <view class="plan-info-card skeleton" wx:elif="{{loading}}">
+    <view class="skeleton-circle"></view>
+    <view class="skeleton-lines">
+      <view class="skeleton-line long"></view>
+      <view class="skeleton-line short"></view>
+    </view>
   </view>
 
   <!-- 心情选择 -->
@@ -79,11 +88,11 @@
   <!-- 提交按钮 -->
   <view class="submit-area">
     <button 
-      class="submit-btn {{submitting ? 'disabled' : ''}}"
+      class="submit-btn {{submitting ? 'btn-loading' : ''}}"
       bindtap="handleSubmit"
       disabled="{{submitting}}"
     >
-      {{submitting ? '提交中...' : '🎉 完成打卡'}}
+      🎉 完成打卡
     </button>
   </view>
 

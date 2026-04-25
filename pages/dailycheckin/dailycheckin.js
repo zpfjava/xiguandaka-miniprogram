@@ -1,5 +1,6 @@
 /**
  * 小打卡 - 每日签到页
+ * 阶段一改造：删除硬编码假数据和 mock 日历
  */
 var api = require('../../utils/api')
 
@@ -29,7 +30,8 @@ Page({
     weekdays: ['日', '一', '二', '三', '四', '五', '六'],
     currentYear: 2026,
     currentMonth: 4,
-    calendarDays: []
+    calendarDays: [],
+    loading: true
   },
 
   onShow: function() {
@@ -38,6 +40,8 @@ Page({
 
   loadCheckinData: function() {
     var that = this
+    that.setData({ loading: true })
+
     Promise.all([
       dailyCheckinApi.status(),
       dailyCheckinApi.calendar()
@@ -49,52 +53,67 @@ Page({
       if (statusRes.success && statusRes.data) {
         hasData = true
         var sd = statusRes.data
+        // 兼容后端返回的字段名（hasCheckedIn / checkedIn）
+        var checkedIn = !!sd.checkedIn || !!sd.hasCheckedIn
         that.setData({
-          isCheckedIn: !!sd.checkedIn,
-          streakDays: sd.streakDays || 0,
-          todayReward: sd.todayReward || 3
+          isCheckedIn: checkedIn,
+          streakDays: sd.streak || sd.streakDays || 0,
+          todayReward: sd.todayStars || sd.todayReward || 3
         })
-        
+
         that.updateMilestones()
-        
-        if (sd.checkedIn) {
+
+        if (checkedIn) {
           var now = new Date()
           that.setData({
             checkedTime: padZero(now.getHours()) + ':' + padZero(now.getMinutes()),
-            earnedStars: sd.todayReward || 3
+            earnedStars: sd.todayStars || sd.todayReward || 3
           })
         }
       }
 
       if (calendarRes.success && calendarRes.data) {
-        that.buildCalendar(calendarRes.data)
+        that.buildCalendarFromAPI(calendarRes.data)
       } else {
+        // 无日历数据时显示空日历
+        var now = new Date()
+        that.setData({
+          currentYear: now.getFullYear(),
+          currentMonth: now.getMonth() + 1
+        })
         that.buildCalendar([])
       }
 
       if (!hasData) {
-        that.loadDefaultData()
+        // API 失败，显示初始状态（不使用假数据）
+        var now = new Date()
+        that.setData({
+          isCheckedIn: false,
+          streakDays: 0,
+          todayReward: 3,
+          currentYear: now.getFullYear(),
+          currentMonth: now.getMonth() + 1
+        })
+        that.updateMilestones()
+        that.buildCalendar([])
       }
-    })
-  },
 
-  loadDefaultData: function() {
-    var now = new Date()
-    var year = now.getFullYear()
-    var month = now.getMonth() + 1
-    
-    this.setData({
-      isCheckedIn: false,
-      streakDays: 2,
-      todayReward: 3,
-      nextStreakRewardDay: 1,
-      nextStreakBonus: 10,
-      currentYear: year,
-      currentMonth: month
+      that.setData({ loading: false })
+    }).catch(function(err) {
+      console.error('加载签到数据失败:', err)
+      that.setData({ loading: false })
+      // 显示空状态
+      var now = new Date()
+      that.setData({
+        isCheckedIn: false,
+        streakDays: 0,
+        todayReward: 3,
+        currentYear: now.getFullYear(),
+        currentMonth: now.getMonth() + 1
+      })
+      that.updateMilestones()
+      that.buildCalendar([])
     })
-    
-    this.updateMilestones()
-    this.buildCalendar(this.generateMockCalendar())
   },
 
   updateMilestones: function() {
@@ -126,36 +145,32 @@ Page({
   doCheckin: function() {
     var that = this
     if (that.data.checking) return
-    
+
     that.setData({ checking: true })
 
     dailyCheckinApi.doCheckin().then(function(res) {
       var now = new Date()
       var starsEarned = 5
-      
-      if (res.success) {
-        if (res.data && res.data.starsEarned) {
-          starsEarned = res.data.starsEarned
-        } else {
-          starsEarned = that.data.todayReward
-        }
-      } else {
-        // API 失败，使用演示模式数据
-        starsEarned = that.data.todayReward
-      }
-      
-      that.setData({
-        isCheckedIn: true,
-        checking: false,
-        earnedStars: starsEarned,
-        checkedTime: padZero(now.getHours()) + ':' + padZero(now.getMinutes()),
-        streakDays: (that.data.streakDays || 0) + 1
-      })
-      
-      that.updateMilestones()
 
-      // 联动更新全局星星缓存
-      that.syncStarsToGlobalCache(starsEarned)
+      if (res.success && res.data) {
+        starsEarned = res.data.stars || res.data.starsEarned || that.data.todayReward
+        var newStreak = res.data.streak || res.data.newStreak || (that.data.streakDays || 0) + 1
+
+        that.setData({
+          isCheckedIn: true,
+          checking: false,
+          earnedStars: starsEarned,
+          checkedTime: padZero(now.getHours()) + ':' + padZero(now.getMinutes()),
+          streakDays: newStreak
+        })
+      } else {
+        // API 返回业务错误（如已签到）
+        wx.showToast({ title: res.message || '签到失败', icon: 'none' })
+        that.setData({ checking: false })
+        return
+      }
+
+      that.updateMilestones()
 
       wx.showToast({
         title: '签到成功！+' + starsEarned + ' ⭐',
@@ -163,59 +178,61 @@ Page({
         duration: 2000
       })
 
-      // 同步签到状态到本地缓存
-      try {
-        var cachedStats = wx.getStorageSync('home_stats')
-        var stats = { totalPlans: 0, totalCheckins: 1, totalStars: starsEarned, streak: (that.data.streakDays || 0) }
-        if (cachedStats) {
-          try { stats = typeof cachedStats === 'string' ? JSON.parse(cachedStats) : cachedStats } catch (e) {}
-          stats.totalCheckins = (stats.totalCheckins || 0) + 1
-          stats.totalStars = (stats.totalStars || 0) + starsEarned
-          stats.streak = that.data.streakDays || stats.streak || 0
+      // 刷新日历
+      dailyCheckinApi.calendar().then(function(calRes) {
+        if (calRes.success && calRes.data) {
+          that.buildCalendarFromAPI(calRes.data)
         }
-        wx.setStorageSync('home_stats', JSON.stringify(stats))
+      })
 
-        var userInfoStr = wx.getStorageSync('home_userInfo')
-        if (userInfoStr) {
-          try {
-            var ui = typeof userInfoStr === 'string' ? JSON.parse(userInfoStr) : userInfoStr
-            ui.currentStars = (ui.currentStars || 0) + starsEarned
-            wx.setStorageSync('home_userInfo', JSON.stringify(ui))
-          } catch (e2) {}
-        }
-
-        var checkinHistory = []
-        var historyStr = wx.getStorageSync('checkin_history')
-        if (historyStr) {
-          try { checkinHistory = typeof historyStr === 'string' ? JSON.parse(historyStr) : historyStr } catch (e3) {}
-        }
-        checkinHistory.unshift({
-          id: 'daily-' + Date.now(),
-          type: 'earn',
-          description: '每日签到 +' + starsEarned + '⭐',
-          amount: starsEarned,
-          date: (now.getMonth() + 1) + '月' + now.getDate() + '日',
-          time: padZero(now.getHours()) + ':' + padZero(now.getMinutes()),
-          createdAt: now.toISOString()
-        })
-        if (checkinHistory.length > 50) checkinHistory = checkinHistory.slice(0, 50)
-        wx.setStorageSync('checkin_history', JSON.stringify(checkinHistory))
-      } catch (e4) {}
+    }).catch(function(err) {
+      console.error('签到失败:', err)
+      wx.showToast({ title: '网络异常，请重试', icon: 'none' })
+      that.setData({ checking: false })
     })
   },
 
   /**
-   * 同步星星数到全局缓存（签到后调用）
+   * 从后端返回的数据构建日历
    */
-  syncStarsToGlobalCache: function(starsEarned) {
-    try {
-      var userInfoStr = wx.getStorageSync('home_userInfo')
-      if (userInfoStr) {
-        var ui = typeof userInfoStr === 'string' ? JSON.parse(userInfoStr) : userInfoStr
-        ui.currentStars = (ui.currentStars || 0) + starsEarned
-        wx.setStorageSync('home_userInfo', JSON.stringify(ui))
+  buildCalendarFromAPI: function(apiData) {
+    var now = new Date()
+    var year, month, checkedDates = []
+
+    if (apiData && apiData.days) {
+      // 后端返回了完整的日历数据
+      year = apiData.year || now.getFullYear()
+      month = apiData.month || (now.getMonth() + 1)
+      this.setData({ currentYear: year, currentMonth: month })
+
+      var calendarDays = []
+      for (var i = 0; i < apiData.days.length; i++) {
+        var d = apiData.days[i]
+        var dayVal = typeof d === 'object' ? (d.date ? parseInt(d.date.split('-')[2]) : d.day || '') : ''
+        calendarDays.push({
+          day: dayVal,
+          isCurrentMonth: true,
+          isCheckedIn: typeof d === 'object' ? !!d.checkedIn : false,
+          isToday: typeof d === 'object' ? !!d.isToday : false
+        })
       }
-    } catch (e) {}
+      this.setData({ calendarDays: calendarDays })
+      return
+    }
+
+    // 后端返回的是日期字符串数组
+    if (Array.isArray(apiData)) {
+      checkedDates = apiData
+      year = now.getFullYear()
+      month = now.getMonth() + 1
+      this.setData({ currentYear: year, currentMonth: month })
+      this.buildCalendar(checkedDates)
+      return
+    }
+
+    // 空数据
+    this.setData({ currentYear: now.getFullYear(), currentMonth: now.getMonth() + 1 })
+    this.buildCalendar([])
   },
 
   prevMonth: function() {
@@ -223,7 +240,7 @@ Page({
     var y = this.data.currentYear
     if (m < 1) { m = 12; y-- }
     this.setData({ currentYear: y, currentMonth: m })
-    this.buildCalendar([])
+    this.loadMonthCalendar(y, m)
   },
 
   nextMonth: function() {
@@ -231,7 +248,17 @@ Page({
     var y = this.data.currentYear
     if (m > 12) { m = 1; y++ }
     this.setData({ currentYear: y, currentMonth: m })
-    this.buildCalendar([])
+    this.loadMonthCalendar(y, m)
+  },
+
+  /**
+   * 加载指定月份的日历数据
+   */
+  loadMonthCalendar: function(year, month) {
+    var that = this
+    // 注意：当前后端仅支持当月，跨月需要扩展 API
+    // 这里先构建空日历，后续可扩展
+    that.buildCalendar([])
   },
 
   buildCalendar: function(checkedDates) {
@@ -265,17 +292,5 @@ Page({
     }
 
     this.setData({ calendarDays: calendarDays })
-  },
-
-  generateMockCalendar: function() {
-    var result = []
-    var now = new Date()
-    for (var i = 1; i < Math.min(now.getDate(), 28); i++) {
-      if (i % 3 === 0 || i === now.getDate() - 1) {
-        var m = now.getMonth() + 1
-        result.push(now.getFullYear() + '-' + (m < 10 ? '0' + m : m) + '-' + (i < 10 ? '0' + i : i))
-      }
-    }
-    return result
   }
 })

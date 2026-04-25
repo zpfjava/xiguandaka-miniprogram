@@ -121,7 +121,10 @@ function formatDateTime(dateString) {
 }
 
 function formatRelativeTime(dateString) {
+  if (!dateString) return '未知时间'
   var d = new Date(dateString)
+  // 安全检查：防止 Invalid Date
+  if (isNaN(d.getTime())) return '未知时间'
   var now = new Date()
   var diffMs = now - d
   var diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))

@@ -3,6 +3,8 @@
  * 全局逻辑：API基础配置、登录态管理、全局数据
  */
 
+var config = require('./utils/config')
+
 /**
  * 检查本地缓存中的登录状态
  */
@@ -48,7 +50,7 @@ function clearLoginState(appInstance) {
 App({
   // 全局数据（api.js 通过 app.globalData 访问）
   globalData: {
-    apiBase: 'http://localhost:3000',
+    apiBase: config.getApiBase(),
     userId: null,
     userInfo: null,
     isLoggedIn: false,

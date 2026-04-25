@@ -35,8 +35,31 @@ model User {
   feedbacks     Feedback[]
   parentBinds   ParentBind[]
   dailyCheckins DailyCheckin[]
+  smsCodes      SmsCode[]           // 短信验证码
 
   @@map("users")
+}
+
+// ==================== 短信验证码模块 ====================
+
+/// 短信验证码表（开发环境直接返回验证码，生产环境对接短信服务）
+model SmsCode {
+  id        String   @id @default(cuid())
+  phone     String                    // 手机号
+  code      String                     // 验证码（6位数字）
+  used      Boolean  @default(false)  // 是否已使用
+  ip        String?                    // 请求 IP（用于限流）
+  expiresAt DateTime                   // 过期时间（通常5分钟）
+  createdAt DateTime @default(now())
+
+  // 关联
+  user      User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String?
+
+  @@index([phone])
+  @@index([expiresAt])
+  @@index([userId])
+  @@map("sms_codes")
 }
 
 // ==================== 学习计划模块 ====================

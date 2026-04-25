@@ -1,5 +1,6 @@
 /**
  * 小打卡 - 首页
+ * 阶段一改造：删除硬编码假数据，API 失败时显示空状态
  */
 var api = require('../../utils/api')
 var constants = require('../../utils/constants')
@@ -14,16 +15,6 @@ var getTodayDate = constants.getTodayDate
 var getSubjectIcon = constants.getSubjectIcon
 var ENCOURAGEMENTS = constants.ENCOURAGEMENTS
 
-// 默认演示数据
-function getDefaultTasks() {
-  return [
-    { id: 'demo-1', subject: '语文', title: '背诵古诗一首', isCompleted: false, completedCount: 5, totalCount: 30 },
-    { id: 'demo-2', subject: '数学', title: '完成10道口算题', isCompleted: false, completedCount: 3, totalCount: 20 },
-    { id: 'demo-3', subject: '英语', title: '背单词15个', isCompleted: true, completedCount: 8, totalCount: 12 },
-    { id: 'demo-4', subject: '阅读', title: '课外阅读30分钟', isCompleted: false, completedCount: 2, totalCount: 15 }
-  ]
-}
-
 Page({
   data: {
     greeting: '早上好',
@@ -34,18 +25,55 @@ Page({
     totalCount: 0,
     progressPercent: 0,
     stats: { totalPlans: 0, totalCheckins: 0, totalStars: 0, streak: 0 },
-    encouragement: { title: '小贴士', text: '每天坚持一点点，进步看得见！🌟' }
+    encouragement: { title: '小贴士', text: '每天坚持一点点，进步看得见！🌟' },
+    isEmpty: false,
+    emptyTip: '暂无数据',
+    _loadingLock: false
   },
 
   onShow: function() {
     this.setData({ greeting: getGreeting(), todayDate: getTodayDate() })
-    this.loadHomeData()
+    // 先从缓存恢复（瞬间显示），再静默刷新
+    this._restoreFromCache()
+    // 防抖：如果正在加载中则不重复请求
+    if (!this.data._loadingLock) {
+      this.loadHomeData()
+    }
+  },
+
+  /**
+   * 从缓存快速恢复上次数据，让页面切换更丝滑
+   */
+  _restoreFromCache: function() {
+    try {
+      var cachedUser = wx.getStorageSync('home_userInfo')
+      if (cachedUser) {
+        var ui = typeof cachedUser === 'string' ? JSON.parse(cachedUser) : cachedUser
+        if (ui && ui.nickname) this.setData({ userInfo: ui })
+      }
+      var cachedTasks = wx.getStorageSync('home_tasks')
+      if (cachedTasks) {
+        var tasks = typeof cachedTasks === 'string' ? JSON.parse(cachedTasks) : cachedTasks
+        if (tasks && tasks.length > 0) {
+          for (var i = 0; i < tasks.length; i++) {
+            tasks[i].subjectIcon = getSubjectIcon(tasks[i].subject)
+          }
+          this.setData({ todayTasks: tasks })
+          this.updateProgress()
+        }
+      }
+      var cachedStats = wx.getStorageSync('home_stats')
+      if (cachedStats) {
+        this.setData({ stats: typeof cachedStats === 'string' ? JSON.parse(cachedStats) : cachedStats })
+      }
+    } catch (e) { /* 缓存读取失败则忽略 */ }
   },
 
   loadHomeData: function() {
     var that = this
+    // 加锁防止重复请求
+    that.setData({ _loadingLock: true })
 
-    // api.request 永远 resolve，不会 reject
     Promise.all([
       userApi.getMe(),
       planApi.todayProgress(),
@@ -59,6 +87,7 @@ Page({
 
       var hasAnySuccess = false
 
+      // 用户信息
       if (userRes.success && userRes.data) {
         hasAnySuccess = true
         var userInfo = {}
@@ -72,6 +101,7 @@ Page({
         wx.setStorageSync('home_userInfo', JSON.stringify(userInfo))
       }
 
+      // 今日任务
       if (plansRes.success && plansRes.data) {
         hasAnySuccess = true
         var rawTasks = plansRes.data || []
@@ -87,73 +117,53 @@ Page({
         that.setData({ todayTasks: tasks })
         wx.setStorageSync('home_tasks', JSON.stringify(tasks))
         that.updateProgress()
+      } else {
+        // 没有任务数据时显示空状态
+        that.setData({ todayTasks: [], isEmpty: false })
       }
 
+      // 统计数据
       if (statsRes.success && statsRes.data) {
         hasAnySuccess = true
         that.setData({ stats: statsRes.data })
         wx.setStorageSync('home_stats', JSON.stringify(statsRes.data))
       }
 
+      // 如果全部 API 都失败（可能是未登录或网络问题）
       if (!hasAnySuccess) {
-        that.loadCachedData()
+        that.handleEmptyState()
       }
 
+      that.setData({ _loadingLock: false })
       that.updateEncouragement()
+    }).catch(function(err) {
+      console.error('首页数据加载失败:', err)
+      that.setData({ _loadingLock: false })
+      that.handleEmptyState()
     })
   },
 
-  loadCachedData: function() {
-    var that = this
-    try {
-      var cachedUser = wx.getStorageSync('home_userInfo')
-      if (cachedUser) {
-        var ui = typeof cachedUser === 'string' ? JSON.parse(cachedUser) : cachedUser
-        that.setData({ userInfo: ui })
-      } else {
-        that.setData({
-          userInfo: { nickname: '小明同学', avatar: '😊', currentStars: 50, totalStars: 50, grade: '小学三年级' }
-        })
-      }
-
-      var cachedTasks = wx.getStorageSync('home_tasks')
-      if (cachedTasks) {
-        var tasks = typeof cachedTasks === 'string' ? JSON.parse(cachedTasks) : cachedTasks
-        for (var i = 0; i < tasks.length; i++) {
-          tasks[i].subjectIcon = getSubjectIcon(tasks[i].subject)
-        }
-        that.setData({ todayTasks: tasks })
-        that.updateProgress()
-      } else {
-        // 使用默认任务数据
-        var defaultTasks = getDefaultTasks()
-        for (var j = 0; j < defaultTasks.length; j++) {
-          defaultTasks[j].subjectIcon = getSubjectIcon(defaultTasks[j].subject)
-        }
-        that.setData({ todayTasks: defaultTasks })
-        that.updateProgress()
-      }
-
-      var cachedStats = wx.getStorageSync('home_stats')
-      if (cachedStats) {
-        that.setData({ stats: typeof cachedStats === 'string' ? JSON.parse(cachedStats) : cachedStats })
-      } else {
-        that.setData({
-          stats: { totalPlans: 3, totalCheckins: 7, totalStars: 35, streak: 2 }
-        })
-      }
-    } catch (e) {
-      // 最终兜底默认值
-      var fallbackTasks = getDefaultTasks()
-      for (var fi = 0; fi < fallbackTasks.length; fi++) {
-        fallbackTasks[fi].subjectIcon = getSubjectIcon(fallbackTasks[fi].subject)
-      }
-      that.setData({
-        userInfo: { nickname: '小朋友', avatar: '😊', currentStars: 0 },
-        todayTasks: fallbackTasks,
+  /**
+   * 处理空状态
+   */
+  handleEmptyState: function() {
+    var userId = wx.getStorageSync('userId')
+    if (!userId) {
+      // 未登录，提示去登录
+      this.setData({
+        isEmpty: true,
+        emptyTip: '请先登录后再使用',
+        todayTasks: [],
+        userInfo: {},
         stats: { totalPlans: 0, totalCheckins: 0, totalStars: 0, streak: 0 }
       })
-      that.updateProgress()
+    } else {
+      // 已登录但无数据
+      this.setData({
+        isEmpty: true,
+        emptyTip: '还没有学习计划，去创建一个吧~',
+        todayTasks: []
+      })
     }
   },
 
@@ -200,13 +210,22 @@ Page({
       this.updateEncouragement()
       wx.setStorageSync('home_tasks', JSON.stringify(todayTasks))
 
-      // 更新星星数
-      var userInfo = this.data.userInfo
-      var newStars = (userInfo.currentStars || 0) + 5
-      userInfo.currentStars = newStars
-      this.setData({ userInfo: userInfo })
-      wx.setStorageSync('home_userInfo', JSON.stringify(userInfo))
+      // 更新星星数（从后端获取最新）
+      this.refreshUserInfo()
     }
+  },
+
+  /**
+   * 刷新用户信息（获取最新星星数等）
+   */
+  refreshUserInfo: function() {
+    var that = this
+    userApi.getMe().then(function(res) {
+      if (res.success && res.data) {
+        that.setData({ userInfo: res.data })
+        wx.setStorageSync('home_userInfo', JSON.stringify(res.data))
+      }
+    })
   },
 
   goToPlans: function() { wx.switchTab({ url: '/pages/plans/plans' }) },

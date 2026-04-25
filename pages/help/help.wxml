@@ -97,11 +97,11 @@
     </view>
 
     <button 
-      class="submit-btn {{submitting ? 'disabled' : ''}}"
+      class="submit-btn {{submitting ? 'btn-loading' : ''}}"
       bindtap="submitFeedback"
       disabled="{{submitting}}"
     >
-      {{submitting ? '提交中...' : '📤 提交反馈'}}
+      📤 提交反馈
     </button>
   </view>
 

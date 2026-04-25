@@ -1,5 +1,6 @@
 /**
  * 小打卡 - 设置页
+ * 阶段一改造：保存资料时真正调用后端 API
  */
 var api = require('../../utils/api')
 var constants = require('../../utils/constants')
@@ -22,7 +23,8 @@ Page({
       darkMode: false,
       showStats: true
     },
-    cacheSize: '0 KB'
+    cacheSize: '0 KB',
+    saving: false
   },
 
   onLoad: function() {
@@ -32,16 +34,17 @@ Page({
   },
 
   loadUserInfo: function() {
-    try {
-      var cachedUser = wx.getStorageSync('home_userInfo')
-      if (cachedUser) {
-        var info = typeof cachedUser === 'string' ? JSON.parse(cachedUser) : cachedUser
+    // 从后端获取用户信息
+    var that = this
+    userApi.getMe().then(function(res) {
+      if (res.success && res.data) {
+        var info = res.data
         var gradeIndex = -1
         for (var i = 0; i < GRADES.length; i++) {
           if (GRADES[i] === (info.grade || '小学三年级')) { gradeIndex = i; break }
         }
-        
-        this.setData({
+
+        that.setData({
           userInfo: {
             nickname: info.nickname || '',
             avatar: info.avatar || '😊',
@@ -50,7 +53,10 @@ Page({
           gradeIndex: gradeIndex >= 0 ? gradeIndex : 2
         })
       }
-    } catch (e) {}
+      // 失败时保持默认值（空字符串），不使用假数据
+    }).catch(function(err) {
+      console.error('加载用户信息失败:', err)
+    })
   },
 
   loadSettings: function() {
@@ -77,24 +83,36 @@ Page({
   saveProfile: function() {
     var that = this
     var userInfo = that.data.userInfo
-    
+
     if (!userInfo.nickname.trim()) {
       wx.showToast({ title: '请输入昵称', icon: 'none' })
       return
     }
 
-    userApi.updateProfile(userInfo).then(function() {
-      // 更新全局数据
-      var app = getApp()
-      var newGlobalUserInfo = {}
-      if (app.globalData && app.globalData.userInfo) {
-        for (var k in app.globalData.userInfo) { newGlobalUserInfo[k] = app.globalData.userInfo[k] }
+    that.setData({ saving: true })
+
+    userApi.updateProfile(userInfo).then(function(res) {
+      that.setData({ saving: false })
+
+      if (res.success) {
+        // 更新全局数据
+        var app = getApp()
+        var newGlobalUserInfo = {}
+        if (app.globalData && app.globalData.userInfo) {
+          for (var k in app.globalData.userInfo) { newGlobalUserInfo[k] = app.globalData.userInfo[k] }
+        }
+        for (var k2 in userInfo) { newGlobalUserInfo[k2] = userInfo[k2] }
+        if (app.globalData) { app.globalData.userInfo = newGlobalUserInfo }
+        wx.setStorageSync('home_userInfo', JSON.stringify(userInfo))
+
+        wx.showToast({ title: '保存成功！', icon: 'success' })
+      } else {
+        wx.showToast({ title: res.message || '保存失败', icon: 'none' })
       }
-      for (var k2 in userInfo) { newGlobalUserInfo[k2] = userInfo[k2] }
-      if (app.globalData) { app.globalData.userInfo = newGlobalUserInfo }
-      wx.setStorageSync('home_userInfo', JSON.stringify(userInfo))
-      
-      wx.showToast({ title: '保存成功！', icon: 'success' })
+    }).catch(function(err) {
+      console.error('保存用户信息失败:', err)
+      that.setData({ saving: false })
+      wx.showToast({ title: '网络异常，请重试', icon: 'none' })
     })
   },
 
@@ -105,10 +123,10 @@ Page({
     for (var k in that.data.settings) { settings[k] = that.data.settings[k] }
     settings[key] = !settings[key]
     that.setData({ settings: settings })
-    
+
     try {
       wx.setStorageSync('settings', settings)
-      
+
       if (key === 'reminder' && settings.reminder) {
         that.setupReminder(settings.reminderTime)
       }
@@ -125,7 +143,7 @@ Page({
     settings.reminderTime = e.detail.value
     that.setData({ settings: settings })
     wx.setStorageSync('settings', settings)
-    
+
     if (settings.reminder) {
       that.setupReminder(e.detail.value)
     }
@@ -151,16 +169,21 @@ Page({
     var that = this
     wx.showModal({
       title: '清除缓存',
-      content: '确定要清除所有本地缓存数据吗？',
+      content: '确定要清除所有本地缓存数据吗？清除后需要重新登录。',
       confirmColor: '#FF9A3C',
       success: function(res) {
         if (res.confirm) {
           try {
             wx.clearStorageSync()
           } catch (e) {}
-          
+
           that.setData({ cacheSize: '0 KB' })
           wx.showToast({ title: '缓存已清除', icon: 'success' })
+
+          // 跳转到登录页
+          setTimeout(function() {
+            wx.reLaunch({ url: '/pages/login/login' })
+          }, 1000)
         }
       }
     })
@@ -184,7 +207,7 @@ Page({
 
   checkUpdate: function() {
     var updateManager = wx.getUpdateManager()
-    
+
     updateManager.onCheckForUpdate(function(res) {
       if (res.hasUpdate) {
         updateManager.onUpdateReady(function() {
@@ -198,7 +221,7 @@ Page({
             }
           })
         })
-        
+
         updateManager.onUpdateFailed(function() {
           wx.showToast({ title: '更新失败，请稍后重试', icon: 'none' })
         })
@@ -227,7 +250,7 @@ Page({
         var emojis = ['😊', '😄', '🥰', '😎', '🤓', '😇', '🥳', '😋']
         var randomEmoji = emojis[Math.floor(Math.random() * emojis.length)]
         that.setData({ 'userInfo.avatar': randomEmoji })
-        wx.showToast({ title: '头像已更换', icon: 'success' })
+        wx.showToast({ title: '头像已更换（请点击保存）', icon: 'none' })
       },
       fail: function() {}
     })

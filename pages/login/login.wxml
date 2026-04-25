@@ -1,4 +1,4 @@
-<!-- 小打卡 - 登录页 -->
+<!-- 小打卡 - 登录页（支持三种登录方式） -->
 <view class="login-page">
   <!-- Logo 区域 -->
   <view class="login-header">
@@ -7,32 +7,142 @@
     <view class="app-slogan">让学习变成一种习惯</view>
   </view>
 
-  <!-- 表单区域 -->
-  <view class="login-form">
-    <!-- 切换标签 -->
-    <view class="form-tabs">
-      <view 
-        class="tab {{mode === 'login' ? 'active' : ''}}" 
-        bindtap="switchMode" data-mode="login"
-      >登录</view>
-      <view 
-        class="tab {{mode === 'register' ? 'active' : ''}}"
-        bindtap="switchMode" data-mode="register"
-      >注册</view>
+  <!-- 微信一键登录（推荐） -->
+  <view class="wx-login-section" wx:if="{{!showOtherLogin}}">
+    <button
+      class="wx-login-btn {{wxLoggingIn ? 'disabled' : ''}}"
+      open-type="getPhoneNumber"
+      bindgetphonenumber="onGetWxPhoneNumber"
+      disabled="{{wxLoggingIn}}"
+    >
+      <text class="wx-icon">💬</text>
+      <text>{{wxLoggingIn ? '微信一键登录' : '微信一键登录'}}</text>
+    </button>
+
+    <view class="wx-silent-login" bindtap="handleWxSilentLogin">
+      <text>仅微信登录（不绑定手机号）</text>
     </view>
 
-    <!-- 输入框 -->
+    <view class="other-login-entry" bindtap="toggleOtherLogin">
+      <text>其他登录方式 ▼</text>
+    </view>
+  </view>
+
+  <!-- 其他登录方式（短信 / 密码） -->
+  <view class="login-form" wx:if="{{showOtherLogin}}">
+    <!-- 返回微信登录 -->
+    <view class="back-wx" bindtap="toggleOtherLogin" wx:if="{{!isDev}}">
+      <text class="back-arrow">← </text>
+      <text>返回微信登录</text>
+    </view>
+
+    <!-- 切换标签：短信登录 / 密码登录 -->
+    <view class="form-tabs">
+      <view
+        class="tab {{loginMode === 'sms' ? 'active' : ''}}"
+        bindtap="switchLoginMode"
+        data-mode="sms"
+      >短信登录</view>
+      <view
+        class="tab {{loginMode === 'password' ? 'active' : ''}}"
+        bindtap="switchLoginMode"
+        data-mode="password"
+      >密码登录</view>
+    </view>
+
+    <!-- ========== 统一表单区域 ========== -->
     <view class="form-fields">
       <!-- 手机号 -->
       <view class="form-item">
         <view class="input-icon">📱</view>
         <input
           class="form-input"
-          type="text"
+          type="number"
           placeholder="请输入手机号"
           maxlength="11"
           value="{{form.phone}}"
           bindinput="onPhoneInput"
+        />
+      </view>
+
+      <!-- 短信验证码（仅短信模式） -->
+      <block wx:if="{{loginMode === 'sms'}}">
+        <view class="form-item sms-code-item">
+          <view class="input-icon">🔑</view>
+          <input
+            class="form-input code-input"
+            type="number"
+            placeholder="请输入验证码"
+            maxlength="6"
+            value="{{form.smsCode}}"
+            bindinput="onSmsCodeInput"
+          />
+          <view
+            class="send-code-btn {{smsCooldown > 0 || !form.phone ? 'disabled' : ''}}"
+            bindtap="sendSmsCode"
+          >
+            {{smsCooldown > 0 ? smsCooldown + 's后重发' : '获取验证码'}}
+          </view>
+        </view>
+      </block>
+
+      <!-- 密码（仅密码模式） -->
+      <block wx:if="{{loginMode === 'password'}}">
+        <view class="form-item">
+          <view class="input-icon">🔒</view>
+          <input
+            class="form-input"
+            type="text"
+            password="{{true}}"
+            placeholder="请输入密码（至少6位）"
+            value="{{form.password}}"
+            bindinput="onPasswordInput"
+          />
+        </view>
+      </block>
+    </view>
+
+    <!-- 提交按钮 -->
+    <button
+      class="submit-btn {{loading ? 'disabled' : ''}}"
+      bindtap="handleSubmit"
+      disabled="{{loading}}"
+    >
+      {{loginMode === 'sms' ? '登 录' : '登 录'}}
+    </button>
+
+    <!-- 密码模式下的辅助操作 -->
+    <view class="form-extra" wx:if="{{loginMode === 'password'}}">
+      <text class="link" bindtap="showRegisterModal">注册新账号</text>
+      <text class="divider">|</text>
+      <text class="link" bindtap="switchToSmsLogin">用验证码登录</text>
+    </view>
+
+    <!-- 开发环境演示入口 -->
+    <view class="demo-mode" wx:if="{{isDev}}">
+      <text bindtap="handleDemoLogin">开发模式：跳过登录 →</text>
+    </view>
+  </view>
+
+  <!-- ==================== 注册弹窗（Modal）==================== -->
+  <view class="register-mask" wx:if="{{showRegisterModal}}" bindtap="hideRegisterModal"></view>
+  <view class="register-modal {{showRegisterModal ? 'show' : ''}}" catchtouchmove="preventMove">
+    <view class="modal-header">
+      <text class="modal-title">注册新账号</text>
+      <view class="modal-close" bindtap="hideRegisterModal">✕</view>
+    </view>
+
+    <view class="modal-body">
+      <!-- 手机号 -->
+      <view class="form-item">
+        <view class="input-icon">📱</view>
+        <input
+          class="form-input"
+          type="number"
+          placeholder="请输入手机号"
+          maxlength="11"
+          value="{{regForm.phone}}"
+          bindinput="onRegPhoneInput"
         />
       </view>
 
@@ -43,55 +153,62 @@
           class="form-input"
           type="text"
           password="{{true}}"
-          placeholder="请输入密码（至少6位）"
-          value="{{form.password}}"
-          bindinput="onPasswordInput"
+          placeholder="设置密码（至少6位）"
+          value="{{regForm.password}}"
+          bindinput="onRegPasswordInput"
         />
       </view>
 
-      <!-- 注册额外字段 -->
-      <block wx:if="{{mode === 'register'}}">
-        <!-- 昵称 -->
-        <view class="form-item">
-          <view class="input-icon">👤</view>
-          <input
-            class="form-input"
-            type="text"
-            placeholder="请输入昵称（可选）"
-            value="{{form.nickname}}"
-            bindinput="onNicknameInput"
-          />
-        </view>
+      <!-- 确认密码 -->
+      <view class="form-item">
+        <view class="input-icon">🔒</view>
+        <input
+          class="form-input"
+          type="text"
+          password="{{true}}"
+          placeholder="确认密码"
+          value="{{regForm.confirmPassword}}"
+          bindinput="onRegConfirmPwdInput"
+        />
+      </view>
 
-        <!-- 年级选择 -->
-        <view class="form-item">
-          <view class="input-icon">📚</view>
-          <picker mode="selector" range="{{grades}}" value="{{gradeIndex}}" bindchange="onGradeChange">
-            <view class="form-select">{{form.grade || '请选择年级'}} ▼</view>
-          </picker>
-        </view>
-      </block>
+      <!-- 昵称（可选） -->
+      <view class="form-item">
+        <view class="input-icon">👤</view>
+        <input
+          class="form-input"
+          type="text"
+          placeholder="昵称（可选）"
+          value="{{regForm.nickname}}"
+          bindinput="onRegNicknameInput"
+        />
+      </view>
+
+      <!-- 年级选择 -->
+      <view class="form-item">
+        <view class="input-icon">📚</view>
+        <picker mode="selector" range="{{grades}}" value="{{regGradeIndex}}" bindchange="onRegGradeChange">
+          <view class="form-select">{{regForm.grade || '请选择年级'}} ▼</view>
+        </picker>
+      </view>
     </view>
 
-    <!-- 提交按钮 -->
-    <button 
-      class="submit-btn {{loading ? 'disabled' : ''}}"
-      bindtap="handleSubmit"
-      disabled="{{loading}}"
-    >
-      {{loading ? '处理中...' : (mode === 'login' ? '登录' : '注册')}}
-    </button>
-
-    <!-- 演示模式 -->
-    <view class="demo-mode">
-      <text bindtap="handleDemoLogin">跳过登录，直接体验 →</text>
+    <view class="modal-footer">
+      <button
+        class="submit-btn reg-submit-btn {{regLoading ? 'disabled' : ''}}"
+        bindtap="handleRegisterFromModal"
+        disabled="{{regLoading}}"
+      >
+        {{regLoading ? '注 册' : '注 册'}}
+      </button>
+      <view class="reg-tip">注册即赠送 50 颗星星 ⭐</view>
     </view>
   </view>
 
   <!-- 底部说明 -->
   <view class="login-footer">
     <view class="footer-text">
-      {{mode === 'register' ? '注册即表示同意' : '登录即表示同意'}}
+      登录即表示同意
       <text class="link">《用户协议》</text>和<text class="link">《隐私政策》</text>
     </view>
   </view>

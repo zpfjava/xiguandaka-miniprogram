@@ -1,5 +1,6 @@
 /**
  * 小打卡 - 学习计划页
+ * 阶段一改造：删除硬编码 demo 数据，API 失败时显示空状态
  */
 var api = require('../../utils/api')
 var constants = require('../../utils/constants')
@@ -19,16 +20,49 @@ Page({
     subjects: SUBJECTS,
     frequencies: FREQUENCIES,
     formSubjectIndex: 0,
-    formFreqIndex: 0
+    formFreqIndex: 0,
+    loading: false,
+    isEmpty: false,
+    _loadingLock: false
   },
 
-  onShow: function() { this.loadPlans() },
+  onShow: function() {
+    // 先从缓存恢复（瞬间显示），再静默刷新
+    this._restoreFromCache()
+    // 防抖：如果正在加载中则不重复请求
+    if (!this.data._loadingLock) {
+      this.loadPlans()
+    }
+  },
+
+  /**
+   * 从缓存快速恢复，让切换更丝滑
+   */
+  _restoreFromCache: function() {
+    try {
+      var cached = wx.getStorageSync('plans')
+      if (cached) {
+        var plans = typeof cached === 'string' ? JSON.parse(cached) : cached
+        if (plans && plans.length > 0) {
+          this.setData({ plans: plans, isEmpty: false })
+        }
+      }
+    } catch (e) { /* ignore */ }
+  },
 
   loadPlans: function() {
     var that = this
+    that.setData({ _loadingLock: true })
+
     planApi.getAll().then(function(res) {
+      that.setData({ _loadingLock: false })
+
       if (res.success && res.data) {
         var rawPlans = res.data || []
+        if (rawPlans.length === 0) {
+          that.setData({ plans: [], isEmpty: true })
+          return
+        }
         var plans = []
         for (var i = 0; i < rawPlans.length; i++) {
           var p = rawPlans[i]
@@ -40,30 +74,17 @@ Page({
           plan.progressPercent = total > 0 ? Math.round((completed / total) * 100) : 0
           plans.push(plan)
         }
-        that.setData({ plans: plans })
+        that.setData({ plans: plans, isEmpty: false })
         wx.setStorageSync('plans', JSON.stringify(plans))
       } else {
-        that.loadCachedPlans()
+        // API 返回失败
+        console.warn('获取计划列表失败:', res.message)
+        that.setData({ plans: [], isEmpty: true })
       }
+    }).catch(function(err) {
+      console.error('加载计划失败:', err)
+      that.setData({ _loadingLock: false, plans: [], isEmpty: true })
     })
-  },
-
-  loadCachedPlans: function() {
-    var that = this
-    try {
-      var cached = wx.getStorageSync('plans')
-      if (cached) {
-        that.setData({ plans: typeof cached === 'string' ? JSON.parse(cached) : cached })
-        return
-      }
-      that.setData({
-        plans: [
-          { id: 'demo-1', subject: '语文', subjectIcon: '📖', title: '背诵古诗一首', frequency: '每天', isActive: true, completedCount: 5, totalCount: 30, progressPercent: 17 },
-          { id: 'demo-2', subject: '数学', subjectIcon: '🔢', title: '完成10道口算题', frequency: '每天', isActive: true, completedCount: 3, totalCount: 20, progressPercent: 15 },
-          { id: 'demo-3', subject: '英语', subjectIcon: '🔤', title: '背单词15个', frequency: '每周3次', isActive: true, completedCount: 2, totalCount: 12, progressPercent: 17 }
-        ]
-      })
-    } catch (e) {}
   },
 
   showAddModal: function() {
@@ -105,29 +126,22 @@ Page({
       ? function() { return planApi.update(editingPlan.id, form) }
       : function() { return planApi.create(form) }
 
-    doSave().then(function() {
-      // 本地更新（无论 API 是否成功）
-      var plans = that.data.plans.slice()
-      if (editingPlan) {
-        for (var i = 0; i < plans.length; i++) {
-          if (plans[i].id === editingPlan.id) {
-            for (var k in form) { plans[i][k] = form[k] }
-            break
-          }
-        }
+    doSave().then(function(res) {
+      if (res.success) {
+        // API 成功：先重置 saving 状态，再刷新和关闭
+        that.setData({ saving: false })
+        that.loadPlans()
+        that.hideAddModal()
+        wx.showToast({ title: editingPlan ? '已更新' : '已创建', icon: 'success' })
       } else {
-        plans.push({
-          id: 'local-' + Date.now(), subject: form.subject, title: form.title,
-          frequency: form.frequency, targetCount: form.targetCount, notes: form.notes,
-          subjectIcon: getSubjectIcon(form.subject), isActive: true,
-          completedCount: 0, totalCount: parseInt(form.targetCount) || 30, progressPercent: 0
-        })
+        // API 失败：提示错误
+        wx.showToast({ title: res.message || '保存失败', icon: 'none' })
+        that.setData({ saving: false })
       }
-      that.setData({ plans: plans, saving: false })
-      that.hideAddModal()
-      // 同步到缓存
-      wx.setStorageSync('plans', JSON.stringify(plans))
-      wx.showToast({ title: editingPlan ? '已更新' : '已创建', icon: 'success' })
+    }).catch(function(err) {
+      console.error('保存计划失败:', err)
+      wx.showToast({ title: '网络异常，请重试', icon: 'none' })
+      that.setData({ saving: false })
     })
   },
 
@@ -137,7 +151,7 @@ Page({
     for (var i = 0; i < SUBJECTS.length; i++) { if (SUBJECTS[i] === item.subject) { si = i; break } }
     for (var j = 0; j < FREQUENCIES.length; j++) { if (FREQUENCIES[j] === item.frequency) { fi = j; break } }
     this.setData({
-      showModal: true, editingPlan: item,
+      showModal: true, editingPlan: item, saving: false,
       form: { subject: item.subject||'', title: item.title||'', frequency: item.frequency||'每天', targetCount: item.targetCount||item.totalCount||30, notes: item.notes||'' },
       formSubjectIndex: si >= 0 ? si : 0, formFreqIndex: fi >= 0 ? fi : 0
     })
@@ -151,15 +165,14 @@ Page({
       confirmColor: '#F44336',
       success: function(res) {
         if (res.confirm) {
-          planApi.remove(id)
-          var plans = []
-          for (var i = 0; i < that.data.plans.length; i++) {
-            if (that.data.plans[i].id !== id) plans.push(that.data.plans[i])
-          }
-          that.setData({ plans: plans })
-          // 同步到缓存
-          wx.setStorageSync('plans', JSON.stringify(plans))
-          wx.showToast({ title: '已删除', icon: 'success' })
+          planApi.remove(id).then(function(res) {
+            if (res.success) {
+              that.loadPlans()
+              wx.showToast({ title: '已删除', icon: 'success' })
+            } else {
+              wx.showToast({ title: res.message || '删除失败', icon: 'none' })
+            }
+          })
         }
       }
     })
@@ -168,13 +181,17 @@ Page({
   togglePlanActive: function(e) {
     var id = e.currentTarget.dataset.id
     var isActive = e.detail.checked
-    var plans = this.data.plans
-    for (var i = 0; i < plans.length; i++) {
-      if (plans[i].id === id) { plans[i].isActive = isActive; break }
-    }
-    this.setData({ plans: plans })
-    wx.setStorageSync('plans', JSON.stringify(plans))
-    planApi.update(id, { isActive: isActive })
+    planApi.update(id, { isActive: isActive }).then(function(res) {
+      if (!res.success) {
+        wx.showToast({ title: '操作失败', icon: 'none' })
+        // 回滚 UI 状态
+        var plans = that.data.plans.slice()
+        for (var i = 0; i < plans.length; i++) {
+          if (plans[i].id === id) { plans[i].isActive = !isActive; break }
+        }
+        that.setData({ plans: plans })
+      }
+    })
   },
 
   goToCheckin: function(e) {

@@ -1,7 +1,9 @@
 /**
  * 小打卡 - API 请求封装
- * 核心：所有请求永不 reject，失败时 resolve { success: false }
+ * 核心：请求失败时 resolve { success: false }，由调用方决定如何处理
  */
+
+var config = require('./config')
 
 var app = null
 
@@ -19,7 +21,7 @@ function getGlobalData() {
   }
   // 返回安全的默认值
   return {
-    apiBase: 'http://localhost:3000',
+    apiBase: config.getApiBase(),
     userId: wx.getStorageSync('userId') || '',
     isLoggedIn: false,
     userInfo: null
@@ -39,7 +41,7 @@ function request(options) {
 
     var gd = getGlobalData()
     var userId = gd.userId || ''
-    var apiBase = gd.apiBase || 'http://localhost:3000'
+    var apiBase = gd.apiBase || config.getApiBase()
 
     wx.request({
       url: apiBase + url,
@@ -67,10 +69,10 @@ function request(options) {
           resolve({ success: false, message: '服务器错误(' + res.statusCode + ')' })
         }
       },
-      fail: function() {
+      fail: function(err) {
         if (showLoading) { wx.hideLoading() }
-        // 网络失败：resolve 而非 reject，避免控制台报错
-        resolve({ success: false, _offline: true, message: '网络不可用' })
+        // 网络失败：resolve 而非 reject，携带离线标记
+        resolve({ success: false, _offline: true, message: '网络不可用，请检查网络连接' })
       }
     })
   })
@@ -116,10 +118,21 @@ function all(requests) {
 
 var userApi = {
   getMe: function() { return get('/users/me') },
-  updateProfile: function(data) { return put('/users/me', data) },
-  wxLogin: function(code) { return post('/auth/wx-login', { code: code }) },
+  updateProfile: function(data) { return post('/users/profile', data) },
+
+  // 密码登录
   login: function(phone, password) { return post('/auth/login', { phone: phone, password: password }) },
-  register: function(data) { return post('/auth/register', data) }
+  register: function(data) { return post('/auth/register', data) },
+
+  // 短信验证码
+  sendSmsCode: function(phone) { return post('/auth/sms/send', { phone: phone }) },
+  smsLogin: function(phone, code) { return post('/auth/sms/login', { phone: phone, code: code }) },
+
+  // 微信登录
+  wxLogin: function(code, extraData) {
+    var data = Object.assign({ code: code }, extraData || {})
+    return post('/auth/wx-login', data)
+  }
 }
 
 var planApi = {
