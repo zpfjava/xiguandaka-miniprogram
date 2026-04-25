@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    container_name: xiaodaka-backend
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - DATABASE_URL=file:./dev.db
+    volumes:
+      - ./backend/prisma:/app/prisma
+    restart: unless-stopped

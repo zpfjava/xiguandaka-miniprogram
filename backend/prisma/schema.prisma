@@ -1,0 +1,232 @@
+// Prisma Schema - 小打卡数据库模型
+// 数据库：SQLite
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:../dev.db"
+}
+
+// ==================== 用户模块 ====================
+
+/// 用户表
+model User {
+  id            String    @id @default(cuid())
+  openid        String?   @unique  // 微信 OpenID（可选）
+  phone         String?   @unique  // 手机号
+  password      String?            // 密码（加密存储）
+  nickname      String?
+  avatar        String?
+  grade         String?            // 年级
+  totalStars    Int       @default(0)  // 累计星星数
+  currentStars  Int       @default(0)  // 当前可用星星
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // 关联
+  studyPlans    StudyPlan[]
+  checkins      Checkin[]
+  wishlists     Wishlist[]
+  pointsHistory PointsHistory[]
+  achievements  UserAchievement[]
+  feedbacks     Feedback[]
+  parentBinds   ParentBind[]
+  dailyCheckins DailyCheckin[]
+
+  @@map("users")
+}
+
+// ==================== 学习计划模块 ====================
+
+/// 学习计划表
+model StudyPlan {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String                    // 计划标题
+  subject     String                    // 学科（语文、数学、英语等）
+  description String?                   // 计划描述
+  frequency   String    @default("daily") // 频率：daily, weekly
+  targetCount Int       @default(1)     // 目标次数
+  starsReward Int       @default(5)     // 完成奖励星星数
+  isActive    Boolean   @default(true)
+  startDate   DateTime  @default(now())
+  endDate     DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // 关联
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  checkins Checkin[]
+
+  @@index([userId])
+  @@index([subject])
+  @@map("study_plans")
+}
+
+// ==================== 打卡模块 ====================
+
+/// 打卡记录表
+model Checkin {
+  id         String   @id @default(cuid())
+  userId     String
+  planId     String
+  content    String?                  // 打卡内容/笔记
+  imageUrls  String?                  // 图片URL（JSON数组）
+  mood       String?                  // 心情：happy, normal, tired
+  starsGot   Int      @default(5)     // 获得的星星数
+  checkinAt  DateTime @default(now()) // 打卡时间
+  createdAt  DateTime @default(now())
+
+  // 关联
+  user User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan StudyPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, planId, checkinAt]) // 同一计划同一天只能打卡一次
+  @@index([userId])
+  @@index([planId])
+  @@index([checkinAt])
+  @@map("checkins")
+}
+
+// ==================== 积分模块 ====================
+
+/// 积分历史记录
+model PointsHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  change    Int                       // 积分变化（正为获得，负为消耗）
+  reason    String                    // 原因：checkin_reward, wish_redeem, bonus
+  relatedId String?                   // 关联ID（打卡ID或愿望ID）
+  balance   Int                       // 变更后余额
+  createdAt DateTime @default(now())
+
+  // 关联
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("points_history")
+}
+
+// ==================== 愿望清单模块 ====================
+
+/// 愿望清单
+model Wishlist {
+  id          String    @id @default(cuid())
+  userId      String
+  title       String                    // 愿望标题
+  description String?                   // 愿望描述
+  starsCost   Int                       // 需要的星星数
+  status      String    @default("pending") // pending, redeemed, cancelled
+  redeemedAt  DateTime?                 // 兑换时间
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // 关联
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@map("wishlists")
+}
+
+// ==================== 成就模块 ====================
+
+/// 成就定义表（静态配置）
+model Achievement {
+  id          String   @id @default(cuid())
+  name        String              // 成就名称
+  description String              // 成就描述
+  icon        String              // 成就图标 emoji
+  starsReward Int       @default(10) // 奖励星星数
+  createdAt   DateTime @default(now())
+
+  // 关联
+  userAchievements UserAchievement[]
+
+  @@map("achievements")
+}
+
+/// 用户成就表
+model UserAchievement {
+  id            String   @id @default(cuid())
+  userId        String
+  achievementId String
+  starsGot      Int       @default(0) // 获得的星星奖励
+  unlockedAt    DateTime  @default(now())
+
+  // 关联
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievement Achievement  @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, achievementId]) // 同一用户同一成就只能解锁一次
+  @@index([userId])
+  @@index([achievementId])
+  @@map("user_achievements")
+}
+
+// ==================== 反馈模块 ====================
+
+/// 用户反馈
+model Feedback {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String              // bug, suggestion, other
+  content   String              // 反馈内容
+  contact   String?             // 联系方式
+  status    String   @default("pending") // pending, processed, ignored
+  reply     String?             // 官方回复
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // 关联
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("feedbacks")
+}
+
+// ==================== 家长绑定模块 ====================
+
+/// 家长绑定关系
+model ParentBind {
+  id           String    @id @default(cuid())
+  userId       String              // 孩子用户 ID
+  parentName   String              // 家长称呼（妈妈、爸爸等）
+  parentPhone  String              // 家长手机号（加密存储）
+  notifications Boolean   @default(true) // 是否接收通知
+  verified     Boolean   @default(true) // 是否已验证
+  boundAt      DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // 关联
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId]) // 一个用户只能绑定一个家长
+  @@index([userId])
+  @@map("parent_binds")
+}
+
+// ==================== 每日签到模块 ====================
+
+/// 每日签到记录
+model DailyCheckin {
+  id        String   @id @default(cuid())
+  userId    String
+  stars     Int                   // 获得的星星数
+  streak    Int                   // 当时的连续签到天数
+  createdAt DateTime @default(now())
+
+  // 关联
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, createdAt]) // 每天只能签到一次
+  @@index([userId])
+  @@index([createdAt])
+  @@map("daily_checkins")
+}

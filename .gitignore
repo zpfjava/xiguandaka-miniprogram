@@ -1,6 +1,8 @@
 # =============================================
-# 小打卡 - 微信小程序 .gitignore
+# 小打卡 - 完整项目 .gitignore（小程序 + 后端）
 # =============================================
+
+# --- 微信小程序 ---
 
 # 个人开发环境配置（含本地调试偏好等）
 project.private.config.json
@@ -8,6 +10,28 @@ project.private.config.json
 # 微信开发者工具生成
 miniprogram_npm/
 project.config.backup
+
+# --- 后端 (NestJS + Prisma) ---
+
+# 依赖
+node_modules/
+
+# 编译输出
+dist/
+
+# 数据库文件（SQLite）
+*.db
+prisma/*.db
+
+# 环境变量（含敏感配置）
+.env
+.env.local
+.env.*.local
+
+# TypeScript 构建缓存
+tsconfig.tsbuildinfo
+
+# --- 通用 ---
 
 # OS
 .DS_Store
