@@ -1,6 +1,6 @@
 /**
  * 小打卡 - 登录/鉴权工具
- * 支持三种登录方式：
+ * 支持三种登录方式（同时兼容云开发和传统后端）：
  * 1. 微信一键登录（wx.login + getPhoneNumber）
  * 2. 短信验证码登录（自动注册）
  * 3. 手机号+密码登录
@@ -65,11 +65,15 @@ function getUserInfo() {
 
 /**
  * 统一处理登录响应
+ * 兼容云函数返回 _id 和 REST API 返回 id
  */
 function handleLoginResponse(res) {
   if (res.success && res.data) {
-    safeSetLoginStatus(res.data.id, res.data)
-    return res.data
+    var userData = res.data
+    // 兼容：云函数返回 _id，REST API 返回 id
+    var userId = userData._id || userData.id
+    safeSetLoginStatus(userId, userData)
+    return userData
   }
   // API 返回业务错误（如密码错误、验证码无效等）
   wx.showToast({ title: res.message || '操作失败', icon: 'none' })
@@ -81,7 +85,8 @@ function handleLoginResponse(res) {
  */
 function handleRequestError(err, actionName) {
   console.error(actionName + '失败:', err)
-  wx.showToast({ title: '网络异常，请检查后端服务是否启动', icon: 'none' })
+  var errMsg = config.USE_CLOUD ? '网络异常，请检查云函数是否部署' : '网络异常，请检查后端服务是否启动'
+  wx.showToast({ title: errMsg, icon: 'none' })
   return null
 }
 
@@ -97,7 +102,6 @@ function demoLogin() {
     return Promise.resolve(null)
   }
 
-  // 使用与后端 seed 脚本一致的 demo 用户 ID
   var demoUser = {
     id: 'demo_user_20260311',
     nickname: '小明同学',
@@ -114,9 +118,6 @@ function demoLogin() {
 
 // ==================== 方式1：手机号+密码登录 ====================
 
-/**
- * 手机号+密码登录
- */
 function phoneLogin(phone, password) {
   var api = require('./api')
 
@@ -127,9 +128,6 @@ function phoneLogin(phone, password) {
   })
 }
 
-/**
- * 注册（密码方式）
- */
 function register(data) {
   var api = require('./api')
 
@@ -142,21 +140,15 @@ function register(data) {
 
 // ==================== 方式2：短信验证码登录 ====================
 
-/**
- * 发送短信验证码
- * @param {string} phone - 手机号
- * @returns {Promise<{success:boolean, message:string, devCode?:string}>}
- */
 function sendSmsCode(phone) {
   var api = require('./api')
 
-  return api.request({
-    url: '/auth/sms/send',
-    method: 'POST',
-    data: { phone: phone },
-    showLoading: true
-  }).then(function(res) {
+  return api.userApi.sendSmsCode(phone).then(function(res) {
     if (res.success) {
+      // 开发环境下显示验证码
+      if (res.data && res.data._devCode) {
+        res.devCode = res.data._devCode
+      }
       return res
     }
     wx.showToast({ title: res.message || '发送失败', icon: 'none' })
@@ -166,21 +158,10 @@ function sendSmsCode(phone) {
   })
 }
 
-/**
- * 短信验证码登录（自动注册）
- * @param {string} phone - 手机号
- * @param {string} code - 6位验证码
- * @returns {Promise<Object|null>} 用户信息或 null
- */
 function smsLogin(phone, code) {
   var api = require('./api')
 
-  return api.request({
-    url: '/auth/sms/login',
-    method: 'POST',
-    data: { phone: phone, code: code },
-    showLoading: true
-  }).then(function(res) {
+  return api.userApi.smsLogin(phone, code).then(function(res) {
     return handleLoginResponse(res)
   }).catch(function(err) {
     return handleRequestError(err, '短信登录')
@@ -191,8 +172,7 @@ function smsLogin(phone, code) {
 
 /**
  * 微信静默登录（仅 openid，不获取手机号）
- * 调用 wx.login 获取 code，发送到后端换取 session
- * @returns {Promise<Object|null>} 用户信息或 null
+ * 云开发模式下直接调用 user 云函数的 wxLogin action
  */
 function wxLogin() {
   return new Promise(function(resolve) {
@@ -205,13 +185,9 @@ function wxLogin() {
         }
 
         var api = require('./api')
-        api.request({
-          url: '/auth/wx-login',
-          method: 'POST',
-          data: { code: loginRes.code }
-        }).then(function(res) {
+        api.userApi.wxLogin(loginRes.code).then(function(res) {
           if (res.success && res.data) {
-            safeSetLoginStatus(res.data.id, res.data)
+            safeSetLoginStatus(res.data._id || res.data.id, res.data)
             resolve(res.data)
           } else {
             wx.showToast({ title: res.message || '微信登录失败', icon: 'none' })
@@ -229,26 +205,10 @@ function wxLogin() {
   })
 }
 
-/**
- * 微信一键登录（获取手机号）
- * 需要通过 button open-type="getPhoneNumber" 触发，获取加密数据后解密
- * @param {string} code - getPhoneNumber 返回的 code
- * @param {string} encryptedData - 加密数据
- * @param {string} iv - 初始向量
- * @returns {Promise<Object|null>} 用户信息或 null
- */
 function wxPhoneLogin(code, encryptedData, iv) {
   var api = require('./api')
 
-  return api.request({
-    url: '/auth/wx-login',
-    method: 'POST',
-    data: {
-      code: code,
-      encryptedData: encryptedData,
-      iv: iv
-    }
-  }).then(function(res) {
+  return api.userApi.wxLogin(code, { encryptedData: encryptedData, iv: iv }).then(function(res) {
     return handleLoginResponse(res)
   }).catch(function(err) {
     return handleRequestError(err, '微信手机号登录')

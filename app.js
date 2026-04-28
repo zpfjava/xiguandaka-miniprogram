@@ -1,6 +1,6 @@
 /**
  * 小打卡 - 微信小程序入口
- * 全局逻辑：API基础配置、登录态管理、全局数据
+ * 全局逻辑：API基础配置、登录态管理、全局数据、云开发初始化
  */
 
 var config = require('./utils/config')
@@ -54,7 +54,8 @@ App({
     userId: null,
     userInfo: null,
     isLoggedIn: false,
-    version: '1.0.0'
+    version: '2.0.0',
+    useCloud: config.USE_CLOUD,
   },
 
   // 检查登录状态
@@ -74,7 +75,23 @@ App({
 
   // 小程序启动时执行
   onLaunch: function() {
-    console.log('小打卡小程序启动')
+    console.log('小打卡小程序启动 (v' + this.globalData.version + ', 云开发: ' + (config.USE_CLOUD ? '开启' : '关闭') + ')')
+
+    // 初始化云开发环境
+    if (config.USE_CLOUD && wx.cloud) {
+      var cloudEnv = config.getCloudEnv()
+      if (cloudEnv) {
+        wx.cloud.init({
+          env: cloudEnv,
+          traceUser: true,
+        })
+        console.log('[Cloud] 云开发已初始化, 环境:', cloudEnv)
+        this.globalData.cloudInitialized = true
+      } else {
+        console.warn('[Cloud] 未配置云开发环境ID，请在 utils/config.js 中设置 CLOUD_ENV_IDS.dev')
+        this.globalData.cloudInitialized = false
+      }
+    }
 
     // 检查登录状态
     checkLoginCache(this)

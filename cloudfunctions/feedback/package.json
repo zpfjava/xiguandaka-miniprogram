@@ -1,0 +1,1 @@
+{"name": "feedback", "version": "1.0.0", "description": "反馈云函数 - 提交/查询反馈", "main": "index.js", "dependencies": {"wx-server-sdk": "~2.6.3"}, "scripts": {"test": "echo \"Error: no test specified\" && exit 1"}, "author": "", "license": "ISC"}

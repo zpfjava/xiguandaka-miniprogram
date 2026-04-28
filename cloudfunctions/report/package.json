@@ -1,0 +1,1 @@
+{"name": "report", "version": "1.0.0", "description": "统计报告云函数 - 学习数据报表", "main": "index.js", "dependencies": {"wx-server-sdk": "~2.6.3"}, "scripts": {"test": "echo \"Error: no test specified\" && exit 1"}, "author": "", "license": "ISC"}

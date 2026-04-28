@@ -1,0 +1,1 @@
+{"name": "leaderboard", "version": "1.0.0", "description": "排行榜云函数 - 周/月打卡排行/连续天数排行", "main": "index.js", "dependencies": {"wx-server-sdk": "~2.6.3"}, "scripts": {"test": "echo \"Error: no test specified\" && exit 1"}, "author": "", "license": "ISC"}

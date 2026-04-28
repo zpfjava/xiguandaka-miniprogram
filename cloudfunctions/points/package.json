@@ -1,0 +1,1 @@
+{"name": "points", "version": "1.0.0", "description": "积分云函数 - 积分汇总/历史/奖励", "main": "index.js", "dependencies": {"wx-server-sdk": "~2.6.3"}, "scripts": {"test": "echo \"Error: no test specified\" && exit 1"}, "author": "", "license": "ISC"}

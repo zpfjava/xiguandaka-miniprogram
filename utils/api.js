@@ -1,6 +1,10 @@
 /**
  * 小打卡 - API 请求封装
- * 核心：请求失败时 resolve { success: false }，由调用方决定如何处理
+ * 支持双模式：
+ *   1. cloud (云开发) - 通过 wx.cloud.callFunction 调用云函数
+ *   2. http (传统后端) - 通过 wx.request 调用 REST API（保留兼容）
+ *
+ * 切换方式：修改 utils/config.js 中的 USE_CLOUD 配置
  */
 
 var config = require('./config')
@@ -19,7 +23,6 @@ function getGlobalData() {
   if (a && a.globalData) {
     return a.globalData
   }
-  // 返回安全的默认值
   return {
     apiBase: config.getApiBase(),
     userId: wx.getStorageSync('userId') || '',
@@ -27,6 +30,46 @@ function getGlobalData() {
     userInfo: null
   }
 }
+
+// ==================== 云函数调用 ====================
+
+/**
+ * 调用云函数
+ * @param {string} name - 云函数名
+ * @param {string} action - 操作类型
+ * @param {object} data - 请求数据
+ */
+function cloudCall(name, action, data) {
+  return new Promise(function(resolve) {
+    if (!wx.cloud) {
+      resolve({ success: false, message: '云开发未初始化，请检查配置' })
+      return
+    }
+
+    wx.cloud.callFunction({
+      name: name,
+      data: { action: action, data: data || {} },
+      success: function(res) {
+        var d = res.result
+        if (d && d.success !== undefined) {
+          if (d.success) {
+            resolve(d)
+          } else {
+            resolve({ success: false, message: d.message || '操作失败' })
+          }
+        } else {
+          resolve({ success: true, data: d })
+        }
+      },
+      fail: function(err) {
+        console.error('[cloudCall] error:', name, action, err)
+        resolve({ success: false, message: err.errMsg || '云函数调用失败', _offline: true })
+      }
+    })
+  })
+}
+
+// ==================== HTTP 请求（原逻辑，保留兼容）====================
 
 function request(options) {
   var url = options.url || ''
@@ -53,7 +96,6 @@ function request(options) {
       },
       success: function(res) {
         if (showLoading) { wx.hideLoading() }
-
         if (res.statusCode >= 200 && res.statusCode < 300) {
           var d = res.data
           if (d && d.success !== undefined) {
@@ -71,7 +113,6 @@ function request(options) {
       },
       fail: function(err) {
         if (showLoading) { wx.hideLoading() }
-        // 网络失败：resolve 而非 reject，携带离线标记
         resolve({ success: false, _offline: true, message: '网络不可用，请检查网络连接' })
       }
     })
@@ -114,96 +155,127 @@ function all(requests) {
   return Promise.all(requests)
 }
 
-// ==================== 业务 API ====================
+// ==================== 业务 API（自动适配云函数/HTTP）====================
+// 使用 config.USE_CLOUD 判断调用方式
 
+/**
+ * 统一调用入口：根据配置选择云函数或 HTTP
+ */
+function call(cloudName, httpUrl, action, data, method) {
+  if (config.USE_CLOUD) {
+    // 云函数模式：所有参数通过 action + data 传递
+    return cloudCall(cloudName, action, data)
+  } else {
+    // HTTP 模式：使用原有的 RESTful 接口
+    switch (method || 'GET') {
+      case 'POST': return post(httpUrl, data)
+      case 'PUT': return put(httpUrl, data)
+      case 'DELETE': return del(httpUrl, data)
+      default: return get(httpUrl, data)
+    }
+  }
+}
+
+// ---------- 用户 API ----------
 var userApi = {
-  getMe: function() { return get('/users/me') },
-  updateProfile: function(data) { return post('/users/profile', data) },
+  getMe: function() { return call('user', '/users/me', 'getMe') },
+  updateProfile: function(data) { return call('user', '/users/profile', 'updateProfile', data, 'POST') },
 
   // 密码登录
-  login: function(phone, password) { return post('/auth/login', { phone: phone, password: password }) },
-  register: function(data) { return post('/auth/register', data) },
+  login: function(phone, password) { return call('user', '/auth/login', 'login', { phone: phone, password: password }, 'POST') },
+  register: function(data) { return call('user', '/auth/register', 'register', data, 'POST') },
 
   // 短信验证码
-  sendSmsCode: function(phone) { return post('/auth/sms/send', { phone: phone }) },
-  smsLogin: function(phone, code) { return post('/auth/sms/login', { phone: phone, code: code }) },
+  sendSmsCode: function(phone) { return call('user', '/auth/sms/send', 'sendSmsCode', { phone: phone }, 'POST') },
+  smsLogin: function(phone, code) { return call('user', '/auth/sms/login', 'smsLogin', { phone: phone, code: code }, 'POST') },
 
   // 微信登录
   wxLogin: function(code, extraData) {
     var data = Object.assign({ code: code }, extraData || {})
-    return post('/auth/wx-login', data)
+    return call('user', '/auth/wx-login', 'wxLogin', data, 'POST')
   }
 }
 
+// ---------- 学习计划 API ----------
 var planApi = {
-getAll: function() { return get('/study-plans?includeInactive=true') },
-  create: function(data) { return post('/study-plans', data) },
-  update: function(id, data) { return put('/study-plans/' + id, data) },
-  remove: function(id) { return del('/study-plans/' + id) },
-  todayProgress: function() { return get('/study-plans/today-progress') }
+  getAll: function() { return call('plan', '/study-plans?includeInactive=true', 'getAll', { includeInactive: true }) },
+  create: function(data) { return call('plan', '/study-plans', 'create', data, 'POST') },
+  update: function(id, data) { return call('plan', '/study-plans/' + id, 'update', Object.assign({ id: id }, data), 'PUT') },
+  remove: function(id) { return call('plan', '/study-plans/' + id, 'remove', { id: id }, 'DELETE') },
+  todayProgress: function() { return call('plan', '/study-plans/today-progress', 'todayProgress') }
 }
 
+// ---------- 打卡 API ----------
 var checkinApi = {
-  create: function(data) { return post('/checkins', data) },
-  getList: function(params) { return get('/checkins', params) },
-  stats: function() { return get('/checkins/stats') },
-  remove: function(id) { return del('/checkins/' + id) },
-  heatmap: function(days) { days = days || 90; return get('/checkins/heatmap', { days: days }) }
+  create: function(data) { return call('checkin', '/checkins', 'create', data, 'POST') },
+  getList: function(params) { return call('checkin', '/checkins', 'getList', params) },
+  stats: function() { return call('checkin', '/checkins/stats', 'stats') },
+  remove: function(id) { return call('checkin', '/checkins/' + id, 'remove', { id: id }, 'DELETE') },
+  heatmap: function(days) { days = days || 90; return call('checkin', '/checkins/heatmap', 'heatmap', { days: days }) }
 }
 
+// ---------- 积分 API ----------
 var pointsApi = {
-  summary: function() { return get('/points/summary') },
-  history: function(params) { return get('/points/history', params) },
-  addBonus: function(amount, reason) { return post('/points/bonus', { amount: amount, reason: reason }) }
+  summary: function() { return call('points', '/points/summary', 'summary') },
+  history: function(params) { return call('points', '/points/history', 'history', params) },
+  addBonus: function(amount, reason) { return call('points', '/points/bonus', 'addBonus', { amount: amount, reason: reason }, 'POST') }
 }
 
+// ---------- 愿望清单 API ----------
 var wishlistApi = {
-  getAll: function(status) { return get('/wishlists', status ? { status: status } : {}) },
-  create: function(data) { return post('/wishlists', data) },
-  redeem: function(id) { return post('/wishlists/' + id + '/redeem') },
-  remove: function(id) { return del('/wishlists/' + id) },
-  saveStars: function(id, amount) { return post('/wishlists/' + id + '/save', { amount: amount }) }
+  getAll: function(status) { return call('wishlist', '/wishlists', 'getAll', status ? { status: status } : {}) },
+  create: function(data) { return call('wishlist', '/wishlists', 'create', data, 'POST') },
+  redeem: function(id) { return call('wishlist', '/wishlists/' + id + '/redeem', 'redeem', { id: id }, 'POST') },
+  remove: function(id) { return call('wishlist', '/wishlists/' + id, 'remove', { id: id }, 'DELETE') },
+  saveStars: function(id, amount) { return call('wishlist', '/wishlists/' + id + '/save', 'saveStars', { id: id, amount: amount }, 'POST') }
 }
 
+// ---------- 每日签到 API ----------
 var dailyCheckinApi = {
-  status: function() { return get('/daily-checkin/status') },
-  doCheckin: function() { return post('/daily-checkin/checkin') },
-  calendar: function() { return get('/daily-checkin/calendar') }
+  status: function() { return call('dailyCheckin', '/daily-checkin/status', 'status') },
+  doCheckin: function() { return call('dailyCheckin', '/daily-checkin/checkin', 'doCheckin', {}, 'POST') },
+  calendar: function() { return call('dailyCheckin', '/daily-checkin/calendar', 'calendar') }
 }
 
+// ---------- 成就 API ----------
 var achievementApi = {
-  getUserAchievements: function() { return get('/achievements') },
-  getAllList: function() { return get('/achievements/list') },
-  check: function(stats) { return post('/achievements/check', { stats: stats }) }
+  getUserAchievements: function() { return call('achievement', '/achievements', 'getUserAchievements') },
+  getAllList: function() { return call('achievement', '/achievements/list', 'getAllList') },
+  check: function(stats) { return call('achievement', '/achievements/check', 'check', { stats: stats }, 'POST') }
 }
 
+// ---------- 排行榜 API ----------
 var leaderboardApi = {
-  weeklyCheckins: function(limit) { limit = limit || 20; return get('/leaderboard/checkins/weekly', { limit: limit }) },
-  monthlyStars: function(limit) { limit = limit || 20; return get('/leaderboard/stars/monthly', { limit: limit }) },
-  streak: function(limit) { limit = limit || 20; return get('/leaderboard/streak', { limit: limit }) }
+  weeklyCheckins: function(limit) { limit = limit || 20; return call('leaderboard', '/leaderboard/checkins/weekly', 'weeklyCheckins', { limit: limit }) },
+  monthlyStars: function(limit) { limit = limit || 20; return call('leaderboard', '/leaderboard/stars/monthly', 'monthlyStars', { limit: limit }) },
+  streak: function(limit) { limit = limit || 20; return call('leaderboard', '/leaderboard/streak', 'streak', { limit: limit }) }
 }
 
+// ---------- 报告 API ----------
 var reportApi = {
-  getReport: function(period) { period = period || 'week'; return get('/report', { period: period }) }
+  getReport: function(period) { period = period || 'week'; return call('report', '/report', 'getReport', { period: period }) }
 }
 
+// ---------- 导出 API ----------
 var exportApi = {
-  getReport: function(startDate, endDate) { return get('/export/report', { startDate: startDate, endDate: endDate }) },
-  getAllData: function() { return get('/export/all') },
-  getCheckinsCsv: function(startDate, endDate) { return get('/export/checkins/csv', { startDate: startDate, endDate: endDate }) },
-  getPointsCsv: function() { return get('/export/points/csv') }
+  getReport: function(startDate, endDate) { return call('export', '/export/report', 'getReport', { startDate: startDate, endDate: endDate }) },
+  getAllData: function() { return call('export', '/export/all', 'getAllData') },
+  getCheckinsCsv: function(startDate, endDate) { return call('export', '/export/checkins/csv', 'getCheckinsCsv', { startDate: startDate, endDate: endDate }) },
+  getPointsCsv: function() { return call('export', '/export/points/csv', 'getPointsCsv') }
 }
 
+// ---------- 家长绑定 API ----------
 var parentApi = {
-  getInfo: function() { return get('/parent') },
-  bind: function(data) { return post('/parent/bind', data) },
-  unbind: function() { return del('/parent') },
-  updateNotifications: function(notifications) { return post('/parent/notifications', { notifications: notifications }) }
+  getInfo: function() { return call('parent', '/parent', 'getInfo') },
+  bind: function(data) { return call('parent', '/parent/bind', 'bind', data, 'POST') },
+  unbind: function() { return call('parent', '/parent', 'unbind', {}, 'DELETE') },
+  updateNotifications: function(notifications) { return call('parent', '/parent/notifications', 'updateNotifications', { notifications: notifications }, 'POST') }
 }
 
+// ---------- 反馈 API ----------
 var feedbackApi = {
-  submit: function(data) { return post('/feedback', data) },
-  getList: function(limit) { limit = limit || 20; return get('/feedback', { limit: limit }) }
+  submit: function(data) { return call('feedback', '/feedback', 'submit', data, 'POST') },
+  getList: function(limit) { limit = limit || 20; return call('feedback', '/feedback', 'getList', { limit: limit }) }
 }
 
 module.exports = {
@@ -213,6 +285,8 @@ module.exports = {
   put: put,
   del: del,
   all: all,
+  cloudCall: cloudCall,
+  call: call,
   userApi: userApi,
   planApi: planApi,
   checkinApi: checkinApi,
