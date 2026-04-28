@@ -8,6 +8,7 @@ var constants = require('../../utils/constants')
 var planApi = api.planApi
 var SUBJECTS = constants.SUBJECTS
 var FREQUENCIES = constants.FREQUENCIES
+var WEEKDAYS = constants.WEEKDAYS
 var getSubjectIcon = constants.getSubjectIcon
 
 Page({
@@ -19,8 +20,11 @@ Page({
     form: { subject: '', title: '', frequency: '每天', targetCount: 30, notes: '' },
     subjects: SUBJECTS,
     frequencies: FREQUENCIES,
+    weekdays: WEEKDAYS,
     formSubjectIndex: 0,
     formFreqIndex: 0,
+    showCustomWeekdays: false,
+    customWeekdaySelected: [false, false, false, false, false, false, false],
     loading: false,
     isEmpty: false,
     _loadingLock: false
@@ -29,6 +33,27 @@ Page({
   onShow: function() {
     // 先从缓存恢复（瞬间显示），再静默刷新
     this._restoreFromCache()
+
+    // 检查是否有来自打卡页的刷新标记
+    try {
+      var app = getApp()
+      if (app && app.globalData) {
+        // 打卡后刷新标记
+        if (app.globalData._needRefreshPlans) {
+          app.globalData._needRefreshPlans = false
+          this.setData({ _loadingLock: false })
+          this.loadPlans()
+          return
+        }
+        // 首页传递的刷新标记（兼容）
+        if (app.globalData._needRefreshHome) {
+          this.setData({ _loadingLock: false })
+          this.loadPlans()
+          return
+        }
+      }
+    } catch (e) {}
+
     // 防抖：如果正在加载中则不重复请求
     if (!this.data._loadingLock) {
       this.loadPlans()
@@ -52,6 +77,10 @@ Page({
 
   loadPlans: function() {
     var that = this
+    // 如果正在切换某个计划的状态，跳过刷新（避免覆盖乐观更新）
+    if (that.data._togglingId) {
+      return
+    }
     that.setData({ _loadingLock: true })
 
     planApi.getAll().then(function(res) {
@@ -91,7 +120,9 @@ Page({
     this.setData({
       showModal: true, editingPlan: null, saving: false,
       form: { subject: '', title: '', frequency: '每天', targetCount: 30, notes: '' },
-      formSubjectIndex: 0, formFreqIndex: 0
+      formSubjectIndex: 0, formFreqIndex: 0,
+      showCustomWeekdays: false,
+      customWeekdaySelected: [false, false, false, false, false, false, false]
     })
   },
 
@@ -105,7 +136,49 @@ Page({
 
   onFrequencyChange: function(e) {
     var idx = parseInt(e.detail.value)
-    this.setData({ formFreqIndex: idx, 'form.frequency': FREQUENCIES[idx] })
+    var freq = FREQUENCIES[idx]
+    var isCustom = (freq === '自定义')
+    this.setData({ 
+      formFreqIndex: idx, 
+      'form.frequency': freq,
+      showCustomWeekdays: isCustom
+    })
+    // 选择自定义时，默认选中周一到周五（工作日）
+    if (isCustom) {
+      this.setData({
+        customWeekdaySelected: [true, true, true, true, true, false, false]
+      })
+    }
+  },
+
+  /**
+   * 切换星期几的选中状态
+   */
+  toggleCustomWeekday: function(e) {
+    var idx = e.currentTarget.dataset.index
+    var selected = this.data.customWeekdaySelected.slice()
+    selected[idx] = !selected[idx]
+    // 至少要选一天
+    var hasSelected = false
+    for (var i = 0; i < selected.length; i++) {
+      if (selected[i]) { hasSelected = true; break }
+    }
+    if (!hasSelected) return // 不允许全部取消
+    this.setData({ customWeekdaySelected: selected })
+    this._updateCustomFrequencyLabel()
+  },
+
+  /**
+   * 根据选中的星期生成频率显示文本
+   */
+  _updateCustomFrequencyLabel: function() {
+    var selected = this.data.customWeekdaySelected
+    var names = []
+    for (var i = 0; i < selected.length; i++) {
+      if (selected[i]) names.push(WEEKDAYS[i].shortName)
+    }
+    var label = names.length > 0 ? '每周 ' + names.join('、') : '自定义'
+    this.setData({ 'form.frequency': label })
   },
 
   onTitleInput: function(e) { this.setData({ 'form.title': e.detail.value }) },
@@ -119,12 +192,40 @@ Page({
     if (that.data.saving) return
     if (!form.subject) { wx.showToast({ title: '请选择科目', icon: 'none' }); return }
     if (!form.title.trim()) { wx.showToast({ title: '请输入任务名称', icon: 'none' }); return }
+    // 自定义频率校验：至少选一天
+    if (form.frequency === '自定义' || that.data.showCustomWeekdays) {
+      var selected = that.data.customWeekdaySelected
+      var hasDay = false
+      for (var i = 0; i < selected.length; i++) { if (selected[i]) { hasDay = true; break } }
+      if (!hasDay) { wx.showToast({ title: '请至少选择一天', icon: 'none' }); return }
+    }
 
     that.setData({ saving: true })
 
     var doSave = editingPlan
-      ? function() { return planApi.update(editingPlan.id, form) }
-      : function() { return planApi.create(form) }
+      ? function() {
+          // 构建干净的 payload，只包含后端需要的字段
+          var payload = {
+            subject: form.subject,
+            title: form.title,
+            frequency: form.frequency,
+            targetCount: form.targetCount,
+            // notes 作为 description 传给后端（后端会处理 WEEKDAYS 前缀合并）
+            description: form.notes || ''
+          }
+          return planApi.update(editingPlan.id, payload)
+        }
+      : function() {
+          // 创建时同样构建干净 payload
+          var payload = {
+            subject: form.subject,
+            title: form.title,
+            frequency: form.frequency,
+            targetCount: form.targetCount,
+            notes: form.notes || ''
+          }
+          return planApi.create(payload)
+        }
 
     doSave().then(function(res) {
       if (res.success) {
@@ -149,11 +250,39 @@ Page({
     var item = e.currentTarget.dataset.item
     var si = -1, fi = -1
     for (var i = 0; i < SUBJECTS.length; i++) { if (SUBJECTS[i] === item.subject) { si = i; break } }
-    for (var j = 0; j < FREQUENCIES.length; j++) { if (FREQUENCIES[j] === item.frequency) { fi = j; break } }
+
+    // 判断是否为自定义频率（以"每周"开头且不是预设选项）
+    var isCustomFreq = false
+    var customWeekdaySelected = [false, false, false, false, false, false, false]
+    var freq = item.frequency || '每天'
+
+    // 先尝试在预设频率中匹配
+    for (var j = 0; j < FREQUENCIES.length; j++) {
+      if (FREQUENCIES[j] === freq) { fi = j; break }
+    }
+
+    // 如果预设中没找到，且是 "每周 x、x、x" 格式 → 自定义频率
+    if (fi < 0 && freq.indexOf('每周 ') === 0) {
+      isCustomFreq = true
+      fi = FREQUENCIES.indexOf('自定义') // 指向"自定义"选项
+      // 解析已选中的星期：从 "每周 一、三、五" 中提取
+      var dayNameToIndex = { '一': 0, '二': 1, '三': 2, '四': 3, '五': 4, '六': 5, '日': 6 }
+      for (var chIdx = 0; chIdx < freq.length; chIdx++) {
+        var ch = freq[chIdx]
+        if (dayNameToIndex[ch] !== undefined) {
+          customWeekdaySelected[dayNameToIndex[ch]] = true
+        }
+      }
+    }
+
     this.setData({
       showModal: true, editingPlan: item, saving: false,
-      form: { subject: item.subject||'', title: item.title||'', frequency: item.frequency||'每天', targetCount: item.targetCount||item.totalCount||30, notes: item.notes||'' },
-      formSubjectIndex: si >= 0 ? si : 0, formFreqIndex: fi >= 0 ? fi : 0
+      // 兼容后端 description 字段和前端 notes 字段
+      form: { subject: item.subject||'', title: item.title||'', frequency: freq, targetCount: item.targetCount||item.totalCount||30, notes: item.notes||item.description||'' },
+      formSubjectIndex: si >= 0 ? si : 0,
+      formFreqIndex: fi >= 0 ? fi : 0,
+      showCustomWeekdays: isCustomFreq,
+      customWeekdaySelected: customWeekdaySelected
     })
   },
 
@@ -179,18 +308,87 @@ Page({
   },
 
   togglePlanActive: function(e) {
+    var that = this
     var id = e.currentTarget.dataset.id
-    var isActive = e.detail.checked
-    planApi.update(id, { isActive: isActive }).then(function(res) {
-      if (!res.success) {
-        wx.showToast({ title: '操作失败', icon: 'none' })
-        // 回滚 UI 状态
-        var plans = that.data.plans.slice()
-        for (var i = 0; i < plans.length; i++) {
-          if (plans[i].id === id) { plans[i].isActive = !isActive; break }
-        }
-        that.setData({ plans: plans })
+
+    // 如果正在切换中，忽略重复操作（防止快速双击）
+    if (that.data._togglingId === id) return
+
+    // 找到当前计划的状态，取反得到目标状态
+    // 注意：不依赖 e.detail.checked，因为微信小程序 switch 在某些情况下
+    // （如父容器 opacity 变化、setData 重绘等）可能返回不正确的值
+    var currentPlan = null
+    for (var i = 0; i < that.data.plans.length; i++) {
+      if (that.data.plans[i].id === id) {
+        currentPlan = that.data.plans[i]
+        break
       }
+    }
+    // 如果找不到当前计划，回退到使用事件值
+    var isActive
+    if (currentPlan) {
+      // 取反当前状态：如果当前是暂停(false)，目标就是激活(true)
+      isActive = !currentPlan.isActive
+    } else {
+      isActive = e.detail.checked === true
+    }
+
+    // 乐观更新：立即更新 UI 状态
+    var plans = that.data.plans.slice()
+    for (var i = 0; i < plans.length; i++) {
+      if (plans[i].id === id) {
+        plans[i].isActive = isActive
+        break
+      }
+    }
+    that.setData({ plans: plans, _togglingId: id })
+
+    // 调用 API 持久化
+    planApi.update(id, { isActive: isActive }).then(function(res) {
+      // 清除切换锁
+      that.setData({ _togglingId: null })
+
+      if (!res.success) {
+        // 失败时回滚 UI 状态
+        wx.showToast({ title: res.message || '操作失败，请重试', icon: 'none' })
+        var plans2 = that.data.plans.slice()
+        for (var j = 0; j < plans2.length; j++) {
+          if (plans2[j].id === id) { plans2[j].isActive = !isActive; break }
+        }
+        that.setData({ plans: plans2 })
+      } else {
+        // 成功：用后端返回的数据更新（确保状态一致）
+        if (res.data) {
+          var updatedPlans = that.data.plans.slice()
+          for (var k = 0; k < updatedPlans.length; k++) {
+            if (updatedPlans[k].id === id) {
+              // 强制使用前端意图的 isActive 值（而非依赖后端返回）
+              updatedPlans[k].isActive = isActive
+              updatedPlans[k].subjectIcon = updatedPlans[k].subjectIcon || ''
+              break
+            }
+          }
+          that.setData({ plans: updatedPlans })
+          wx.setStorageSync('plans', JSON.stringify(updatedPlans))
+        }
+        // 提示用户操作结果
+        wx.showToast({
+          title: isActive ? '计划已恢复' : '计划已暂停',
+          icon: 'success',
+          duration: 1200
+        })
+      }
+    }).catch(function(err) {
+      // 清除切换锁
+      that.setData({ _togglingId: null })
+      console.error('切换计划状态失败:', err)
+      // 异常时回滚
+      wx.showToast({ title: '网络异常', icon: 'none' })
+      var plans3 = that.data.plans.slice()
+      for (var k = 0; k < plans3.length; k++) {
+        if (plans3[k].id === id) { plans3[k].isActive = !isActive; break }
+      }
+      that.setData({ plans: plans3 })
     })
   },
 

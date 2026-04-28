@@ -22,8 +22,13 @@ export class StudyPlansController {
   // 创建学习计划
   @Post()
   async create(@Request() req: any, @Body() body: CreateStudyPlanDto) {
-    const plan = await this.studyPlansService.create(req.user.id, body);
-    return { success: true, data: plan };
+    try {
+      const plan = await this.studyPlansService.create(req.user.id, body);
+      return { success: true, data: plan };
+    } catch (err: any) {
+      console.error('创建学习计划失败:', err);
+      throw err; // 让 NestJS 全局异常过滤器处理
+    }
   }
 
   // 获取所有学习计划
