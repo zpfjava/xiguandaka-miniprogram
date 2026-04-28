@@ -1,0 +1,89 @@
+/* 通用空状态/错误状态组件样式 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300rpx;
+}
+
+/* 图标区域 */
+.icon-area {
+  margin-bottom: 24rpx;
+}
+
+.state-icon {
+  font-size: 96rpx;
+  line-height: 1;
+}
+
+.icon-area.error .state-icon { animation: shake 0.5s ease-in-out; }
+.icon-area.loading .state-icon { font-size: 64rpx; }
+
+/* loading 动画 */
+.loading-spinner {
+  display: flex;
+  gap: 12rpx;
+}
+
+.spinner-dot {
+  width: 20rpx;
+  height: 20rpx;
+  border-radius: 50%;
+  background-color: #FF9A3C;
+  animation: bounce 1.4s ease-in-out infinite both;
+}
+
+.spinner-dot:nth-child(1) { animation-delay: -0.32s; }
+.spinner-dot:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes bounce {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+  40% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-8rpx); }
+  75% { transform: translateX(8rpx); }
+}
+
+/* 文字区域 */
+.text-area {
+  text-align: center;
+}
+
+.state-text {
+  display: block;
+  font-size: 30rpx;
+  color: #666666;
+  font-weight: 500;
+}
+
+.state-desc {
+  display: block;
+  font-size: 24rpx;
+  color: #999999;
+  margin-top: 10rpx;
+  max-width: 480rpx;
+  line-height: 1.5;
+}
+
+/* 重试按钮 */
+.retry-btn-wrap {
+  margin-top: 32rpx;
+}
+
+.retry-btn {
+  min-width: 240rpx;
+  height: 72rpx;
+  line-height: 72rpx;
+  padding: 0 40rpx;
+  font-size: 28rpx;
+  color: #FFFFFF;
+  background: linear-gradient(135deg, #FFD93D 0%, #FF9A3C 100%);
+  border-radius: 36rpx;
+  border: none;
+}
+.retry-btn::after { border: none; }
+.retry-btn:active { opacity: 0.85; transform: scale(0.97); }

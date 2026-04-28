@@ -28,13 +28,41 @@ Page({
     encouragement: { title: '小贴士', text: '每天坚持一点点，进步看得见！🌟' },
     isEmpty: false,
     emptyTip: '暂无数据',
-    _loadingLock: false
+    _loadingLock: false,
+    _blank: false,
+    // 乐观更新：记录已完成的计划 ID（防止被后端数据覆盖）
+    _optimisticCompletedIds: []
   },
 
   onShow: function() {
+    // 从其他页面返回时，恢复内容显示
+    if (this.data._blank) {
+      this.setData({ _blank: false })
+    }
     this.setData({ greeting: getGreeting(), todayDate: getTodayDate() })
     // 先从缓存恢复（瞬间显示），再静默刷新
     this._restoreFromCache()
+
+    // 检查是否有来自打卡页的刷新标记
+    try {
+      var app = getApp()
+      if (app && app.globalData) {
+        if (app.globalData._needRefreshHome) {
+          app.globalData._needRefreshHome = false
+          // 有刷新标记 → 强制重新加载（忽略防抖锁）
+          this.setData({ _loadingLock: false })
+          // 乐观更新：立即标记对应计划为已完成
+          var markPlanId = app.globalData._markPlanCompleted
+          if (markPlanId) {
+            app.globalData._markPlanCompleted = null
+            this.markTaskCompleted(markPlanId)
+          }
+          this.loadHomeData()
+          return
+        }
+      }
+    } catch (e) {}
+
     // 防抖：如果正在加载中则不重复请求
     if (!this.data._loadingLock) {
       this.loadHomeData()
@@ -112,6 +140,14 @@ Page({
           for (var tk in t) { task[tk] = t[tk] }
           task.isCompleted = task.isCompleted || false
           task.subjectIcon = getSubjectIcon(task.subject)
+          // 乐观更新：如果该计划 ID 在乐观完成列表中，强制标记为已完成
+          var optIds = that.data._optimisticCompletedIds || []
+          for (var oi = 0; oi < optIds.length; oi++) {
+            if (optIds[oi] === task.id) {
+              task.isCompleted = true
+              break
+            }
+          }
           tasks.push(task)
         }
         that.setData({ todayTasks: tasks })
@@ -122,11 +158,28 @@ Page({
         that.setData({ todayTasks: [], isEmpty: false })
       }
 
-      // 统计数据
+      // 统计数据（从 checkin stats 和 user stats 合并）
       if (statsRes.success && statsRes.data) {
         hasAnySuccess = true
-        that.setData({ stats: statsRes.data })
-        wx.setStorageSync('home_stats', JSON.stringify(statsRes.data))
+        var sd = statsRes.data
+        // 兼容后端两种格式：
+        // /checkins/stats 返回 { today, week, month, total }
+        // /users/me.stats 返回 { totalPlans, totalCheckins, streakDays }
+        var mergedStats = {
+          totalPlans: sd.totalPlans || 0,
+          totalCheckins: sd.totalCheckins || sd.total || 0,
+          totalStars: sd.totalStars || 0,
+          streak: sd.streak || sd.streakDays || 0
+        }
+        // 如果 userRes 中有 stats 数据，合并覆盖
+        if (userRes.success && userRes.data && userRes.data.stats) {
+          var us = userRes.data.stats
+          mergedStats.totalPlans = us.totalPlans || mergedStats.totalPlans
+          mergedStats.totalCheckins = us.totalCheckins || mergedStats.totalCheckins
+          mergedStats.streak = us.streakDays || mergedStats.streak
+        }
+        that.setData({ stats: mergedStats })
+        wx.setStorageSync('home_stats', JSON.stringify(mergedStats))
       }
 
       // 如果全部 API 都失败（可能是未登录或网络问题）
@@ -205,7 +258,13 @@ Page({
       }
     }
     if (updated) {
-      this.setData({ todayTasks: todayTasks })
+      // 记录乐观完成的 ID，防止被后端数据覆盖
+      var optimisticIds = this.data._optimisticCompletedIds.slice()
+      optimisticIds.push(planId)
+      this.setData({
+        todayTasks: todayTasks,
+        _optimisticCompletedIds: optimisticIds
+      })
       this.updateProgress()
       this.updateEncouragement()
       wx.setStorageSync('home_tasks', JSON.stringify(todayTasks))
@@ -229,9 +288,25 @@ Page({
   },
 
   goToPlans: function() { wx.switchTab({ url: '/pages/plans/plans' }) },
-  goToDailyCheckin: function() { wx.navigateTo({ url: '/pages/dailycheckin/dailycheckin' }) },
-  goToStats: function() { wx.navigateTo({ url: '/pages/stats/stats' }) },
-  goToWishlist: function() { wx.navigateTo({ url: '/pages/wishlist/wishlist' }) },
+  goToDailyCheckin: function() {
+    this._blankAndGo('/pages/dailycheckin/dailycheckin')
+  },
+  goToStats: function() {
+    this._blankAndGo('/pages/stats/stats')
+  },
+  goToWishlist: function() {
+    this._blankAndGo('/pages/wishlist/wishlist')
+  },
+
+  /**
+   * 导航前先隐藏首页所有内容，避免 navigateTo 过渡期间出现残影
+   * 原理：setData({ _blank: true }) → wx:if 隐藏整个内容区域
+   *       → 首页只剩纯色背景（#FFF8E1）→ 与目标页背景一致
+   */
+  _blankAndGo: function(url) {
+    this.setData({ _blank: true })
+    wx.navigateTo({ url: url })
+  },
   goToCheckin: function(e) {
     var planId = e.currentTarget.dataset.planId
     wx.navigateTo({ url: '/pages/checkin/checkin?planId=' + planId })

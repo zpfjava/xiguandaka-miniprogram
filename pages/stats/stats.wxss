@@ -117,9 +117,9 @@
 }
 .hm-weekday {
   flex: 1;
-  min-width: 28rpx;
+  min-width: 20rpx;
   text-align: center;
-  font-size: 20rpx;
+  font-size: 18rpx;
   color: #CCCCCC;
   line-height: 2;
 }
@@ -127,13 +127,13 @@
 .heatmap-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 4rpx;
+  gap: 3rpx;
 }
 
 .heatmap-cell {
-  width: calc((100% - 20rpx) / 7 - 4rpx);
+  width: calc((100% - 18rpx) / 7 - 3rpx);
   aspect-ratio: 1;
-  border-radius: 6rpx;
+  border-radius: 4rpx;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -150,6 +150,7 @@
 .heatmap-cell.level-1 { background-color: #FFF3B0; }
 .heatmap-cell.level-2 { background-color: #FFE082; }
 .heatmap-cell.level-3 { background-color: #FFCA28; }
+.heatmap-cell.level-4 { background-color: #FF9A3C; }
 
 .heatmap-legend {
   display: flex;
@@ -171,6 +172,7 @@
 .legend-cell.level-1 { background-color: #FFF3B0; }
 .legend-cell.level-2 { background-color: #FFE082; }
 .legend-cell.level-3 { background-color: #FFCA28; }
+.legend-cell.level-4 { background-color: #FF9A3C; }
 
 /* 时段分布 */
 .time-slots { }

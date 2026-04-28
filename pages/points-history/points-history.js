@@ -38,14 +38,17 @@ function transformRecord(record) {
   var isEarn = record.change > 0
   var amount = record.change || 0
 
+  // 翻译 reason 为中文
+  var translatedReason = translateReason(record.reason)
+
   // 根据 reason 匹配图标
   var icon = isEarn ? '+' : '-'
-  if (record.reason) {
-    if (record.reason.indexOf('打卡') >= 0 || record.reason.indexOf('完成') >= 0) icon = '✅'
-    else if (record.reason.indexOf('签到') >= 0) icon = '📅'
-    else if (record.reason.indexOf('成就') >= 0) icon = '🏆'
-    else if (record.reason.indexOf('兑换') >= 0 || record.reason.indexOf('wish') >= 0) icon = '🎁'
-    else if (record.reason.indexOf('注册') >= 0 || record.reason.indexOf('奖励') >= 0) icon = '🎉'
+  if (translatedReason) {
+    if (translatedReason.indexOf('打卡') >= 0 || translatedReason.indexOf('完成') >= 0) icon = '✅'
+    else if (translatedReason.indexOf('签到') >= 0) icon = '📅'
+    else if (translatedReason.indexOf('成就') >= 0) icon = '🏆'
+    else if (translatedReason.indexOf('兑换') >= 0 || translatedReason.indexOf('wish') >= 0) icon = '🎁'
+    else if (translatedReason.indexOf('注册') >= 0 || translatedReason.indexOf('奖励') >= 0) icon = '🎉'
     else if (!isEarn) icon = '🍦'
   }
 
@@ -56,15 +59,37 @@ function transformRecord(record) {
   return {
     id: record.id,
     type: isEarn ? 'earn' : 'spend',
-    description: record.reason || (isEarn ? '获得星星' : '消耗星星'),
+    description: translatedReason || (isEarn ? '获得星星' : '消耗星星'),
     icon: icon,
     amount: amount,
     date: isValidDate ? (d.getMonth() + 1) + '月' + d.getDate() + '日' : '未知',
     fullDate: isValidDate ? d.getFullYear() + '-' + padZero(d.getMonth() + 1) + '-' + padZero(d.getDate()) : '',
-    time: isValidDate ? padZero(8 + Math.floor(Math.random() * 14)) + ':' + padZero(Math.floor(Math.random() * 60)) : '',
+    time: isValidDate ? padZero(d.getHours()) + ':' + padZero(d.getMinutes()) : '',
     // 保留原始数据
     _raw: record
   }
+}
+
+/**
+ * 积分原因英文→中文映射
+ */
+function translateReason(reason) {
+  if (!reason) return ''
+  var map = {
+    'checkin_reward': '学习打卡奖励',
+    'daily_checkin': '每日签到奖励',
+    'wish_redeem': '兑换愿望',
+    'wish_save': '存入愿望',
+    'bonus': '系统奖励',
+    '注册奖励': '注册欢迎奖励',
+    'achievement': '成就解锁奖励'
+  }
+  if (map[reason]) return map[reason]
+  for (var k in map) {
+    if (reason.indexOf(k) >= 0 || k.indexOf(reason) >= 0) return map[k]
+  }
+  if (escape(reason).indexOf('%u') < 0) return reason
+  return reason
 }
 
 Page({
@@ -76,6 +101,7 @@ Page({
     monthIncome: 0,
     monthExpense: 0,
     records: [],
+    _allRecords: [], // 保存原始全量数据，用于类型筛选
     groupedRecords: [],
     hasMore: true
   },
@@ -212,6 +238,7 @@ Page({
     }
     
     that.setData({
+      _allRecords: records, // 保存原始全量数据
       records: filtered,
       groupedRecords: groupedRecords,
       monthIncome: income,
@@ -221,6 +248,7 @@ Page({
   },
 
   filterRecords: function() {
-    this.processRecords(this.data.records)
+    // 始终从原始全量数据进行筛选
+    this.processRecords(this.data._allRecords)
   }
 })

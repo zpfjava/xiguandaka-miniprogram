@@ -15,6 +15,7 @@ import { ParentModule } from './parent/parent.module';
 import { ExportModule } from './export/export.module';
 import { LeaderboardModule } from './leaderboard/leaderboard.module';
 import { DailyCheckinModule } from './daily-checkin/daily-checkin.module';
+import { UploadModule } from './upload/upload.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { DailyCheckinModule } from './daily-checkin/daily-checkin.module';
     ExportModule,
     LeaderboardModule,
     DailyCheckinModule,
+    UploadModule,
   ],
 })
 export class AppModule {}

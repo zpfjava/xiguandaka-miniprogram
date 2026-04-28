@@ -11,10 +11,8 @@
     <view class="bind-card">
       <view class="bind-emoji">👨‍👩‍👧</view>
       <view class="bind-title">邀请家长关注你的学习</view>
-      <view class="bind-desc">
-        绑定后，家长可以：
-      </view>
-      
+      <view class="bind-desc">绑定后，家长可以：</view>
+
       <view class="feature-list">
         <view class="feature-item">
           <view class="feature-icon">📊</view>
@@ -36,13 +34,11 @@
 
       <!-- 绑定方式 -->
       <view class="bind-methods">
-        <view class="method-title">选择绑定方式：</view>
-        
-        <button class="method-btn" bindtap="bindByCode">
+        <button class="method-btn primary" bindtap="openBindModal">
           <view class="method-icon">📱</view>
           <view class="method-info">
             <view class="method-name">通过手机号绑定</view>
-            <view class="method-desc">输入家长的手机号发送邀请</view>
+            <view class="method-desc">输入家长的手机号，发送验证码完成绑定</view>
           </view>
           <view class="method-arrow">›</view>
         </button>
@@ -61,6 +57,7 @@
 
   <!-- 已绑定状态 -->
   <block wx:else>
+    <!-- 家长信息卡片 -->
     <view class="bound-card">
       <view class="parent-avatar">{{parentInfo.avatar || '👩'}}</view>
       <view class="parent-info">
@@ -68,22 +65,60 @@
         <view class="parent-phone">{{parentInfo.phone || '138****8888'}}</view>
         <view class="bind-time">绑定时间：{{parentInfo.boundAt || '2026-04-01'}}</view>
       </view>
-      
       <button class="unbind-btn" bindtap="unbindParent">解除绑定</button>
+    </view>
+
+    <!-- 孩子数据概览（已绑定后展示） -->
+    <view class="section-card" wx:if="{{childStats}}">
+      <view class="section-title">📊 学习概览</view>
+
+      <view class="stats-grid">
+        <view class="stat-item">
+          <view class="stat-value">{{childStats.totalCheckins || 0}}</view>
+          <view class="stat-label">总打卡次数</view>
+        </view>
+        <view class="stat-item">
+          <view class="stat-value">{{childStats.totalStars || 0}} ⭐</view>
+          <view class="stat-label">累计星星</view>
+        </view>
+        <view class="stat-item">
+          <view class="stat-value">{{childStats.maxStreak || 0}}</view>
+          <view class="stat-label">最长连续(天)</view>
+        </view>
+        <view class="stat-item">
+          <view class="stat-value">{{childStats.activePlans || 0}}</view>
+          <view class="stat-label">活跃计划</view>
+        </view>
+      </view>
+
+      <!-- 最近积分记录 -->
+      <view class="recent-points" wx:if="{{childStats.recentPoints && childStats.recentPoints.length > 0}}">
+        <view class="points-subtitle">最近积分动态</view>
+        <view
+          wx:for="{{childStats.recentPoints}}"
+          wx:key="id"
+          class="point-item"
+        >
+          <text class="point-reason {{item.change > 0 ? 'positive' : 'negative'}}">
+            {{item.change > 0 ? '+' : ''}}{{item.change}}
+          </text>
+          <text class="point-desc">{{item.reason || '获得星星'}}</text>
+        </view>
+      </view>
     </view>
 
     <!-- 通知设置 -->
     <view class="section-card">
       <view class="section-title">🔔 通知设置</view>
-      
+
       <view class="setting-list">
         <view class="setting-item">
           <view class="setting-left">
             <view class="setting-label">打卡通知</view>
             <view class="setting-desc">每次打卡后通知家长</view>
           </view>
-          <switch 
-            checked="{{notifications.checkin}}" 
+          <switch
+            checked="{{notifications.checkin}}"
             color="#7ED957"
             bindchange="toggleNotification"
             data-key="checkin"
@@ -95,8 +130,8 @@
             <view class="setting-label">成就解锁通知</view>
             <view class="setting-desc">获得新成就时通知家长</view>
           </view>
-          <switch 
-            checked="{{notifications.achievement}}" 
+          <switch
+            checked="{{notifications.achievement}}"
             color="#7ED957"
             bindchange="toggleNotification"
             data-key="achievement"
@@ -108,8 +143,8 @@
             <view class="setting-label">兑换申请通知</view>
             <view class="setting-desc">提交愿望兑换时通知家长</view>
           </view>
-          <switch 
-            checked="{{notifications.redeem}}" 
+          <switch
+            checked="{{notifications.redeem}}"
             color="#7ED957"
             bindchange="toggleNotification"
             data-key="redeem"
@@ -121,8 +156,8 @@
             <view class="setting-label">周报推送</view>
             <view class="setting-desc">每周日自动推送学习报告</view>
           </view>
-          <switch 
-            checked="{{notifications.weeklyReport}}" 
+          <switch
+            checked="{{notifications.weeklyReport}}"
             color="#7ED957"
             bindchange="toggleNotification"
             data-key="weeklyReport"
@@ -134,7 +169,7 @@
     <!-- 给家长留言 -->
     <view class="section-card">
       <view class="section-title">💬 给家长留言</view>
-      
+
       <textarea
         class="message-input"
         placeholder="写点什么给家长吧..."
@@ -143,7 +178,7 @@
         maxlength="200"
         auto-height
       ></textarea>
-      
+
       <button class="send-btn" bindtap="sendMessage">发送留言</button>
     </view>
   </block>
@@ -158,31 +193,66 @@
   </view>
 </view>
 
-<!-- 手机号绑定弹窗 -->
+<!-- 手机号验证码绑定弹窗 -->
 <view class="modal-overlay" wx:if="{{showBindModal}}" catchtouchmove="preventMove">
   <view class="modal-content bind-modal">
-    <view class="modal-header">输入家长手机号</view>
-    
-    <view class="modal-body">
-      <input
-        class="form-input"
-        type="text"
-        placeholder="请输入家长手机号"
-        maxlength="11"
-        value="{{bindPhone}}"
-        bindinput="onPhoneInput"
-      />
-      
-      <view class="bind-note">
-        我们将向该手机号发送一条绑定邀请短信，请家长点击链接确认即可。
-      </view>
-    </view>
+    <!-- 步骤1：输入手机号 -->
+    <block wx:if="{{step === 'phone'}}">
+      <view class="modal-header">输入家长手机号</view>
 
-    <view class="modal-footer">
-      <button class="cancel-btn" bindtap="hideBindModal">取消</button>
-      <button class="confirm-btn {{sending ? 'btn-loading' : ''}}" bindtap="sendInvite" disabled="{{sending}}">
-        发送邀请
-      </button>
-    </view>
+      <view class="modal-body">
+        <input
+          class="form-input"
+          type="number"
+          placeholder="请输入家长手机号"
+          maxlength="11"
+          value="{{bindPhone}}"
+          bindinput="onPhoneInput"
+        />
+
+        <view class="bind-note">
+          我们将向该手机号发送一条验证码短信，请家长确认后输入。
+        </view>
+      </view>
+
+      <view class="modal-footer">
+        <button class="cancel-btn" bindtap="hideBindModal">取消</button>
+        <button class="confirm-btn {{sending ? 'btn-loading' : ''}}" bindtap="sendCode" disabled="{{sending}}">
+          发送验证码
+        </button>
+      </view>
+    </block>
+
+    <!-- 步骤2：输入验证码 -->
+    <block wx:if="{{step === 'code'}}">
+      <view class="modal-header">输入验证码</view>
+
+      <view class="modal-body">
+        <view class="phone-display">已发送至：{{bindPhone}}</view>
+        <input
+          class="form-input code-input"
+          type="number"
+          placeholder="请输入6位验证码"
+          maxlength="6"
+          value="{{bindCode}}"
+          bindinput="onCodeInput"
+          focus="{{step === 'code'}}"
+        />
+
+        <view class="resend-area" wx:if="{{countdown > 0}}">
+          <text class="countdown-text">{{countdown}}秒后可重新发送</text>
+        </view>
+        <view class="resend-area" wx:else>
+          <text class="resend-link" bindtap="sendCode">重新发送验证码</text>
+        </view>
+      </view>
+
+      <view class="modal-footer">
+        <button class="cancel-btn" bindtap="backToPhoneStep">返回</button>
+        <button class="confirm-btn {{sending ? 'btn-loading' : ''}}" bindtap="confirmBind" disabled="{{sending}}">
+          确认绑定
+        </button>
+      </view>
+    </block>
   </view>
 </view>

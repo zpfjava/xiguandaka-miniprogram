@@ -74,6 +74,12 @@
 .method-desc { font-size: 23rpx; color: #999999; margin-top: 4rpx; }
 .method-arrow { font-size: 36rpx; color: #CCCCCC; flex-shrink: 0; }
 
+.method-btn.primary {
+  background-color: #FFF8E1;
+  border-color: #FFD93D;
+}
+.method-btn.primary:active { background-color: #FFECB3; }
+
 /* 已绑定卡片 */
 .bound-card {
   display: flex;
@@ -126,6 +132,69 @@
   box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
 }
 .section-title { font-size: 32rpx; font-weight: bold; color: #333333; margin-bottom: 20rpx; }
+
+/* 孩子数据概览 */
+.stats-grid {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 0 -10rpx;
+}
+
+.stat-item {
+  width: 50%;
+  padding: 20rpx 10rpx;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.stat-item .stat-value {
+  font-size: 40rpx;
+  font-weight: bold;
+  color: #FF9A3C;
+}
+
+.stat-item .stat-label {
+  font-size: 23rpx;
+  color: #999999;
+  margin-top: 6rpx;
+}
+
+.recent-points { margin-top: 16rpx; }
+.points-subtitle {
+  font-size: 26rpx;
+  color: #666666;
+  margin-bottom: 12rpx;
+  padding-top: 12rpx;
+  border-top: 1rpx solid #F5F5F5;
+}
+
+.point-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12rpx 0;
+  border-bottom: 1rpx solid #FAFAFA;
+}
+.point-item:last-child { border-bottom: none; }
+
+.point-reason {
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #FF9A3C;
+}
+.point-reason.negative { color: #F44336; }
+.point-reason.positive { color: #7ED957; }
+
+.point-desc {
+  font-size: 24rpx;
+  color: #888888;
+  flex: 1;
+  text-align: right;
+  margin-left: 16rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 /* 设置列表 */
 .setting-list { }
@@ -246,3 +315,22 @@
 .confirm-btn { color: #FF9A3C; font-weight: bold; }
 .confirm-btn[disabled] { color: #CCCCCC; }
 .confirm-btn.btn-loading { opacity: 0.6; color: #CCCCCC !important; }
+
+/* 验证码步骤样式 */
+.phone-display {
+  font-size: 26rpx;
+  color: #666666;
+  text-align: center;
+  margin-bottom: 16rpx;
+}
+
+.code-input {
+  text-align: center;
+  letter-spacing: 8rpx;
+  font-size: 36rpx;
+  font-weight: bold;
+}
+
+.resend-area { text-align: center; margin-top: 20rpx; }
+.countdown-text { font-size: 24rpx; color: #999999; }
+.resend-link { font-size: 26rpx; color: #FF9A3C; }

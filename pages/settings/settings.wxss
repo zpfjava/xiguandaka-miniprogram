@@ -3,7 +3,24 @@
   min-height: 100vh;
   background-color: #F5F5F5;
   padding-bottom: 40rpx;
+  transition: background-color 0.3s ease;
 }
+
+/* 深色模式 */
+.settings-page.dark-mode {
+  background-color: #1a1a1a;
+}
+.dark-mode .profile-section { background-color: #2a2a2a; }
+.dark-mode .setting-group { background-color: #2a2a2a; }
+.dark-mode .group-title { color: #888888; }
+.dark-mode .setting-item { border-bottom-color: #333333; }
+.dark-mode .item-text { color: #e0e0e0; }
+.dark-mode .item-desc { color: #888888; }
+.dark-mode .nickname-input { background-color: #333333; color: #e0e0e0; }
+.dark-mode .grade-picker { background-color: #333333; color: #cccccc; }
+.dark-mode .footer-logo { color: #e0e0e0; }
+.dark-mode .footer-desc { color: #888888; }
+.dark-mode .footer-version { color: #666666; }
 
 /* 个人信息区 */
 .profile-section {
@@ -28,6 +45,15 @@
   margin-right: 24rpx;
   flex-shrink: 0;
   box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  position: relative;
+}
+
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  display: block;
 }
 
 .profile-edit { flex: 1; }
@@ -96,6 +122,8 @@
 .item-left { display: flex; align-items: center; }
 .item-icon { font-size: 34rpx; margin-right: 14rpx; width: 40rpx; text-align: center; }
 .item-text { font-size: 29rpx; color: #333333; }
+.item-text-wrap { display: flex; flex-direction: column; }
+.item-desc { font-size: 22rpx; color: #BBBBBB; margin-top: 2rpx; }
 
 .item-arrow {
   font-size: 30rpx;
@@ -105,6 +133,12 @@
 .item-value {
   font-size: 27rpx;
   color: #999999;
+}
+
+.item-hint {
+  font-size: 23rpx;
+  color: #BBBBBB;
+  margin-right: 8rpx;
 }
 
 /* 底部信息 */

@@ -44,8 +44,30 @@
   transition: all 0.3s ease;
 }
 
-.plan-card.inactive { opacity: 0.5; }
+.plan-card.inactive {
+  opacity: 0.55;
+}
 .plan-card.active { border-left: 8rpx solid #7ED957; }
+
+/* 暂停状态：图标和标题变灰 */
+.icon-gray {
+  filter: grayscale(100%);
+  opacity: 0.5;
+}
+.title-gray {
+  color: #999999 !important;
+}
+
+/* 暂停标签 */
+.paused-badge {
+  display: inline-block;
+  font-size: 20rpx;
+  color: #F44336;
+  background-color: #FFEBEE;
+  padding: 2rpx 14rpx;
+  border-radius: 9999rpx;
+  margin-top: 6rpx;
+}
 
 /* 计划头部 */
 .plan-header {
@@ -122,6 +144,32 @@
   font-weight: bold;
 }
 .checkin-btn-card:active { opacity: 0.85; }
+
+/* 已暂停状态：去打卡按钮变灰 */
+.checkin-btn-disabled {
+  background-color: #F0F0F0;
+  color: #999999;
+  font-size: 24rpx;
+  border-radius: 32rpx;
+  height: 64rpx;
+  line-height: 64rpx;
+  text-align: center;
+}
+
+/* 暂停状态下操作区域：显示提示文字 */
+.paused-actions-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  width: 100%;
+  height: 64rpx;
+  font-size: 22rpx;
+  color: #999999;
+  background-color: #FAFAFA;
+  border-radius: 16rpx;
+}
+.paused-icon { font-size: 28rpx; }
 
 .edit-btn {
   background-color: #F0F0F0;
@@ -266,4 +314,48 @@
 .confirm-btn.btn-loading {
   opacity: 0.6;
   color: #CCCCCC !important;
+}
+
+/* 自定义频率：星期选择器 */
+.weekday-selector {
+  display: flex;
+  justify-content: space-between;
+  gap: 12rpx;
+}
+
+.weekday-item {
+  flex: 1;
+  height: 72rpx;
+  line-height: 72rpx;
+  text-align: center;
+  font-size: 26rpx;
+  color: #666666;
+  background-color: #F5F5F5;
+  border-radius: 16rpx;
+  border: 2rpx solid transparent;
+  transition: all 0.2s ease;
+}
+
+.weekday-item:active {
+  transform: scale(0.92);
+}
+
+.weekday-selected {
+  color: #FFFFFF !important;
+  background: linear-gradient(135deg, #FFD93D 0%, #FF9A3C 100%) !important;
+  border-color: #FF9A3C;
+  font-weight: bold;
+}
+
+.weekday-hint {
+  font-size: 22rpx;
+  color: #BBBBBB;
+  margin-top: 12rpx;
+  text-align: center;
+}
+
+.target-hint {
+  font-size: 22rpx;
+  color: #BBBBBB;
+  margin-top: 8rpx;
 }

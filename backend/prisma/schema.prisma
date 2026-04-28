@@ -143,6 +143,7 @@ model Wishlist {
   title       String                    // 愿望标题
   description String?                   // 愿望描述
   starsCost   Int                       // 需要的星星数
+  savedStars  Int       @default(0)     // 已存入的星星数
   status      String    @default("pending") // pending, redeemed, cancelled
   redeemedAt  DateTime?                 // 兑换时间
   createdAt   DateTime  @default(now())

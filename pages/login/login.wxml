@@ -16,7 +16,7 @@
       disabled="{{wxLoggingIn}}"
     >
       <text class="wx-icon">💬</text>
-      <text>{{wxLoggingIn ? '微信一键登录' : '微信一键登录'}}</text>
+      <text>微信一键登录</text>
     </button>
 
     <view class="wx-silent-login" bindtap="handleWxSilentLogin">
@@ -31,7 +31,7 @@
   <!-- 其他登录方式（短信 / 密码） -->
   <view class="login-form" wx:if="{{showOtherLogin}}">
     <!-- 返回微信登录 -->
-    <view class="back-wx" bindtap="toggleOtherLogin" wx:if="{{!isDev}}">
+    <view class="back-wx" bindtap="toggleOtherLogin">
       <text class="back-arrow">← </text>
       <text>返回微信登录</text>
     </view>

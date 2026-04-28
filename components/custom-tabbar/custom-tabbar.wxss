@@ -1,0 +1,38 @@
+/* 自定义底部导航栏 - 和原生 tabBar 风格完全一致 */
+.custom-tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 999;
+  display: flex;
+  background-color: #FFFFFF;
+  border-top: 1rpx solid #F0F0F0;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.tab-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100rpx;
+  padding-top: 6rpx;
+}
+
+.tab-icon-wrap {
+  width: 48rpx;
+  height: 48rpx;
+  margin-bottom: 2rpx;
+}
+
+.tab-icon {
+  width: 48rpx;
+  height: 48rpx;
+}
+
+.tab-text {
+  font-size: 20rpx;
+  line-height: 1;
+}

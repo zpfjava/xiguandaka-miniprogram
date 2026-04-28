@@ -16,17 +16,19 @@
       >
         <!-- 计划头部 -->
         <view class="plan-header">
-          <view class="plan-icon">{{item.subjectIcon}}</view>
+          <view class="plan-icon {{item.isActive ? '' : 'icon-gray'}}">{{item.subjectIcon}}</view>
           <view class="plan-info">
-            <view class="plan-title">{{item.title}}</view>
+            <view class="plan-title {{item.isActive ? '' : 'title-gray'}}">{{item.title}}</view>
             <view class="plan-meta">
               <text>{{item.subject}}</text>
               <text class="divider">·</text>
               <text>{{item.frequency}}</text>
             </view>
+            <!-- 暂停状态标签 -->
+            <view class="paused-badge" wx:if="{{!item.isActive}}">已暂停</view>
           </view>
-          <switch 
-            checked="{{item.isActive}}" 
+          <switch
+            checked="{{item.isActive}}"
             color="#7ED957"
             bindchange="togglePlanActive"
             data-id="{{item.id}}"
@@ -45,21 +47,29 @@
 
         <!-- 操作按钮 -->
         <view class="plan-actions">
-          <button 
-            class="action-btn checkin-btn-card" 
-            data-plan="{{item}}"
-            bindtap="goToCheckin"
-          >去打卡</button>
-          <button 
-            class="action-btn edit-btn" 
-            data-item="{{item}}"
-            bindtap="editPlan"
-          >编辑</button>
-          <button 
-            class="action-btn delete-btn" 
-            data-id="{{item.id}}"
-            bindtap="deletePlan"
-          >删除</button>
+          <block wx:if="{{item.isActive}}">
+            <button
+              class="action-btn checkin-btn-card"
+              data-plan="{{item}}"
+              bindtap="goToCheckin"
+            >去打卡</button>
+            <button
+              class="action-btn edit-btn"
+              data-item="{{item}}"
+              bindtap="editPlan"
+            >编辑</button>
+            <button
+              class="action-btn delete-btn"
+              data-id="{{item.id}}"
+              bindtap="deletePlan"
+            >删除</button>
+          </block>
+          <block wx:else>
+            <view class="paused-actions-hint">
+              <text class="paused-icon">⏸</text>
+              <text>计划已暂停，点击右上角开关恢复</text>
+            </view>
+          </block>
         </view>
       </view>
     </view>
@@ -120,16 +130,32 @@
         </picker>
       </view>
 
+      <!-- 自定义频率：星期多选 -->
+      <view class="form-group" wx:if="{{showCustomWeekdays}}">
+        <view class="form-label">选择日期</view>
+        <view class="weekday-selector">
+          <view 
+            wx:for="{{weekdays}}" 
+            wx:key="key"
+            class="weekday-item {{customWeekdaySelected[index] ? 'weekday-selected' : ''}}"
+            data-index="{{index}}"
+            bindtap="toggleCustomWeekday"
+          >{{item.shortName}}</view>
+        </view>
+        <view class="weekday-hint">点击选择每周执行日期，至少选择一天</view>
+      </view>
+
       <!-- 目标次数 -->
       <view class="form-group">
-        <view class="form-label">目标次数（天）</view>
+        <view class="form-label">目标打卡次数</view>
         <input
           class="form-input"
           type="number"
-          placeholder="例如：30"
+          placeholder="例如：21（坚持21天养成习惯）"
           value="{{form.targetCount}}"
           bindinput="onTargetInput"
         />
+        <view class="target-hint">累计完成该次数后，计划自动达成 🎯</view>
       </view>
 
       <!-- 备注 -->

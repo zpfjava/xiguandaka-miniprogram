@@ -1,4 +1,4 @@
-/* 愿望清单页样式 */
+/* 愿望清单页样�?*/
 .wishlist-page {
   min-height: 100vh;
   background-color: #FFF8E1;
@@ -109,7 +109,7 @@
 .wish-name { font-size: 30rpx; font-weight: bold; color: #333333; }
 .wish-desc { font-size: 24rpx; color: #999999; margin-top: 6rpx; line-height: 1.4; }
 
-/* 进度条 */
+/* 进度�?*/
 .wish-progress { margin-top: 14rpx; }
 .progress-bar {
   height: 10rpx;
@@ -126,7 +126,7 @@
 }
 .progress-text { font-size: 22rpx; color: #999999; }
 
-/* 已兑换标记 */
+/* 已兑换标�?*/
 .redeemed-badge {
   display: inline-block;
   font-size: 22rpx;
@@ -189,7 +189,7 @@
   color: #CCCCCC;
 }
 
-/* 空状态 */
+/* 空状�?*/
 .empty-state {
   display: flex;
   flex-direction: column;
@@ -270,7 +270,7 @@
   box-sizing: border-box;
 }
 
-/* 表情选择器 */
+/* 表情选择�?*/
 .emoji-picker {
   display: flex;
   flex-wrap: wrap;
@@ -345,3 +345,219 @@
 .confirm-btn { color: #FF9A3C; font-weight: bold; }
 .confirm-btn[disabled] { color: #CCCCCC; }
 .confirm-btn.btn-loading { opacity: 0.6; color: #CCCCCC !important; }
+
+/* ====== 存入星星弹窗 ====== */
+.save-modal {
+  width: 620rpx;
+  background-color: #FFFFFF;
+  border-radius: 28rpx;
+  overflow: hidden;
+}
+
+.save-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 28rpx 32rpx;
+  border-bottom: 1rpx solid #F5F5F5;
+}
+
+.save-modal-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333333;
+}
+
+.save-modal-close {
+  width: 48rpx;
+  height: 48rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36rpx;
+  color: #BBBBBB;
+}
+
+.save-modal-body {
+  padding: 28rpx 32rpx;
+}
+
+/* 愿望信息卡片 */
+.save-wish-info {
+  background-color: #FFFEF8;
+  border-radius: 16rpx;
+  padding: 20rpx 24rpx;
+  margin-bottom: 20rpx;
+}
+
+.save-wish-name {
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #333333;
+  margin-bottom: 10rpx;
+}
+
+.save-progress-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8rpx;
+  font-size: 24rpx;
+  color: #666666;
+}
+
+.save-remaining {
+  color: #FF9A3C;
+  font-weight: bold;
+}
+
+.save-progress-bar {
+  height: 12rpx;
+  background-color: #F0F0F0;
+  border-radius: 6rpx;
+  overflow: hidden;
+}
+
+.save-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #FFD93D 0%, #FF9A3C 100%);
+  border-radius: 6rpx;
+  transition: width 0.3s ease;
+}
+
+/* 可用星星提示 */
+.save-balance-tip {
+  font-size: 24rpx;
+  color: #999999;
+  margin-bottom: 24rpx;
+}
+
+.save-balance-num {
+  font-weight: bold;
+  color: #FF9A3C;
+  font-size: 28rpx;
+}
+
+/* 快捷档位 */
+.save-quick-section { margin-bottom: 24rpx; }
+.save-custom-section { margin-bottom: 0; }
+
+.save-section-label {
+  font-size: 26rpx;
+  color: #666666;
+  margin-bottom: 14rpx;
+}
+
+.save-quick-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14rpx;
+}
+
+.save-quick-btn {
+  min-width: 120rpx;
+  height: 68rpx;
+  line-height: 68rpx;
+  text-align: center;
+  padding: 0 24rpx;
+  font-size: 26rpx;
+  color: #666666;
+  background-color: #F7F7F7;
+  border-radius: 16rpx;
+  border: 2rpx solid transparent;
+  box-sizing: border-box;
+}
+.save-quick-btn.active {
+  background-color: #FFF8E1;
+  color: #FF9A3C;
+  font-weight: bold;
+  border-color: #FFD93D;
+}
+.save-quick-btn.disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
+.save-quick-btn.fill-all-btn {
+  background-color: #FFF3E0;
+  color: #FF9A3C;
+  border-color: #FFE0B2;
+}
+.save-quick-btn.fill-all-btn.active {
+  background-color: #FF9A3C;
+  color: #FFFFFF;
+  border-color: #FF9A3C;
+}
+
+/* 自定义输入 */
+.save-custom-input-wrap {
+  display: flex;
+  align-items: center;
+  background-color: #F7F7F7;
+  border-radius: 16rpx;
+  border: 2rpx solid transparent;
+  padding: 0 20rpx;
+}
+
+.save-custom-input-wrap:focus-within {
+  border-color: #FFD93D;
+  background-color: #FFFFFF;
+}
+
+.save-custom-input {
+  flex: 1;
+  height: 72rpx;
+  font-size: 30rpx;
+  font-weight: bold;
+  color: #333333;
+  text-align: center;
+  background: transparent;
+}
+
+.save-custom-unit {
+  font-size: 28rpx;
+  color: #FF9A3C;
+  font-weight: bold;
+  margin-left: 8rpx;
+}
+
+.save-max-tip {
+  font-size: 22rpx;
+  color: #BBBBBB;
+  margin-top: 10rpx;
+  text-align: center;
+}
+
+/* 底部按钮 */
+.save-modal-footer {
+  display: flex;
+  border-top: 1rpx solid #F5F5F5;
+  padding: 0 !important;
+}
+
+.save-cancel-btn {
+  flex: 1;
+  height: 96rpx;
+  line-height: 96rpx;
+  text-align: center;
+  font-size: 30rpx;
+  color: #999999;
+  background: none;
+  border: none;
+  border-right: 1rpx solid #F5F5F5;
+}
+.save-cancel-btn::after { display: none !important; }
+
+.save-confirm-btn {
+  flex: 1.5;
+  height: 96rpx;
+  line-height: 96rpx;
+  text-align: center;
+  font-size: 30rpx;
+  font-weight: bold;
+  color: #FFFFFF !important;
+  background: linear-gradient(135deg, #FFD93D 0%, #FF9A3C 100%);
+  border: none;
+  border-radius: 0;
+}
+.save-confirm-btn::after { display: none !important; border: none; }
+.save-confirm-btn:active { opacity: 0.88; }

@@ -46,6 +46,22 @@ export class WishlistsController {
     return { success: true, data: wish };
   }
 
+  // 存入星星到愿望
+  @Post(':id/save')
+  async saveStars(@Request() req: any, @Param('id') id: string, @Body() body: { amount?: number }) {
+    var amount = body.amount || 5 // 默认存入 5 颗
+    if (amount <= 0) return { success: false, message: '存入数量必须大于 0' }
+    const wish = await this.wishlistsService.saveStars(id, req.user.id, amount);
+    var remaining = wish.starsCost - (wish as any).savedStars;
+    return {
+      success: true,
+      data: wish,
+      message: remaining > 0
+        ? `已存入 ${amount} 颗⭐，还需 ${remaining} 颗即可兑换`
+        : `🎉 已存满！现在可以兑换「${wish.title}」了！`,
+    };
+  }
+
   // 兑换愿望
   @Post(':id/redeem')
   async redeem(@Request() req: any, @Param('id') id: string) {

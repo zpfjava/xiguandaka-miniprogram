@@ -39,6 +39,17 @@ var SUBJECTS = [
 
 var FREQUENCIES = ['每天', '每周 3 次', '每周 5 次', '工作日', '自定义']
 
+// 星期几选项（用于自定义频率选择）
+var WEEKDAYS = [
+  { key: 'mon', name: '周一', shortName: '一' },
+  { key: 'tue', name: '周二', shortName: '二' },
+  { key: 'wed', name: '周三', shortName: '三' },
+  { key: 'thu', name: '周四', shortName: '四' },
+  { key: 'fri', name: '周五', shortName: '五' },
+  { key: 'sat', name: '周六', shortName: '六' },
+  { key: 'sun', name: '周日', shortName: '日' }
+]
+
 var GRADES = [
   '小学一年级', '小学二年级', '小学三年级', '小学四年级',
   '小学五年级', '小学六年级',
@@ -139,6 +150,7 @@ module.exports = {
   SUBJECT_ICONS: SUBJECT_ICONS,
   SUBJECTS: SUBJECTS,
   FREQUENCIES: FREQUENCIES,
+  WEEKDAYS: WEEKDAYS,
   GRADES: GRADES,
   MOODS: MOODS,
   ENCOURAGEMENTS: ENCOURAGEMENTS,

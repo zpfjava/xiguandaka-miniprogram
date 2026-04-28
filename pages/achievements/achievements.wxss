@@ -162,3 +162,34 @@
   color: #999999;
   padding: 60rpx 30rpx;
 }
+
+/* 加载中 */
+.loading-tip {
+  text-align: center;
+  font-size: 26rpx;
+  color: #999999;
+  padding: 80rpx 30rpx;
+}
+
+/* 空状态 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 100rpx 30rpx;
+}
+.empty-icon {
+  font-size: 96rpx;
+  margin-bottom: 20rpx;
+}
+.empty-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #666666;
+  margin-bottom: 12rpx;
+}
+.empty-desc {
+  font-size: 26rpx;
+  color: #999999;
+  text-align: center;
+}

@@ -85,7 +85,13 @@
       </view>
     </block>
 
-    <view class="empty-hint" wx:else>暂无科目数据</view>
+    <empty-state
+      wx:else
+      type="empty"
+      text="暂无科目数据"
+      description="完成打卡后这里会显示各科目的学习情况"
+      padding="40rpx 0"
+    />
   </view>
 
   <!-- 每周打卡热力图 -->
@@ -116,6 +122,7 @@
           <view class="legend-cell level-1"></view>
           <view class="legend-cell level-2"></view>
           <view class="legend-cell level-3"></view>
+          <view class="legend-cell level-4"></view>
         </view>
         <text>多</text>
       </view>

@@ -1,1 +1,1 @@
-{"navigationBarTitleText": "愿望清单", "usingComponents": {}}
+{"navigationBarTitleText": "愿望清单", "usingComponents": {"empty-state": "../../components/empty-state/empty-state"}}

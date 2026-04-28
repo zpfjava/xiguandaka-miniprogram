@@ -165,7 +165,12 @@
   border-radius: 44rpx;
   text-align: center;
   border: none;
-  margin-top: 10rpx;
+  padding: 0;
+  margin: 0;
+  /* 重置微信小程序 button 默认样式 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .submit-btn::after { border: none; }
 .submit-btn:active { opacity: 0.85; }

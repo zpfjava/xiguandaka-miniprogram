@@ -97,8 +97,9 @@ function demoLogin() {
     return Promise.resolve(null)
   }
 
+  // 使用与后端 seed 脚本一致的 demo 用户 ID
   var demoUser = {
-    id: 'demo-user-001',
+    id: 'demo_user_20260311',
     nickname: '小明同学',
     avatar: '😊',
     grade: '小学三年级',
@@ -207,8 +208,7 @@ function wxLogin() {
         api.request({
           url: '/auth/wx-login',
           method: 'POST',
-          data: { code: loginRes.code },
-          showLoading: true
+          data: { code: loginRes.code }
         }).then(function(res) {
           if (res.success && res.data) {
             safeSetLoginStatus(res.data.id, res.data)
@@ -247,8 +247,7 @@ function wxPhoneLogin(code, encryptedData, iv) {
       code: code,
       encryptedData: encryptedData,
       iv: iv
-    },
-    showLoading: true
+    }
   }).then(function(res) {
     return handleLoginResponse(res)
   }).catch(function(err) {

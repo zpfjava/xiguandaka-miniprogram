@@ -4,6 +4,7 @@
  */
 var api = require('../../utils/api')
 var constants = require('../../utils/constants')
+var achievementUtil = require('../../utils/achievement')
 
 var checkinApi = api.checkinApi
 var planApi = api.planApi
@@ -150,13 +151,22 @@ Page({
             submitting: false
           })
 
-          // 通知首页刷新（通过 globalData 标记）
+          // 通知首页和计划页刷新（通过 globalData 标记）
           try {
             var app = getApp()
             if (app && app.globalData) {
               app.globalData._needRefreshHome = true
+              // 乐观更新：立即标记首页对应计划为已完成
+              if (planId) {
+                app.globalData._markPlanCompleted = planId
+              }
+              // 同时标记计划页需要刷新
+              app.globalData._needRefreshPlans = true
             }
           } catch (e) {}
+
+          // 成就自动检查（异步，不阻塞用户操作）
+          achievementUtil.checkAndShow({ totalCheckins: 1 })
         } else {
           // 后端返回业务错误
           wx.showToast({ title: res.message || '打卡失败', icon: 'none' })
@@ -188,6 +198,18 @@ Page({
             earnedStars: starsEarned,
             submitting: false
           })
+
+          // 通知首页和计划页刷新（图片上传失败但打卡成功时也需要）
+          try {
+            var app2 = getApp()
+            if (app2 && app2.globalData) {
+              app2.globalData._needRefreshHome = true
+              if (planId) {
+                app2.globalData._markPlanCompleted = planId
+              }
+              app2.globalData._needRefreshPlans = true
+            }
+          } catch (e) {}
         } else {
           wx.showToast({ title: res.message || '打卡失败', icon: 'none' })
           that.setData({ submitting: false })

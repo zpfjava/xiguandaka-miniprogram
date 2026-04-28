@@ -97,11 +97,21 @@ export class PointsService {
       reason?: string;
       limit?: number;
       offset?: number;
+      month?: string; // 格式: "2026-04"
     },
   ): Promise<{ data: PointsHistory[]; total: number }> {
     const where: any = { userId };
     if (options?.reason) {
       where.reason = options.reason;
+    }
+
+    // 按月份筛选
+    if (options?.month) {
+      const year = parseInt(options.month.split('-')[0]);
+      const m = parseInt(options.month.split('-')[1]);
+      const startDate = new Date(year, m - 1, 1);
+      const endDate = new Date(year, m, 0, 23, 59, 59);
+      where.createdAt = { gte: startDate, lte: endDate };
     }
 
     const [data, total] = await Promise.all([
@@ -115,6 +125,17 @@ export class PointsService {
     ]);
 
     return { data, total };
+  }
+
+  // 获取用户（用于获取 currentStars 等字段）
+  async getUser(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+    if (!user) {
+      throw new BadRequestException('用户不存在');
+    }
+    return user;
   }
 
   // 获取积分统计

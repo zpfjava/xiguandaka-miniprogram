@@ -136,7 +136,7 @@ var userApi = {
 }
 
 var planApi = {
-  getAll: function() { return get('/study-plans') },
+getAll: function() { return get('/study-plans?includeInactive=true') },
   create: function(data) { return post('/study-plans', data) },
   update: function(id, data) { return put('/study-plans/' + id, data) },
   remove: function(id) { return del('/study-plans/' + id) },
@@ -147,7 +147,8 @@ var checkinApi = {
   create: function(data) { return post('/checkins', data) },
   getList: function(params) { return get('/checkins', params) },
   stats: function() { return get('/checkins/stats') },
-  remove: function(id) { return del('/checkins/' + id) }
+  remove: function(id) { return del('/checkins/' + id) },
+  heatmap: function(days) { days = days || 90; return get('/checkins/heatmap', { days: days }) }
 }
 
 var pointsApi = {
@@ -160,7 +161,8 @@ var wishlistApi = {
   getAll: function(status) { return get('/wishlists', status ? { status: status } : {}) },
   create: function(data) { return post('/wishlists', data) },
   redeem: function(id) { return post('/wishlists/' + id + '/redeem') },
-  remove: function(id) { return del('/wishlists/' + id) }
+  remove: function(id) { return del('/wishlists/' + id) },
+  saveStars: function(id, amount) { return post('/wishlists/' + id + '/save', { amount: amount }) }
 }
 
 var dailyCheckinApi = {
@@ -183,6 +185,13 @@ var leaderboardApi = {
 
 var reportApi = {
   getReport: function(period) { period = period || 'week'; return get('/report', { period: period }) }
+}
+
+var exportApi = {
+  getReport: function(startDate, endDate) { return get('/export/report', { startDate: startDate, endDate: endDate }) },
+  getAllData: function() { return get('/export/all') },
+  getCheckinsCsv: function(startDate, endDate) { return get('/export/checkins/csv', { startDate: startDate, endDate: endDate }) },
+  getPointsCsv: function() { return get('/export/points/csv') }
 }
 
 var parentApi = {
@@ -213,6 +222,7 @@ module.exports = {
   achievementApi: achievementApi,
   leaderboardApi: leaderboardApi,
   reportApi: reportApi,
+  exportApi: exportApi,
   parentApi: parentApi,
   feedbackApi: feedbackApi
 }

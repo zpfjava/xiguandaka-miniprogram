@@ -103,11 +103,6 @@
       <view class="empty-desc" wx:if="{{activeTab !== 'redeemed'}}">
         添加你的第一个愿望，用学习赚来的星星来兑换吧！
       </view>
-      <button 
-        class="empty-btn" 
-        wx:if="{{activeTab !== 'redeemed'}}"
-        bindtap="showAddModal"
-      >+ 添加愿望</button>
     </view>
   </block>
 </view>
@@ -175,6 +170,96 @@
       <button class="cancel-btn" bindtap="hideAddModal">取消</button>
       <button class="confirm-btn {{saving ? 'btn-loading' : ''}}" bindtap="saveWish" disabled="{{saving}}">
         创建愿望
+      </button>
+    </view>
+  </view>
+</view>
+
+<!-- 存入星星弹窗 -->
+<view class="modal-overlay" wx:if="{{showSaveModal}}" catchtouchmove="preventMove">
+  <view class="modal-content save-modal">
+    <view class="save-modal-header">
+      <text class="save-modal-title">⭐ 存入星星</text>
+      <view class="save-modal-close" bindtap="hideSaveModal">×</view>
+    </view>
+
+    <view class="save-modal-body">
+      <!-- 愿望信息 -->
+      <view class="save-wish-info">
+        <view class="save-wish-name">{{saveModal.wishTitle}}</view>
+        <view class="save-progress-row">
+          <text>已存 {{saveModal.savedStars}} / {{saveModal.costStars}} ⭐</text>
+          <text class="save-remaining">还差 {{saveModal.remaining}} ⭐</text>
+        </view>
+        <view class="save-progress-bar">
+          <view class="save-progress-fill" style="width: {{saveModal.costStars > 0 ? (saveModal.savedStars / saveModal.costStars * 100) : 0}}%"></view>
+        </view>
+      </view>
+
+      <!-- 可用星星提示 -->
+      <view class="save-balance-tip">
+        可用星星：<text class="save-balance-num">{{saveModal.currentStars}}</text> ⭐
+      </view>
+
+      <!-- 快捷档位 -->
+      <view class="save-quick-section">
+        <view class="save-section-label">选择数量</view>
+        <view class="save-quick-btns">
+          <view
+            wx:if="{{saveModal.maxSave >= 5}}"
+            class="save-quick-btn {{saveModal.selectedAmount === 5 ? 'active' : ''}} {{saveModal.maxSave < 5 ? 'disabled' : ''}}"
+            bindtap="selectSaveAmount"
+            data-amount="5"
+          >5 ⭐</view>
+          <view
+            wx:if="{{saveModal.maxSave >= 10}}"
+            class="save-quick-btn {{saveModal.selectedAmount === 10 ? 'active' : ''}} {{saveModal.maxSave < 10 ? 'disabled' : ''}}"
+            bindtap="selectSaveAmount"
+            data-amount="10"
+          >10 ⭐</view>
+          <view
+            wx:if="{{saveModal.maxSave >= 20}}"
+            class="save-quick-btn {{saveModal.selectedAmount === 20 ? 'active' : ''}} {{saveModal.maxSave < 20 ? 'disabled' : ''}}"
+            bindtap="selectSaveAmount"
+            data-amount="20"
+          >20 ⭐</view>
+          <!-- 一键存满（仅当可用星星足够时显示） -->
+          <view
+            wx:if="{{saveModal.currentStars >= saveModal.remaining}}"
+            class="save-quick-btn fill-all-btn {{saveModal.selectedAmount === saveModal.remaining ? 'active' : ''}}"
+            bindtap="fillAllStars"
+          >存满 {{saveModal.remaining}} ⭐</view>
+          <!-- 全部存入（当星星不足时显示） -->
+          <view
+            wx:elif="{{saveModal.maxSave > 0}}"
+            class="save-quick-btn fill-all-btn {{saveModal.selectedAmount === saveModal.maxSave ? 'active' : ''}}"
+            bindtap="selectSaveAmount"
+            data-amount="{{saveModal.maxSave}}"
+          >全部 {{saveModal.maxSave}} ⭐</view>
+        </view>
+      </view>
+
+      <!-- 自定义输入 -->
+      <view class="save-custom-section">
+        <view class="save-section-label">或自定义数量</view>
+        <view class="save-custom-input-wrap">
+          <input
+            class="save-custom-input"
+            type="number"
+            value="{{saveModal.selectedAmount}}"
+            bindinput="onCustomSaveInput"
+            placeholder="输入数量"
+          />
+          <text class="save-custom-unit">⭐</text>
+        </view>
+        <view class="save-max-tip">最多可存入 {{saveModal.maxSave}} ⭐</view>
+      </view>
+    </view>
+
+    <view class="save-modal-footer">
+      <button class="save-cancel-btn" bindtap="hideSaveModal">取消</button>
+      <button class="save-confirm-btn" bindtap="confirmSaveStars">
+        确认存入 {{saveModal.selectedAmount || 0}} ⭐
       </button>
     </view>
   </view>

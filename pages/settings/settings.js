@@ -4,8 +4,10 @@
  */
 var api = require('../../utils/api')
 var constants = require('../../utils/constants')
+var notifyUtil = require('../../utils/notify')
 
 var userApi = api.userApi
+var exportApi = api.exportApi
 var GRADES = constants.GRADES
 
 Page({
@@ -130,10 +132,43 @@ Page({
       if (key === 'reminder' && settings.reminder) {
         that.setupReminder(settings.reminderTime)
       }
+
+      // 深色模式：立即应用到当前页面 + 设置全局标记
+      if (key === 'darkMode') {
+        if (settings.darkMode) {
+          // 设置深色模式（通过在 page 上添加 class 或修改全局数据）
+          wx.setNavigationBarColor({
+            frontColor: '#ffffff',
+            backgroundColor: '#1a1a1a'
+          })
+          wx.showToast({ title: '已开启深色模式', icon: 'none' })
+        } else {
+          wx.setNavigationBarColor({
+            frontColor: '#000000',
+            backgroundColor: '#FFF8E1'
+          })
+          wx.showToast({ title: '已关闭深色模式', icon: 'none' })
+        }
+        // 标记全局状态，其他页面 onShow 时可读取
+        var app = getApp()
+        if (app && app.globalData) {
+          app.globalData._darkMode = settings.darkMode
+        }
+      }
+
+      // 显示统计数据：提示用户效果
+      if (key === 'showStats') {
+        wx.showToast({
+          title: settings.showStats ? '首页将显示详细统计' : '首页隐藏详细统计',
+          icon: 'none'
+        })
+      }
     } catch (e) {}
 
-    var label = settings[key] ? '已开启' : '已关闭'
-    wx.showToast({ title: label, icon: 'none' })
+    if (key !== 'darkMode' && key !== 'showStats') {
+      var label = settings[key] ? '已开启' : '已关闭'
+      wx.showToast({ title: label, icon: 'none' })
+    }
   },
 
   onTimeChange: function(e) {
@@ -150,19 +185,119 @@ Page({
   },
 
   setupReminder: function(time) {
-    wx.requestSubscribeMessage({
-      tmplIds: [],
-      success: function(res) {
-        console.log('订阅消息结果:', res)
-      },
-      fail: function(err) {
-        console.log('订阅消息失败:', err)
+    var that = this
+    // 使用通知工具设置本地提醒
+    var result = notifyUtil.setLocalReminder(time, '该去学习打卡啦！📚')
+
+    // 尝试请求订阅消息权限（如果模板 ID 已配置）
+    notifyUtil.onCheckinSuccess().then(function(res) {
+      if (res && !res.skipped) {
+        console.log('订阅消息授权结果:', res.results)
       }
     })
   },
 
   goToPrivacy: function() {
     wx.showToast({ title: '隐私设置开发中...', icon: 'none' })
+  },
+
+  /**
+   * 导出全部数据（JSON 格式）
+   * 获取后返回数据摘要，用户可查看或复制
+   */
+  exportData: function() {
+    var that = this
+    wx.showLoading({ title: '正在导出...', mask: true })
+
+    exportApi.getAllData().then(function(res) {
+      wx.hideLoading()
+      if (res.success && res.data) {
+        var data = res.data
+        var exportText = JSON.stringify(data, null, 2)
+        var summary = ''
+
+        // 构建数据摘要
+        if (data.checkins) summary += '打卡记录: ' + data.checkins.length + ' 条\n'
+        if (data.plans) summary += '学习计划: ' + data.plans.length + ' 个\n'
+        if (data.pointsHistory) summary += '积分记录: ' + data.pointsHistory.length + ' 条\n'
+        if (data.wishlists) summary += '愿望清单: ' + data.wishlists.length + ' 个\n'
+        if (data.dailyCheckins) summary += '签到记录: ' + data.dailyCheckins.length + ' 天\n'
+
+        wx.showModal({
+          title: '📤 导出成功',
+          content: '数据概览：\n' + summary + '\n点击确定复制完整 JSON 数据',
+          showCancel: true,
+          cancelText: '取消',
+          confirmText: '复制数据',
+          confirmColor: '#FF9A3C',
+          success: function(modalRes) {
+            if (modalRes.confirm) {
+              wx.setClipboardData({
+                data: exportText,
+                success: function() {
+                  wx.showToast({ title: '已复制到剪贴板', icon: 'success' })
+                }
+              })
+            }
+          }
+        })
+      } else {
+        wx.showToast({ title: res.message || '导出失败', icon: 'none' })
+      }
+    }).catch(function(err) {
+      wx.hideLoading()
+      console.error('导出数据失败:', err)
+      wx.showToast({ title: '网络异常，请重试', icon: 'none' })
+    })
+  },
+
+  /**
+   * 导出学习报告
+   */
+  exportReport: function() {
+    var that = this
+    wx.showLoading({ title: '正在生成报告...', mask: true })
+
+    exportApi.getReport().then(function(res) {
+      wx.hideLoading()
+      if (res.success && res.data) {
+        var report = res.data
+        var reportText = JSON.stringify(report, null, 2)
+
+        // 构建报告摘要
+        var summary = ''
+        if (report.summary) {
+          summary += '总打卡: ' + (report.summary.totalCheckins || 0) + ' 次\n'
+          summary += '获得星星: ' + (report.summary.totalStars || 0) + ' 颗\n'
+          summary += '连续天数: ' + (report.streak && report.streak.current ? report.streak.current : 0) + ' 天\n'
+        }
+
+        wx.showModal({
+          title: '📋 学习报告',
+          content: summary || '报告已生成',
+          showCancel: true,
+          cancelText: '关闭',
+          confirmText: '复制详情',
+          confirmColor: '#FF9A3C',
+          success: function(modalRes) {
+            if (modalRes.confirm) {
+              wx.setClipboardData({
+                data: reportText,
+                success: function() {
+                  wx.showToast({ title: '已复制到剪贴板', icon: 'success' })
+                }
+              })
+            }
+          }
+        })
+      } else {
+        wx.showToast({ title: res.message || '生成失败', icon: 'none' })
+      }
+    }).catch(function(err) {
+      wx.hideLoading()
+      console.error('导出报告失败:', err)
+      wx.showToast({ title: '网络异常，请重试', icon: 'none' })
+    })
   },
 
   clearCache: function() {
@@ -246,13 +381,55 @@ Page({
       count: 1,
       mediaType: ['image'],
       sourceType: ['album', 'camera'],
+      sizeType: ['compressed'],
       success: function(res) {
-        var emojis = ['😊', '😄', '🥰', '😎', '🤓', '😇', '🥳', '😋']
-        var randomEmoji = emojis[Math.floor(Math.random() * emojis.length)]
-        that.setData({ 'userInfo.avatar': randomEmoji })
-        wx.showToast({ title: '头像已更换（请点击保存）', icon: 'none' })
+        if (!res.tempFiles || res.tempFiles.length === 0) return
+
+        var tempFilePath = res.tempFiles[0].tempFilePath
+
+        // 立即在页面上预览新头像
+        that.setData({ 'userInfo.avatar': tempFilePath })
+
+        // 上传到后端服务器
+        wx.showLoading({ title: '正在上传...', mask: true })
+
+        var gd = (function() {
+          try { var a = getApp(); return (a && a.globalData) ? a.globalData : {} } catch (e) { return {} }
+        })()
+        var apiBase = gd.apiBase || 'http://192.168.10.103:3000'
+        var userId = gd.userId || wx.getStorageSync('userId') || ''
+
+        wx.uploadFile({
+          url: apiBase + '/upload',
+          filePath: tempFilePath,
+          name: 'file',
+          header: { 'x-user-id': userId },
+          success: function(uploadRes) {
+            wx.hideLoading()
+            try {
+              var data = JSON.parse(uploadRes.data)
+              if (data.url) {
+                that.setData({ 'userInfo.avatar': data.url })
+                wx.showToast({ title: '头像已更换', icon: 'success' })
+              } else {
+                // 上传失败但本地预览仍可用
+                console.warn('上传返回无URL，使用本地路径')
+              }
+            } catch(e) {
+              // 解析失败，保持本地临时路径（小程序内有效）
+              console.warn('上传响应解析失败，使用本地头像')
+            }
+          },
+          fail: function() {
+            wx.hideLoading()
+            // 上传接口不可用时，保持本地临时路径
+            console.log('上传接口不可用，使用本地临时头像')
+          }
+        })
       },
-      fail: function() {}
+      fail: function() {
+        // 用户取消选择，不做处理
+      }
     })
   }
 })

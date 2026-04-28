@@ -11,14 +11,14 @@ Page({
     periods: [
       { key: 'week', label: '本周' },
       { key: 'month', label: '本月' },
-      { key: 'custom', label: '自定义' }
+      { key: 'year', label: '本年' }
     ],
     report: {
-      score: 'A-',
-      totalCheckins: 7,
-      subjectCount: 3,
-      earnedStars: 35,
-      streakDays: 2
+      score: '-',
+      totalCheckins: 0,
+      subjectCount: 0,
+      earnedStars: 0,
+      streakDays: 0
     },
     highlights: [],
     suggestions: [],
@@ -44,68 +44,142 @@ Page({
       } else {
         that.loadDefaultReport()
       }
-    })
+    }).catch(function(err) {
+        console.error('加载报告失败:', err)
+        that.loadDefaultReport()
+      })
   },
 
   loadDefaultReport: function() {
     var now = new Date()
     var dateStr = now.getFullYear() + '年' + (now.getMonth() + 1) + '月' + now.getDate() + '日'
-    
+
     this.setData({
       report: {
-        score: 'A-',
-        totalCheckins: 7,
-        subjectCount: 3,
-        earnedStars: 35,
-        streakDays: 2
+        score: '-',
+        totalCheckins: 0,
+        subjectCount: 0,
+        earnedStars: 0,
+        streakDays: 0
       },
       highlights: [
-        { emoji: '🎉', text: '本周打卡率达到了 85%，比上周提升了 12%！' },
-        { emoji: '📖', text: '语文打卡最积极，连续打卡 5 天，继续保持！' },
-        { emoji: '⭐', text: '累计获得 35 颗星星，已超过 80% 的同学' },
-        { emoji: '🔥', text: '目前保持 2 天连续打卡，再坚持 1 天就能解锁新成就！' }
+        { emoji: '💡', text: '完成更多打卡后，这里会展示你的学习亮点！' }
       ],
       suggestions: [
-        '数学打卡频率可以适当提高，建议每天至少完成 1 次数学练习',
-        '周末的打卡量明显低于工作日，可以尝试制定周末学习计划',
-        '晚间（18:00-22:00）是你最高效的学习时段，建议充分利用'
+        '坚持每天打卡，养成良好学习习惯',
+        '制定合理的学习计划，循序渐进'
       ],
-      subjectReports: [
-        { subject: '语文', icon: '📖', checkins: 5, stars: 25, percent: 85 },
-        { subject: '数学', icon: '🔢', checkins: 4, stars: 20, percent: 68 },
-        { subject: '英语', icon: '🔤', checkins: 3, stars: 15, percent: 50 }
-      ],
-      summaryText: '你是一个勤奋好学的小朋友！语文科目表现尤为出色，数学和英语还有提升空间。继续保持每天打卡的好习惯，相信你会越来越棒！',
+      subjectReports: [],
+      summaryText: '暂无足够的学习数据，快去打卡积累吧！',
       reportDate: dateStr
     })
   },
 
   processReport: function(data) {
     var that = this
-    var subjectReports = []
-    if (data.subjectReports) {
-      for (var i = 0; i < data.subjectReports.length; i++) {
-        var s = {}
-        for (var k in data.subjectReports[i]) { s[k] = data.subjectReports[i][k] }
-        s.icon = s.icon || '📝'
-        s.percent = s.percent || Math.min(100, s.checkins * 17)
-        subjectReports.push(s)
+
+    // 处理 summary：后端返回的是对象，需要转为文字描述
+    var summaryText = ''
+    if (data.summary) {
+      if (typeof data.summary === 'string') {
+        summaryText = data.summary
+      } else {
+        // summary 是对象 { totalCheckins, totalPlans, totalStars, totalStudyTime }
+        var s = data.summary
+        var parts = []
+        if (s.totalCheckins > 0) parts.push('累计打卡 ' + s.totalCheckins + ' 次')
+        if (s.totalStars > 0) parts.push('获得星星 ' + s.totalStars + ' 颗')
+        if (s.totalPlans > 0) parts.push('学习计划 ' + s.totalPlans + ' 个')
+        if (s.totalStudyTime > 0) parts.push('学习时长约 ' + s.totalStudyTime + ' 分钟')
+        summaryText = parts.length > 0 ? parts.join('，') + '。继续加油！' : '继续加油，每天进步一点点！'
       }
+    }
+
+    // 使用 data.summary 或 fallback
+    if (!summaryText) {
+      summaryText = data.summary || '继续加油，每天进步一点点！'
+      // 兜底：如果还是对象，强制转字符串
+      if (typeof summaryText === 'object') {
+        summaryText = JSON.stringify(summaryText)
+      }
+    }
+
+    // 处理科目报告
+    var subjectReports = []
+    if (data.subjectStats && Array.isArray(data.subjectStats)) {
+      for (var i = 0; i < data.subjectStats.length; i++) {
+        var sr = {}
+        for (var k in data.subjectStats[i]) { sr[k] = data.subjectStats[i][k] }
+        sr.icon = sr.icon || '📝'
+        sr.percent = sr.percent || Math.min(100, Math.round((sr.checkins || 0) * 17))
+        subjectReports.push(sr)
+      }
+    }
+
+    // 处理高亮（从成就数据转换）
+    var highlights = []
+    if (data.achievements && Array.isArray(data.achievements)) {
+      for (var j = 0; j < data.achievements.length; j++) {
+        var a = data.achievements[j]
+        highlights.push({
+          emoji: a.icon || '🏆',
+          text: (a.name || '成就') + ' - 解锁于 ' + (a.unlockedAt || '最近')
+        })
+      }
+    }
+
+    // 如果没有亮点数据，给个默认提示
+    if (highlights.length === 0) {
+      highlights = [
+        { emoji: '📊', text: '本周打卡 ' + (data.summary ? (data.summary.totalCheckins || 0) : 0) + ' 次' },
+        { emoji: '⭐', text: '获得星星 ' + (data.summary ? (data.summary.totalStars || 0) : 0) + ' 颗' },
+        { emoji: '🔥', text: '连续打卡 ' + (data.streak ? (data.streak.current || 0) : 0) + ' 天' }
+      ]
+    }
+
+    // 处理建议
+    var suggestions = data.suggestions || []
+    if (suggestions.length === 0) {
+      suggestions = [
+        '保持当前节奏，坚持每天打卡',
+        '可以尝试增加新的学习科目'
+      ]
+    }
+
+    // 计算综合评分
+    var score = '-'
+    if (data.summary && data.summary.totalCheckins > 0) {
+      var checkinCount = data.summary.totalCheckins
+      if (checkinCount >= 14) score = 'A+'
+      else if (checkinCount >= 10) score = 'A'
+      else if (checkinCount >= 7) score = 'A-'
+      else if (checkinCount >= 5) score = 'B+'
+      else if (checkinCount >= 3) score = 'B'
+      else score = 'C+'
+    }
+
+    // 生成报告日期
+    var reportDate = ''
+    if (data.period) {
+      reportDate = data.period + '报告'
+    } else {
+      var now = new Date()
+      reportDate = now.getFullYear() + '年' + (now.getMonth() + 1) + '月' + now.getDate() + '日'
     }
 
     that.setData({
       report: {
-        score: data.score || 'B+',
-        totalCheckins: data.totalCheckins || 0,
-        subjectCount: data.subjectCount || 0,
-        earnedStars: data.earnedStars || 0,
-        streakDays: data.streakDays || 0
+        score: score,
+        totalCheckins: data.summary ? (data.summary.totalCheckins || 0) : 0,
+        subjectCount: data.summary ? (data.summary.totalPlans || 0) : 0,
+        earnedStars: data.summary ? (data.summary.totalStars || 0) : 0,
+        streakDays: data.streak ? (data.streak.current || 0) : 0
       },
-      highlights: data.highlights || [],
-      suggestions: data.suggestions || [],
+      highlights: highlights,
+      suggestions: suggestions,
       subjectReports: subjectReports,
-      summaryText: data.summary || '继续加油，每天进步一点点！',
-      reportDate: data.generatedAt || new Date().toLocaleDateString('zh-CN')
+      summaryText: summaryText,
+      reportDate: reportDate
     })
   },
 
@@ -114,9 +188,9 @@ Page({
       withShareTicket: true,
       menus: ['shareAppMessage', 'shareTimeline']
     })
-    
+
     wx.showToast({
-      title: '请点击右上角分享',
+      title: '请点击右上角 ··· 分享',
       icon: 'none',
       duration: 2000
     })
@@ -124,7 +198,7 @@ Page({
 
   onShareAppMessage: function() {
     return {
-      title: '小打卡学习报告 - ' + this.data.reportDate,
+      title: '📈 小打卡学习报告 - ' + this.data.reportDate,
       path: '/pages/report/report',
       imageUrl: ''
     }

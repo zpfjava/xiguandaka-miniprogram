@@ -1,10 +1,16 @@
 <!-- 小打卡 - 设置页 -->
-<view class="settings-page">
+<view class="settings-page {{settings.darkMode ? 'dark-mode' : ''}}">
   <!-- 个人信息编辑区 -->
   <view class="profile-section">
     <view class="profile-header">
       <view class="profile-avatar" bindtap="changeAvatar">
-        {{userInfo.avatar || '😊'}}
+        <image
+          wx:if="{{userInfo.avatar && userInfo.avatar !== '😊'}}"
+          src="{{userInfo.avatar}}"
+          class="avatar-image"
+          mode="aspectFill"
+        />
+        <text wx:else>😊</text>
       </view>
       
       <view class="profile-edit">
@@ -57,10 +63,13 @@
     <view class="setting-item">
       <view class="item-left">
         <text class="item-icon">🌙</text>
-        <text class="item-text">深色模式</text>
+        <view class="item-text-wrap">
+          <text class="item-text">深色模式</text>
+          <text class="item-desc">{{settings.darkMode ? '已开启护眼模式' : '跟随系统'}}</text>
+        </view>
       </view>
-      <switch 
-        checked="{{settings.darkMode}}" 
+      <switch
+        checked="{{settings.darkMode}}"
         color="#7ED957"
         bindchange="toggleSetting"
         data-key="darkMode"
@@ -70,14 +79,48 @@
     <view class="setting-item">
       <view class="item-left">
         <text class="item-icon">📊</text>
-        <text class="item-text">显示统计数据</text>
+        <view class="item-text-wrap">
+          <text class="item-text">显示统计数据</text>
+          <text class="item-desc">{{settings.showStats ? '首页展示详细统计卡片' : '简洁模式'}}</text>
+        </view>
       </view>
-      <switch 
-        checked="{{settings.showStats}}" 
+      <switch
+        checked="{{settings.showStats}}"
         color="#7ED957"
         bindchange="toggleSetting"
         data-key="showStats"
       />
+    </view>
+  </view>
+
+  <!-- 设置分组 - 数据管理 -->
+  <view class="setting-group">
+    <view class="group-title">数据管理</view>
+
+    <view class="setting-item" bindtap="exportData">
+      <view class="item-left">
+        <text class="item-icon">📤</text>
+        <text class="item-text">导出我的数据</text>
+      </view>
+      <text class="item-arrow">›</text>
+      <text class="item-hint">JSON 格式</text>
+    </view>
+
+    <view class="setting-item" bindtap="exportReport">
+      <view class="item-left">
+        <text class="item-icon">📋</text>
+        <text class="item-text">导出学习报告</text>
+      </view>
+      <text class="item-arrow">›</text>
+      <text class="item-hint">本周数据</text>
+    </view>
+
+    <view class="setting-item" bindtap="clearCache">
+      <view class="item-left">
+        <text class="item-icon">🗑️</text>
+        <text class="item-text">清除缓存</text>
+      </view>
+      <text class="item-arrow">{{cacheSize}} ›</text>
     </view>
   </view>
 
@@ -91,14 +134,6 @@
         <text class="item-text">隐私设置</text>
       </view>
       <text class="item-arrow">›</text>
-    </view>
-
-    <view class="setting-item" bindtap="clearCache">
-      <view class="item-left">
-        <text class="item-icon">🗑️</text>
-        <text class="item-text">清除缓存</text>
-      </view>
-      <text class="item-arrow">{{cacheSize}} ›</text>
     </view>
   </view>
 

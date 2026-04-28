@@ -12,9 +12,13 @@ export class ReportController {
   @Get()
   async getReport(
     @Request() req: any,
-    @Query('period') period: 'week' | 'month' | 'year' = 'week',
+    @Query('period') period: string = 'week',
   ) {
-    const report = await this.reportService.getUserReport(req.user.id, period);
+    // 兼容处理：只允许 week/month/year，其他值默认为 week
+    const validPeriods = ['week', 'month', 'year'];
+    const safePeriod = validPeriods.includes(period) ? period : 'week';
+    
+    const report = await this.reportService.getUserReport(req.user.id, safePeriod as 'week' | 'month' | 'year');
     
     return {
       success: true,

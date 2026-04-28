@@ -1,9 +1,14 @@
 <view class="pr-container pr-{{size}}">
   <view class="pr-wrap">
-    <canvas type="2d" id="progressCanvas" class="pr-canvas" style="width:{{canvasSize}}px;height:{{canvasSize}}px;"></canvas>
-    <view class="pr-text">
-      <text class="pr-value">{{displayProgress}}</text>
-      <text class="pr-unit">%</text>
+    <!-- 纯 CSS 圆环，无 Canvas 异步延迟 -->
+    <view
+      class="pr-ring"
+      style="background: conic-gradient(#FFD93D 0deg, #FF9A3C {{progress * 3.6}}deg, #F0F0F0 {{progress * 3.6}}deg, #F0F0F0 360deg);"
+    >
+      <view class="pr-inner">
+        <text class="pr-value">{{progress}}</text>
+        <text class="pr-unit">%</text>
+      </view>
     </view>
   </view>
   <view class="pr-label" wx:if="{{label}}">{{label}}</view>

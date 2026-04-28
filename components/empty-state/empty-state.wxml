@@ -1,0 +1,25 @@
+<!-- 通用空状态/错误状态组件 -->
+<view class="empty-state" style="padding: {{padding}}">
+  <!-- 图标区域 -->
+  <view class="icon-area {{type}}">
+    <text class="state-icon" wx:if="{{_icon}}">{{_icon}}</text>
+
+    <!-- loading 动画 -->
+    <view class="loading-spinner" wx:if="{{type === 'loading'}}">
+      <view class="spinner-dot"></view>
+      <view class="spinner-dot"></view>
+      <view class="spinner-dot"></view>
+    </view>
+  </view>
+
+  <!-- 文字区域 -->
+  <view class="text-area">
+    <text class="state-text">{{_text}}</text>
+    <text class="state-desc" wx:if="{{description}}">{{description}}</text>
+  </view>
+
+  <!-- 重试按钮 -->
+  <view class="retry-btn-wrap" wx:if="{{showRetry && type !== 'loading'}}">
+    <button class="retry-btn" bindtap="onRetry">{{retryText}}</button>
+  </view>
+</view>

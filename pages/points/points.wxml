@@ -29,36 +29,36 @@
         <view class="way-icon">✅</view>
         <view class="way-content">
           <view class="way-name">完成学习打卡</view>
-          <view class="way-desc">每次打卡 +5 ⭐，连续打卡额外 +2 ⭐</view>
+          <view class="way-desc">每次打卡获得该计划设定的星星奖励</view>
         </view>
-        <view class="way-reward">+5~7</view>
+        <view class="way-reward">+5</view>
       </view>
       
       <view class="way-item">
         <view class="way-icon">📅</view>
         <view class="way-content">
           <view class="way-name">每日签到</view>
-          <view class="way-desc">每天签到可领取星星奖励</view>
+          <view class="way-desc">连续签到天数越多，奖励越丰厚</view>
         </view>
-        <view class="way-reward">+3</view>
+        <view class="way-reward">+5~20</view>
       </view>
       
       <view class="way-item">
         <view class="way-icon">🏆</view>
         <view class="way-content">
           <view class="way-name">解锁成就</view>
-          <view class="way-desc">达成特定目标可获得大量星星</view>
+          <view class="way-desc">达成特定目标可获得大量星星奖励</view>
         </view>
-        <view class="way-reward">+10~50</view>
+        <view class="way-reward">+10~200</view>
       </view>
 
       <view class="way-item">
-        <view class="way-icon">🎯</view>
+        <view class="way-icon">💰</view>
         <view class="way-content">
-          <view class="way-name">完成学习计划</view>
-          <view class="way-desc">按计划完成所有任务有额外奖励</view>
+          <view class="way-name">系统奖励</view>
+          <view class="way-desc">管理员可发放额外星星奖励</view>
         </view>
-        <view class="way-reward">+20</view>
+        <view class="way-reward">不定</view>
       </view>
     </view>
   </view>

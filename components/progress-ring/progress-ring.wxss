@@ -1,4 +1,4 @@
-/* 进度环组件 */
+/* 进度环组件 - 纯 CSS 实现（conic-gradient），与页面其他部分同步渲染 */
 .pr-container {
   display: flex;
   flex-direction: column;
@@ -7,22 +7,31 @@
 
 .pr-wrap {
   position: relative;
-  width: 160px;
-  height: 160px;
+  width: 160rpx;
+  height: 160rpx;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.pr-canvas {
-  position: absolute;
-  top: 0;
-  left: 0;
+/* 纯 CSS 圆环：用 conic-gradient 绘制进度弧 */
+.pr-ring {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* conic-gradient 通过 style 动态设置，这里只做兜底 */
+  background: conic-gradient(#F0F0F0 0deg, #F0F0F0 360deg);
 }
 
-.pr-text {
-  position: relative;
-  z-index: 1;
+/* 内部白色圆形遮罩，形成圆环效果 */
+.pr-inner {
+  width: 130rpx;
+  height: 130rpx;
+  border-radius: 50%;
+  background-color: #FFFFFF;
   display: flex;
   align-items: baseline;
   justify-content: center;
@@ -37,20 +46,29 @@
 .pr-unit {
   font-size: 20rpx;
   color: #999999;
-  margin-left: 1px;
+  margin-left: 2rpx;
 }
 
 .pr-label {
   font-size: 22rpx;
   color: #999999;
-  margin-top: 6px;
+  margin-top: 10rpx;
 }
 
 /* 尺寸变体 */
-.pr-small .pr-wrap { width: 120px; height: 120px; }
+.pr-small .pr-wrap { width: 120rpx; height: 120rpx; }
+.pr-small .pr-ring { width: 120rpx; height: 120rpx; }
+.pr-small .pr-inner { width: 96rpx; height: 96rpx; }
 .pr-small .pr-value { font-size: 26rpx; }
 .pr-small .pr-unit { font-size: 16rpx; }
 
-.pr-large .pr-wrap { width: 220px; height: 220px; }
+.pr-large .pr-wrap { width: 220rpx; height: 220rpx; }
+.pr-large .pr-ring { width: 220rpx; height: 220rpx; }
+.pr-large .pr-inner { width: 180rpx; height: 180rpx; }
 .pr-large .pr-value { font-size: 44rpx; }
 .pr-large .pr-unit { font-size: 28rpx; }
+
+/* medium 尺寸（首页使用） */
+.pr-medium .pr-wrap { width: 160rpx; height: 160rpx; }
+.pr-medium .pr-ring { width: 160rpx; height: 160rpx; }
+.pr-medium .pr-inner { width: 130rpx; height: 130rpx; }

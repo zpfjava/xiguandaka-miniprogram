@@ -19,6 +19,9 @@ node_modules/
 # 编译输出
 dist/
 
+# 上传文件
+uploads/
+
 # 数据库文件（SQLite）
 *.db
 prisma/*.db

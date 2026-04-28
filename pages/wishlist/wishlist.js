@@ -1,6 +1,6 @@
-/**
+﻿﻿/**
  * 小打卡 - 愿望清单页
- * 阶段一改造：删除硬编码假愿望和 currentStars 硬编码，数据全部来自后端
+ * 首帧优化：onLoad 预渲染完整页面结构 → 页面出现即完整
  */
 var api = require('../../utils/api')
 
@@ -28,29 +28,97 @@ Page({
       costStars: 50,
       description: ''
     },
-    emojis: ['🎁', '🍦', '🎮', '📚', '🎠', '🧸', '🏰', '🎪', '✈️', '🎨', '⚽', '🎵'],
-    loading: true,
-    isEmpty: false
+    emojis: ['🎁', '🎮', '🍦', '📚', '🏀', '🎨', '🎵', '🚲', '🍔', '✈️', '🎪', '🧸'],
+    loading: false,
+    isEmpty: true,
+    // 存入星星弹窗
+    showSaveModal: false,
+    saveModal: {
+      wishId: '',
+      wishTitle: '',
+      savedStars: 0,
+      costStars: 0,
+      remaining: 0,
+      currentStars: 0,
+      selectedAmount: 5,
+      maxSave: 0
+    }
+  },
+
+  /**
+   * 页面加载：data 初始值已包含完整页面结构，无需额外操作
+   */
+  onLoad: function() {
+    // 首帧由 data 初始值保证：loading=false + isEmpty=true → 显示完整空状态页面
   },
 
   onShow: function() {
-    this.loadWishData()
+    this._restoreFromCache()
+    this._fetchFreshData()
   },
 
-  loadWishData: function() {
+  _restoreFromCache: function() {
+    try {
+      var cached = wx.getStorageSync('wl_cache')
+      if (cached) {
+        var data = typeof cached === 'string' ? JSON.parse(cached) : cached
+        if (data && data.wishes) {
+          this.setData({
+            currentStars: data.currentStars || 0,
+            wishes: data.wishes,
+            totalCount: data.totalCount || 0,
+            pendingCount: data.pendingCount || 0,
+            redeemedCount: data.redeemedCount || 0,
+            isEmpty: data.isEmpty || false,
+            loading: false
+          })
+          this.filterWishes()
+        }
+      }
+    } catch (e) {}
+  },
+
+  _saveToCache: function() {
+    try {
+      wx.setStorageSync('wl_cache', JSON.stringify({
+        currentStars: this.data.currentStars,
+        wishes: this.data.wishes,
+        totalCount: this.data.totalCount,
+        pendingCount: this.data.pendingCount,
+        redeemedCount: this.data.redeemedCount,
+        isEmpty: this.data.isEmpty
+      }))
+    } catch (e) {}
+  },
+
+  _fetchFreshData: function() {
     var that = this
     that.setData({ loading: true })
 
+    // 同时请求愿望列表、积分摘要和用户信息（currentStars 兜底）
     Promise.all([
       wishlistApi.getAll(),
-      pointsApi.summary()
+      pointsApi.summary(),
+      api.userApi.getMe()
     ]).then(function(results) {
       var wishesRes = results[0]
       var pointsRes = results[1]
+      var userRes = results[2]
 
-      // 更新当前星星数（从后端获取）
       if (pointsRes.success && pointsRes.data) {
-        that.setData({ currentStars: pointsRes.data.currentStars || 0 })
+        var stars = pointsRes.data.currentStars
+        if (!stars && stars !== 0) {
+          // summary 没返回 currentStars，从用户信息取
+          if (userRes.success && userRes.data) {
+            stars = userRes.data.currentStars || 0
+          } else {
+            stars = 0
+          }
+        }
+        that.setData({ currentStars: stars || 0 })
+      } else if (userRes.success && userRes.data) {
+        // summary 失败时用用户数据兜底
+        that.setData({ currentStars: userRes.data.currentStars || 0 })
       } else {
         that.setData({ currentStars: 0 })
       }
@@ -63,12 +131,12 @@ Page({
         }
         that.processWishes(rawWishes)
       } else {
-        // API 失败，显示空状态
         console.warn('加载愿望列表失败:', wishesRes.message)
         that.setData({ wishes: [], currentStars: 0, isEmpty: true, loading: false })
       }
+      that._saveToCache()
     }).catch(function(err) {
-      console.error('加载愿望数据失败:', err)
+      console.error('加载数据失败:', err)
       that.setData({ wishes: [], currentStars: 0, isEmpty: true, loading: false })
     })
   },
@@ -83,14 +151,14 @@ Page({
       for (var k in wishes[i]) { w[k] = wishes[i][k] }
       // 后端返回的是 starsCost，前端展示用 costStars
       w.costStars = w.starsCost || w.costStars || 0
-      // 后端没有 savedStars 字段（愿望清单不支持存入，直接兑换）
       // 兼容处理：如果有 savedStars 就用，否则为 0
       if (w.savedStars === undefined) {
         w.savedStars = 0
       }
       w.progressPercent = w.costStars > 0 ? Math.min(100, Math.round((w.savedStars / w.costStars) * 100)) : 0
       w.canSave = w.status === 'pending' && w.savedStars < w.costStars
-      w.canRedeem = w.status === 'pending' && currentStars >= w.costStars
+      // 兑换条件：已存入星星足够（存满即可兑换），不依赖当前可用星星数
+      w.canRedeem = w.status === 'pending' && w.savedStars >= w.costStars
       processed.push(w)
     }
 
@@ -231,7 +299,7 @@ Page({
             if (res.success) {
               // 兑换成功：重新加载数据
               that.loadWishData()
-              wx.showToast({ title: '兑换成功！获得 ' + item.title + ' 🎉', icon: 'success' })
+              wx.showToast({ title: '兑换成功！获得' + item.title + ' 🎉', icon: 'success' })
             } else {
               wx.showToast({ title: res.message || '兑换失败', icon: 'none' })
             }
@@ -264,6 +332,151 @@ Page({
           })
         }
       }
+    })
+  },
+
+  /**
+   * 存入星星到愿望（打开存入弹窗）
+   */
+  saveStars: function(e) {
+    var that = this
+    var id = e.currentTarget.dataset.id
+
+    // 找到对应的愿望
+    var wishes = that.data.wishes
+    var targetWish = null
+    for (var i = 0; i < wishes.length; i++) {
+      if (wishes[i].id === id) { targetWish = wishes[i]; break }
+    }
+
+    if (!targetWish) { wx.showToast({ title: '愿望不存在', icon: 'none' }); return }
+    if (targetWish.status !== 'pending') { wx.showToast({ title: '该愿望无法存入', icon: 'none' }); return }
+
+    var saved = targetWish.savedStars || 0
+    var cost = targetWish.costStars || 0
+    var remaining = cost - saved
+    if (remaining <= 0) { wx.showToast({ title: '已存满，可以兑换了！', icon: 'none' }); return }
+
+    var currentStars = that.data.currentStars || 0
+    var maxSave = Math.min(currentStars, remaining)
+    if (maxSave <= 0) { wx.showToast({ title: '星星不足', icon: 'none' }); return }
+
+    // 智能选择默认数量：优先选用户能承担的最大档位
+    var defaultAmount = 5
+    if (maxSave >= 20) { defaultAmount = 20 }
+    else if (maxSave >= 10) { defaultAmount = 10 }
+    else if (maxSave >= 5) { defaultAmount = 5 }
+    else { defaultAmount = maxSave }
+
+    that.setData({
+      showSaveModal: true,
+      saveModal: {
+        wishId: id,
+        wishTitle: targetWish.title,
+        savedStars: saved,
+        costStars: cost,
+        remaining: remaining,
+        currentStars: currentStars,
+        selectedAmount: defaultAmount,
+        maxSave: maxSave
+      }
+    })
+  },
+
+  /** 关闭存入弹窗 */
+  hideSaveModal: function() {
+    this.setData({ showSaveModal: false })
+  },
+
+  /** 选择快捷档位 */
+  selectSaveAmount: function(e) {
+    var amount = parseInt(e.currentTarget.dataset.amount) || 0
+    this.setData({ 'saveModal.selectedAmount': amount })
+  },
+
+  /** 自定义输入数量 */
+  onCustomSaveInput: function(e) {
+    var val = parseInt(e.detail.value) || 0
+    var maxSave = this.data.saveModal.maxSave || 0
+    if (val > maxSave) val = maxSave
+    if (val < 1) val = 1
+    this.setData({ 'saveModal.selectedAmount': val })
+  },
+
+  /** 一键存满 */
+  fillAllStars: function() {
+    this.setData({ 'saveModal.selectedAmount': this.data.saveModal.remaining })
+  },
+
+  /** 确认存入 */
+  confirmSaveStars: function() {
+    var that = this
+    var modal = that.data.saveModal
+    var amount = modal.selectedAmount || 0
+
+    if (amount <= 0) { wx.showToast({ title: '请选择存入数量', icon: 'none' }); return }
+    if (amount > modal.maxSave) {
+      amount = modal.maxSave
+      that.setData({ 'saveModal.selectedAmount': amount })
+    }
+
+    // 关闭弹窗后执行
+    that.setData({ showSaveModal: false })
+    that.doSaveStars(modal.wishId, amount)
+  },
+
+  /**
+   * 执行存入操作（调用后端 API）
+   */
+  doSaveStars: function(id, amount) {
+    var that = this
+    wx.showLoading({ title: '存入中...', mask: true })
+
+    wishlistApi.saveStars(id, amount).then(function(res) {
+      wx.hideLoading()
+      if (res.success) {
+        wx.showToast({ title: res.message || ('已存入 ' + amount + ' ⭐'), icon: 'success', duration: 2000 })
+        // 刷新数据
+        that.loadWishData()
+      } else {
+        wx.showToast({ title: res.message || '存入失败', icon: 'none' })
+      }
+    }).catch(function(err) {
+      wx.hideLoading()
+      console.error('存入星星失败:', err)
+      wx.showToast({ title: '网络异常，请重试', icon: 'none' })
+    })
+  },
+
+  loadWishData: function() {
+    var that = this
+    that.setData({ loading: true })
+
+    Promise.all([
+      wishlistApi.getAll(),
+      pointsApi.summary()
+    ]).then(function(results) {
+      var wishesRes = results[0]
+      var pointsRes = results[1]
+
+      if (pointsRes.success && pointsRes.data) {
+        that.setData({ currentStars: pointsRes.data.currentStars || 0 })
+      }
+
+      if (wishesRes.success && wishesRes.data) {
+        var rawWishes = wishesRes.data || []
+        if (rawWishes.length === 0) {
+          that.setData({ wishes: [], isEmpty: true, loading: false })
+          return
+        }
+        that.processWishes(rawWishes)
+      } else {
+        that.setData({ wishes: [], isEmpty: true, loading: false })
+      }
+      that._saveToCache()
+    }).catch(function(err) {
+      console.error('加载数据失败:', err)
+      that.setData({ wishes: [], isEmpty: true, loading: false })
     })
   }
 })

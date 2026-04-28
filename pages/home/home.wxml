@@ -1,5 +1,7 @@
 <!-- 小打卡 - 首页 -->
 <view class="home-page">
+  <!-- 内容区域：_blank 时隐藏所有内容，只留纯色背景 -->
+  <view wx:if="{{!_blank}}" class="home-content">
   <!-- 顶部区域 - 问候 + 吉祥物 + 日期 -->
   <view class="home-header">
     <view class="greeting-row">
@@ -156,4 +158,5 @@
       <view class="tips-text">{{encouragement.text}}</view>
     </view>
   </view>
+</view>
 </view>

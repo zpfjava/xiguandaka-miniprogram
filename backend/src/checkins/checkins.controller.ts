@@ -69,6 +69,19 @@ export class CheckinsController {
     return { success: true, data };
   }
 
+  // 获取热力图数据（最近 N 天的每日打卡情况）
+  @Get('heatmap')
+  async getHeatmap(
+    @Request() req: any,
+    @Query('days') days?: string,
+  ) {
+    const data = await this.checkinsService.getHeatmapData(
+      req.user.id,
+      parseInt(days || '90') || 90,
+    );
+    return { success: true, data };
+  }
+
   // 删除打卡记录
   @Delete(':id')
   async remove(@Request() req: any, @Param('id') id: string) {

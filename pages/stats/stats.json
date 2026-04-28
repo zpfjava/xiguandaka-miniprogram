@@ -1,1 +1,1 @@
-{"navigationBarTitleText": "学习统计", "usingComponents": {}}
+{"navigationBarTitleText": "学习统计", "usingComponents": {"empty-state": "../../components/empty-state/empty-state"}}

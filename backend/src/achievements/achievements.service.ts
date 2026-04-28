@@ -127,6 +127,26 @@ export class AchievementsService {
     };
   }
 
+  /**
+   * 确保成就定义存在于数据库中（解决 achievements 表为空导致外键约束失败的问题）
+   */
+  private async ensureAchievementExists(def: AchievementDef): Promise<void> {
+    const existing = await this.prisma.achievement.findUnique({
+      where: { id: def.id },
+    });
+    if (!existing) {
+      await this.prisma.achievement.create({
+        data: {
+          id: def.id,
+          name: def.name,
+          description: def.description,
+          icon: def.icon,
+          starsReward: def.starsReward,
+        },
+      });
+    }
+  }
+
   // 检查并解锁成就
   async checkAndUnlock(userId: string, stats: any) {
     const unlockedAchievements = [];
@@ -141,6 +161,9 @@ export class AchievementsService {
       });
 
       if (!exists && def.condition(stats)) {
+        // 先确保成就定义已存在于数据库（防止外键约束失败）
+        await this.ensureAchievementExists(def);
+
         // 解锁成就
         const userAchievement = await this.prisma.userAchievement.create({
           data: {
@@ -192,8 +215,29 @@ export class AchievementsService {
       name: def.name,
       description: def.description,
       icon: def.icon,
+      emoji: def.icon,       // 前端兼容字段
       starsReward: def.starsReward,
+      reward: def.starsReward, // 前端兼容字段
+      // 目标值（前端用于显示进度）
+      target: this.getTargetValue(def.id),
     }));
+  }
+
+  // 根据成就 ID 获取目标值
+  private getTargetValue(id: string): number {
+    const targetMap: Record<string, number> = {
+      'first_checkin': 1,
+      'seven_days': 7,
+      'twenty_one_days': 21,
+      'hundred_checkins': 100,
+      'plan_master': 10,
+      'star_collector': 1000,
+      'early_bird': 7,
+      'all_subjects': 6,
+      'wish_first': 1,
+      'perfect_week': 1,
+    };
+    return targetMap[id] || 0;
   }
 
   // 根据 ID 获取成就定义
