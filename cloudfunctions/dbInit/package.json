@@ -1,0 +1,1 @@
+{"name": "dbInit", "version": "1.0.0", "description": "数据库初始化 - 一次性创建所有集合和索引", "main": "index.js", "dependencies": {"wx-server-sdk": "~2.6.3"}, "scripts": {"test": "echo \"Error: no test specified\" && exit 1"}, "author": "", "license": "ISC"}

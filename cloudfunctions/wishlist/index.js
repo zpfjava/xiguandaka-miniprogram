@@ -7,9 +7,29 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
 const _ = db.command
 
+/**
+ * 安全获取查询结果数组，防止 .data 为 undefined 时 [0] 报错
+ */
+function safeData(result) {
+  return (result && result.data) ? result.data : []
+}
+
 async function getUserId(openid) {
-  const user = (await db.collection('users').where({ openid })).data[0]
-  return user ? user._id : null
+  const rawData = await db.collection('users').where({ openid }).get()
+  const list = safeData(rawData)
+  return list.length > 0 ? list[0]._id : null
+}
+
+/**
+ * 将数据库记录转换为前端友好格式（统一 _id → id）
+ */
+function toFrontendFormat(record) {
+  const obj = { ...record }
+  // 兼容：云数据库返回 _id，前端使用 id，统一映射
+  if (obj._id && !obj.id) {
+    obj.id = obj._id
+  }
+  return obj
 }
 
 exports.main = async (event, context) => {
@@ -29,7 +49,8 @@ exports.main = async (event, context) => {
         const res = await query
           .orderBy('createdAt', 'desc')
           .get()
-        return { success: true, data: res.data }
+        const rawList = safeData(res)
+        return { success: true, data: rawList.map(toFrontendFormat) }
       }
 
       // ========== 创建愿望 ==========
@@ -47,37 +68,45 @@ exports.main = async (event, context) => {
             updatedAt: new Date(),
           }
         })
-        return { success: true, data: { _id: res._id, ...data } }
+        return { success: true, data: toFrontendFormat({ _id: res._id, ...data }) }
       }
 
       // ========== 兑换愿望 ==========
       case 'redeem': {
-        const id = data.id
-        const wish = (await db.collection('wishlists').where({ _id: id, userId })).data[0]
+        const id = data.id || data._id
+        if (!id) return { success: false, message: '缺少愿望ID' }
+        const wishRaw = await db.collection('wishlists').where({ _id: id, userId }).get()
+        const wishList = safeData(wishRaw)
+        const wish = wishList[0]
         if (!wish) return { success: false, message: '愿望不存在' }
         if (wish.status !== 'pending') return { success: false, message: '该愿望已处理' }
 
-        const need = wish.starsCost - wish.savedStars
-        if (need > 0) return { success: false, message: `还差 ${need} 颗星星才能兑换哦` }
+        // 检查是否已存满
+        if (wish.savedStars < wish.starsCost) {
+          return { success: false, message: `还差 ${wish.starsCost - wish.savedStars} 颗星星才能兑换哦` }
+        }
 
         const now = new Date()
+        // 标记为已兑换
         await db.collection('wishlists').doc(id).update({
           data: { status: 'redeemed', redeemedAt: now, updatedAt: now }
         })
-        // 扣除星星
-        await db.collection('users').where({ _id: userId }).update({
-          data: {
-            currentStars: _.inc(-(wish.starsCost)),
-            updatedAt: now,
-          }
-        })
+
+        // 注意：不需要再扣用户星星！
+        // 存入星星时 (saveStars) 已经通过 _.inc(-amount) 扣除了用户的星星
+        // 兑换只是把"已存满的愿望"标记为已完成，不涉及额外扣费
+        
+        console.log('[wishlist redeem] 兑换成功:', wish.title, 'starsCost=', wish.starsCost, 'savedStars=', wish.savedStars)
         return { success: true, message: '兑换成功！' }
       }
 
       // ========== 删除愿望 ==========
       case 'remove': {
-        const id = data.id
-        const wish = (await db.collection('wishlists').where({ _id: id, userId })).data[0]
+        const id = data.id || data._id
+        if (!id) return { success: false, message: '缺少愿望ID' }
+        const wishRaw = await db.collection('wishlists').where({ _id: id, userId }).get()
+        const wishList = safeData(wishRaw)
+        const wish = wishList[0]
         if (!wish) return { success: false, message: '愿望不存在' }
         if (wish.savedStars > 0) {
           // 退还已存入的星星
@@ -91,16 +120,20 @@ exports.main = async (event, context) => {
 
       // ========== 存入星星 ==========
       case 'saveStars': {
-        const id = data.id
+        const id = data.id || data._id
+        if (!id) return { success: false, message: '缺少愿望ID' }
         const amount = parseInt(data.amount) || 0
         if (amount <= 0) return { success: false, message: '存入数量必须大于0' }
 
-        const wish = (await db.collection('wishlists').where({ _id: id, userId })).data[0]
+        const wishRaw = await db.collection('wishlists').where({ _id: id, userId }).get()
+        const wishList = safeData(wishRaw)
+        const wish = wishList[0]
         if (!wish) return { success: false, message: '愿望不存在' }
         if (wish.status !== 'pending') return { success: false, message: '该愿望已处理' }
 
         const user = (await db.collection('users').doc(userId).get()).data
-        if ((user.currentStars || 0) < amount) return { success: false, message: '星星不足' }
+        const userStars = user.currentStars || 0
+        if (userStars < amount) return { success: false, message: '星星不足（当前 ' + userStars + ' 颗）' }
 
         const now = new Date()
         await db.collection('users').where({ _id: userId }).update({
@@ -121,6 +154,7 @@ exports.main = async (event, context) => {
             createdAt: now,
           }
         })
+        console.log('[wishlist saveStars] 存入成功:', amount, '颗星, 剩余:', userStars - amount)
         return { success: true, message: `已存入 ${amount} 颗星星` }
       }
 

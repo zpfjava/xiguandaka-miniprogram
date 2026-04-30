@@ -37,7 +37,7 @@
     <view class="wish-list">
       <view 
         wx:for="{{filteredWishes}}" 
-        wx:key="id"
+        wx:key="_id"
         class="wish-card {{item.status === 'redeemed' ? 'redeemed' : ''}}"
       >
         <view class="wish-emoji">{{item.emoji || '🎁'}}</view>
@@ -69,7 +69,7 @@
           <block wx:if="{{item.status === 'pending'}}">
             <button 
               class="action-btn save-btn"
-              data-id="{{item.id}}"
+              data-id="{{item.id || item._id}}"
               bindtap="saveStars"
               wx:if="{{item.canSave}}"
             >存入⭐</button>
@@ -86,7 +86,7 @@
         <!-- 删除按钮 -->
         <view 
           class="delete-wish"
-          data-id="{{item.id}}"
+          data-id="{{item.id || item._id}}"
           catchtap="deleteWish"
         >×</view>
       </view>

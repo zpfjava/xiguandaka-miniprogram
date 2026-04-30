@@ -96,7 +96,7 @@
       <view class="task-list">
         <view 
           wx:for="{{todayTasks}}" 
-          wx:key="id" 
+          wx:key="_id" 
           class="task-item {{item.isCompleted ? 'completed' : ''}}"
         >
           <view class="task-icon">{{item.subjectIcon}}</view>
@@ -113,7 +113,7 @@
             <block wx:else>
               <view 
                 class="checkin-btn" 
-                data-plan-id="{{item.id}}"
+                data-plan-id="{{item.id || item._id}}"
                 bindtap="goToCheckin"
               >去打卡</view>
             </block>

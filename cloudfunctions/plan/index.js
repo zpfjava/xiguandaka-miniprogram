@@ -22,10 +22,21 @@ const FREQ_DISPLAY = {
 const WEEKDAY_NAMES = { '0': '日', '1': '一', '2': '二', '3': '三', '4': '四', '5': '五', '6': '六' }
 
 /**
+ * 安全获取查询结果数组
+ */
+function safeData(result) {
+  return (result && result.data) ? result.data : []
+}
+
+/**
  * 将数据库记录转换为前端友好格式
  */
 function toFrontendFormat(plan) {
   const obj = { ...plan }
+  // 兼容：云数据库返回 _id，前端使用 id，统一映射
+  if (obj._id && !obj.id) {
+    obj.id = obj._id
+  }
   // 频率转中文
   if (obj.frequency) {
     if (obj.frequency === 'custom' && obj.description && obj.description.startsWith('[WEEKDAYS:')) {
@@ -74,8 +85,9 @@ function normalizeFrequency(freq) {
  * 获取当前用户ID
  */
 async function getUserId(openid) {
-  const user = (await db.collection('users').where({ openid })).data[0]
-  return user ? user._id : null
+  const rawData = await db.collection('users').where({ openid }).get()
+  const list = safeData(rawData)
+  return list.length > 0 ? list[0]._id : null
 }
 
 exports.main = async (event, context) => {
@@ -96,10 +108,11 @@ exports.main = async (event, context) => {
         let query = db.collection(PLANS).where({ userId })
         if (!includeInactive) query = query.where({ userId, isActive: true })
         const res = await query.orderBy('createdAt', 'desc').get()
+        const rawPlans = safeData(res)
 
         // 补充每个计划的打卡数
         const plans = []
-        for (const plan of res.data) {
+        for (const plan of rawPlans) {
           const countRes = await db.collection('checkins').where({
             planId: plan._id,
             userId
@@ -146,7 +159,9 @@ exports.main = async (event, context) => {
         if (!id) return { success: false, message: '缺少计划ID' }
 
         // 验证归属
-        const existing = (await db.collection(PLANS).where({ _id: id, userId })).data[0]
+        const existingRaw = await db.collection(PLANS).where({ _id: id, userId }).get()
+        const existingList = safeData(existingRaw)
+        const existing = existingList[0]
         if (!existing) return { success: false, message: '计划不存在或无权操作' }
 
         const updateData = {}
@@ -203,11 +218,13 @@ exports.main = async (event, context) => {
       // ========== 删除计划 ==========
       case 'remove': {
         const id = data.id || data._id
-        const existing = (await db.collection(PLANS).where({ _id: id, userId })).data[0]
+        const existingRaw2 = await db.collection(PLANS).where({ _id: id, userId }).get()
+        const existing = safeData(existingRaw2)[0]
         if (!existing) return { success: false, message: '计划不存在或无权操作' }
 
         // 删除关联的打卡记录
-        const checkins = (await db.collection('checkins').where({ planId: id })).data
+        const checkinsRaw = await db.collection('checkins').where({ planId: id }).get()
+        const checkins = safeData(checkinsRaw)
         for (const c of checkins) {
           await db.collection('checkins').doc(c._id).remove()
         }
@@ -222,28 +239,35 @@ exports.main = async (event, context) => {
         const tomorrow = new Date(today)
         tomorrow.setDate(tomorrow.getDate() + 1)
 
-        const plans = (await db.collection(PLANS).where({
+        console.log('[todayProgress] 查询时间范围:', today.toISOString(), '~', tomorrow.toISOString())
+
+        const plansRaw = await db.collection(PLANS).where({
           userId,
           isActive: true
-        })).data
+        }).get()
+        const plans = safeData(plansRaw)
+        console.log('[todayProgress] 活跃计划数:', plans.length)
 
         const results = []
         for (const plan of plans) {
-          const todayCheckins = (await db.collection('checkins').where({
+          const todayCheckinRaw = await db.collection('checkins').where({
             planId: plan._id,
             userId,
             checkinAt: _.gte(today).and(_.lt(tomorrow))
-          })).data
-          results.push({
-            id: plan._id,
-            title: plan.title,
-            subject: plan.subject,
-            targetCount: plan.targetCount,
-            completedCount: todayCheckins.length,
-            starsReward: plan.starsReward || 5,
-            isCompleted: todayCheckins.length >= (plan.targetCount || 1),
-          })
+          }).get()
+          const todayCheckins = safeData(todayCheckinRaw)
+
+          console.log('[todayProgress] 计划:', plan.title, 'planId=', plan._id, '今日打卡数=', todayCheckins.length, 'targetCount=', plan.targetCount || 1)
+
+          // 使用 toFrontendFormat 确保字段一致性（id映射、频率中文化等）
+          const formatted = toFrontendFormat(plan)
+          // 覆盖/补充今日进度特有字段
+          formatted.completedCount = todayCheckins.length
+          // 只要今天有打卡记录就标记为已完成（targetCount 是总目标天数，不是每日需打卡次数）
+          formatted.isCompleted = todayCheckins.length > 0
+          results.push(formatted)
         }
+        console.log('[todayProgress] 返回结果:', JSON.stringify(results.map(r => ({ id: r.id, title: r.title, isCompleted: r.isCompleted, completedCount: r.completedCount }))))
         return { success: true, data: results }
       }
 

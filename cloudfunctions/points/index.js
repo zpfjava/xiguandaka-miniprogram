@@ -7,9 +7,28 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
 const _ = db.command
 
+/**
+ * 安全获取查询结果数组
+ */
+function safeData(result) {
+  return (result && result.data) ? result.data : []
+}
+
+/**
+ * 将数据库记录转换为前端友好格式（统一 _id → id）
+ */
+function toFrontendFormat(record) {
+  const obj = { ...record }
+  if (obj._id && !obj.id) {
+    obj.id = obj._id
+  }
+  return obj
+}
+
 async function getUserId(openid) {
-  const user = (await db.collection('users').where({ openid })).data[0]
-  return user ? user._id : null
+  const rawData = await db.collection('users').where({ openid }).get()
+  const list = safeData(rawData)
+  return list.length > 0 ? list[0]._id : null
 }
 
 exports.main = async (event, context) => {
@@ -24,15 +43,19 @@ exports.main = async (event, context) => {
     switch (action) {
       // ========== 积分汇总 ==========
       case 'summary': {
-        const user = (await db.collection('users').doc(userId).get()).data
+        const userRaw = await db.collection('users').doc(userId).get()
+        const userData = userRaw.data
+        if (!userData) return { success: false, message: '用户不存在' }
         // 统计历史记录数
-        const historyCount = (await db.collection('points_history').where({ userId })).count().total
+        const historyCountRes = await db.collection('points_history').where({ userId }).count()
         return {
           success: true,
           data: {
-            currentStars: user.currentStars || 0,
-            totalStars: user.totalStars || 0,
-            totalCheckins: historyCount,
+            currentStars: userData.currentStars || 0,
+            totalStars: userData.totalStars || 0,
+            totalEarned: userData.totalStars || 0,
+            totalSpent: 0,
+            totalCheckins: historyCountRes.total || 0,
           }
         }
       }
@@ -50,7 +73,7 @@ exports.main = async (event, context) => {
 
         return {
           success: true,
-          data: { list: listRes.data, total: countRes.total, page, pageSize }
+          data: { list: safeData(listRes).map(toFrontendFormat), total: countRes.total, page, pageSize }
         }
       }
 

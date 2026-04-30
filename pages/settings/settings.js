@@ -377,6 +377,8 @@ Page({
 
   changeAvatar: function() {
     var that = this
+    var config = require('../../utils/config')
+
     wx.chooseMedia({
       count: 1,
       mediaType: ['image'],
@@ -390,42 +392,68 @@ Page({
         // 立即在页面上预览新头像
         that.setData({ 'userInfo.avatar': tempFilePath })
 
-        // 上传到后端服务器
         wx.showLoading({ title: '正在上传...', mask: true })
 
-        var gd = (function() {
-          try { var a = getApp(); return (a && a.globalData) ? a.globalData : {} } catch (e) { return {} }
-        })()
-        var apiBase = gd.apiBase || 'http://192.168.10.103:3000'
-        var userId = gd.userId || wx.getStorageSync('userId') || ''
-
-        wx.uploadFile({
-          url: apiBase + '/upload',
-          filePath: tempFilePath,
-          name: 'file',
-          header: { 'x-user-id': userId },
-          success: function(uploadRes) {
-            wx.hideLoading()
-            try {
-              var data = JSON.parse(uploadRes.data)
-              if (data.url) {
-                that.setData({ 'userInfo.avatar': data.url })
-                wx.showToast({ title: '头像已更换', icon: 'success' })
+        // 根据配置选择上传方式
+        if (config.USE_CLOUD) {
+          // 云函数模式：上传到云存储
+          wx.cloud.uploadFile({
+            cloudPath: 'avatar/' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + tempFilePath.match(/\.[^.]+$/)[0],
+            filePath: tempFilePath,
+            success: function(uploadRes) {
+              wx.hideLoading()
+              if (uploadRes.fileID) {
+                that.setData({ 'userInfo.avatar': uploadRes.fileID })
+                // 同时更新到后端（保存 fileID 到用户记录）
+                api.userApi.updateProfile({ avatar: uploadRes.fileID }).then(function() {
+                  wx.showToast({ title: '头像已更换', icon: 'success' })
+                }).catch(function() {
+                  wx.showToast({ title: '头像已更换', icon: 'success' })
+                })
               } else {
-                // 上传失败但本地预览仍可用
-                console.warn('上传返回无URL，使用本地路径')
+                console.warn('[云存储] 上传返回无 fileID')
               }
-            } catch(e) {
-              // 解析失败，保持本地临时路径（小程序内有效）
-              console.warn('上传响应解析失败，使用本地头像')
+            },
+            fail: function(err) {
+              wx.hideLoading()
+              console.warn('[云存储] 头像上传失败:', err)
+              // 保持本地临时路径
+              console.log('使用本地临时头像')
             }
-          },
-          fail: function() {
-            wx.hideLoading()
-            // 上传接口不可用时，保持本地临时路径
-            console.log('上传接口不可用，使用本地临时头像')
-          }
-        })
+          })
+        } else {
+          // HTTP 模式：上传到后端服务器
+          var gd = (function() {
+            try { var a = getApp(); return (a && a.globalData) ? a.globalData : {} } catch (e) { return {} }
+          })()
+          var apiBase = gd.apiBase || 'http://localhost:3000'
+          var userId = gd.userId || wx.getStorageSync('userId') || ''
+
+          wx.uploadFile({
+            url: apiBase + '/upload',
+            filePath: tempFilePath,
+            name: 'file',
+            header: { 'x-user-id': userId },
+            success: function(uploadRes) {
+              wx.hideLoading()
+              try {
+                var data = JSON.parse(uploadRes.data)
+                if (data.url) {
+                  that.setData({ 'userInfo.avatar': data.url })
+                  wx.showToast({ title: '头像已更换', icon: 'success' })
+                } else {
+                  console.warn('上传返回无URL，使用本地路径')
+                }
+              } catch(e) {
+                console.warn('上传响应解析失败，使用本地头像')
+              }
+            },
+            fail: function() {
+              wx.hideLoading()
+              console.log('上传接口不可用，使用本地临时头像')
+            }
+          })
+        }
       },
       fail: function() {
         // 用户取消选择，不做处理

@@ -49,7 +49,9 @@ Page({
       if (res.success && res.data) {
         var list = res.data || []
         for (var j = 0; j < list.length; j++) {
-          if (list[j].id === planId) {
+          // 兼容 id 和 _id 两种字段名
+          var itemId = list[j].id || list[j]._id
+          if (itemId === planId) {
             var found = {}
             for (var fk in list[j]) { found[fk] = list[j][fk] }
             found.subjectIcon = getSubjectIcon(found.subject)
@@ -163,6 +165,10 @@ Page({
               // 同时标记计划页需要刷新
               app.globalData._needRefreshPlans = true
             }
+            // 清除各页面旧缓存，确保统计数据更新
+            wx.removeStorageSync('home_tasks')
+            wx.removeStorageSync('home_stats')
+            wx.removeStorageSync('mine_stats')
           } catch (e) {}
 
           // 成就自动检查（异步，不阻塞用户操作）
@@ -209,6 +215,10 @@ Page({
               }
               app2.globalData._needRefreshPlans = true
             }
+            // 清除缓存
+            wx.removeStorageSync('home_tasks')
+            wx.removeStorageSync('home_stats')
+            wx.removeStorageSync('mine_stats')
           } catch (e) {}
         } else {
           wx.showToast({ title: res.message || '打卡失败', icon: 'none' })
@@ -223,6 +233,51 @@ Page({
       return new Promise(function(resolve) { resolve([]) })
     }
 
+    var config = require('../../utils/config')
+
+    // 云函数模式：使用云存储上传
+    if (config.USE_CLOUD) {
+      return this._uploadToCloudStorage(imageList)
+    }
+
+    // HTTP 模式：上传到后端服务器
+    return this._uploadToHttpServer(imageList)
+  },
+
+  /**
+   * 上传图片到云开发存储（云函数模式）
+   */
+  _uploadToCloudStorage: function(imageList) {
+    var that = this
+    var promises = []
+    for (var i = 0; i < imageList.length; i++) {
+      (function(filePath) {
+        var p = new Promise(function(resolve) {
+          wx.cloud.uploadFile({
+            cloudPath: 'checkin/' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + filePath.match(/\.[^.]+$/)[0],
+            filePath: filePath,
+            success: function(res) {
+              resolve(res.fileID || filePath)
+            },
+            fail: function(err) {
+              console.warn('[云存储] 图片上传失败:', err)
+              // 上传失败时返回原始路径，允许无图打卡
+              resolve(filePath)
+            }
+          })
+        })
+        promises.push(p)
+      })(imageList[i])
+    }
+    return new Promise(function(resolve) {
+      Promise.all(promises).then(function(results) { resolve(results) })
+    })
+  },
+
+  /**
+   * 上传图片到 HTTP 后端服务器（传统模式）
+   */
+  _uploadToHttpServer: function(imageList) {
     var gd = (function() {
       try { var a = getApp(); return (a && a.globalData) ? a.globalData : {} } catch (e) { return {} }
     })()
@@ -247,7 +302,7 @@ Page({
               }
             },
             fail: function(err) {
-              console.warn('图片上传失败:', err)
+              console.warn('[HTTP] 图片上传失败:', err)
               resolve(filePath)
             }
           })
@@ -255,11 +310,8 @@ Page({
         promises.push(p)
       })(imageList[i])
     }
-
     return new Promise(function(resolve) {
-      Promise.all(promises).then(function(results) {
-        resolve(results)
-      })
+      Promise.all(promises).then(function(results) { resolve(results) })
     })
   },
 

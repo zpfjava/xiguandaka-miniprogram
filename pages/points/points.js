@@ -118,13 +118,14 @@ Page({
         for (var i = 0; i < rawRecords.length; i++) {
           var r = {}
           for (var k in rawRecords[i]) { r[k] = rawRecords[i][k] }
-          // 后端字段: change(+/-), reason, balance, createdAt
+          // 后端字段: change(+/-) 或 amount, reason, balance, createdAt
           // 前端展示用 amount、description、type
-          if (r.change !== undefined) { r.amount = r.change }
+          var rawChange = r.change !== undefined ? r.change : (r.amount !== undefined ? r.amount : 0)
+          if (rawChange !== undefined) { r.amount = rawChange }
           if (!r.description && r.reason) { r.description = translateReason(r.reason) }
           else if (r.description) { r.description = translateReason(r.description) }
-          // 根据 change 正负判断类型
-          r.type = (Number(r.change) || 0) > 0 ? 'earn' : 'spend'
+          // 根据 change/amount 正负判断类型
+          r.type = (Number(rawChange) || 0) > 0 ? 'earn' : 'spend'
           r.time = formatRelativeTime(r.createdAt || r.date)
           records.push(r)
         }

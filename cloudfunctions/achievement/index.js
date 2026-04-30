@@ -20,9 +20,17 @@ const ACHIEVEMENTS = [
   { id: 'stars_500', name: '大富翁', description: '累计获得500颗星星', icon: '💎', starsReward: 80 },
 ]
 
+/**
+ * 安全获取查询结果数组
+ */
+function safeData(result) {
+  return (result && result.data) ? result.data : []
+}
+
 async function getUserId(openid) {
-  const user = (await db.collection('users').where({ openid })).data[0]
-  return user ? user._id : null
+  const rawData = await db.collection('users').where({ openid }).get()
+  const list = safeData(rawData)
+  return list.length > 0 ? list[0]._id : null
 }
 
 exports.main = async (event, context) => {

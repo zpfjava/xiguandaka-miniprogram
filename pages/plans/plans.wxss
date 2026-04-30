@@ -145,6 +145,21 @@
 }
 .checkin-btn-card:active { opacity: 0.85; }
 
+/* 已打卡按钮：绿色完成态 */
+.checkedin-btn-card {
+  background: linear-gradient(135deg, #7ED957 0%, #5CB85C 100%);
+  color: #FFFFFF;
+  font-weight: bold;
+  font-size: 24rpx;
+  border-radius: 32rpx;
+  height: 64rpx;
+  line-height: 64rpx;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* 已暂停状态：去打卡按钮变灰 */
 .checkin-btn-disabled {
   background-color: #F0F0F0;

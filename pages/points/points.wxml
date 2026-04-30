@@ -90,8 +90,8 @@
     </view>
   </view>
 
-  <!-- 空状态提示 -->
-  <view class="empty-tip" wx:if="{{recentRecords.length === 0}}">
+  <!-- 空状态提示：只有星星数为0且无记录时才显示 -->
+  <view class="empty-tip" wx:if="{{(summary.currentStars || 0) === 0 && recentRecords.length === 0}}">
     <text>还没有积分记录哦，快去打卡赚取第一颗星星吧！🌟</text>
   </view>
 

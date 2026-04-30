@@ -8,6 +8,7 @@ var constants = require('../../utils/constants')
 var userApi = api.userApi
 var checkinApi = api.checkinApi
 var dailyCheckinApi = api.dailyCheckinApi
+var planApi = api.planApi
 var getGrowthStage = constants.getGrowthStage
 
 Page({
@@ -24,6 +25,15 @@ Page({
   },
 
   onShow: function() {
+    // 检查是否有刷新标记（从签到/打卡页返回）
+    try {
+      var app = getApp()
+      if (app && app.globalData && app.globalData._needRefreshHome) {
+        // 有刷新标记 → 清除旧缓存
+        this._clearCache()
+      }
+    } catch (e) {}
+
     // 先从缓存恢复（瞬间显示），再静默刷新
     this._restoreFromCache()
     // 防抖：如果正在加载中则不重复请求
@@ -33,15 +43,21 @@ Page({
   },
 
   /**
+   * 清除"我的"页面缓存
+   */
+  _clearCache: function() {
+    try {
+      wx.removeStorageSync('mine_stats')
+    } catch (e) {}
+  },
+
+  /**
    * 从缓存快速恢复
+   * 注意：只恢复统计信息，不恢复 userInfo，避免昵称闪烁
    */
   _restoreFromCache: function() {
     try {
-      var cachedUser = wx.getStorageSync('mine_userInfo')
-      if (cachedUser) {
-        var ui = typeof cachedUser === 'string' ? JSON.parse(cachedUser) : cachedUser
-        if (ui && ui.nickname) this.setData({ userInfo: ui })
-      }
+      // 不再从缓存恢复 userInfo，避免昵称闪烁
       var cachedStats = wx.getStorageSync('mine_stats')
       if (cachedStats) {
         this.setData({ stats: typeof cachedStats === 'string' ? JSON.parse(cachedStats) : cachedStats })
@@ -53,48 +69,72 @@ Page({
     var that = this
     that.setData({ _loadingLock: true })
 
+    // 并行请求：用户信息、签到状态、打卡统计、计划列表（用于统计数量）
     Promise.all([
       userApi.getMe(),
-      dailyCheckinApi.status()
+      dailyCheckinApi.status(),
+      checkinApi.stats(),
+      planApi.getAll()
     ]).then(function(results) {
       var userRes = results[0]
       var checkinRes = results[1]
+      var statsRes = results[2]
+      var plansRes = results[3]
       var hasData = false
 
+      // ===== 用户信息 =====
       if (userRes.success && userRes.data) {
         hasData = true
         var userData = userRes.data
-        // 后端 /users/me 返回 { ...user, stats: { totalPlans, totalCheckins, streakDays } }
         var userInfo = {}
         for (var k in userData) {
           if (k !== 'stats') { userInfo[k] = userData[k] }
         }
         that.setData({ userInfo: userInfo })
         wx.setStorageSync('mine_userInfo', JSON.stringify(userInfo))
-
-        // 从 /users/me 返回的 stats 中提取数据（真实数据库统计）
-        if (userData.stats) {
-          var stats = userData.stats
-          var totalDays = stats.totalCheckins || 0
-          var stage = getGrowthStage(totalDays)
-          // 兼容字段名：后端返回 streakDays，前端也用 streak
-          stats.streak = stats.streakDays !== undefined ? stats.streakDays : (stats.streak || 0)
-          that.setData({
-            stats: stats,
-            stageName: stage.name,
-            stageDesc: stage.description,
-            growthState: totalDays > 0 ? 'growing' : 'idle'
-          })
-          wx.setStorageSync('mine_stats', JSON.stringify(stats))
-        }
       }
 
-      if (checkinRes.success && checkinRes.data) {
-        that.setData({ dailyCheckedIn: !!(checkinRes.data.checkedIn || checkinRes.data.hasCheckedIn) })
+      // ===== 签到状态 =====
+      if (checkinRes.success && checkinRes.data && typeof checkinRes.data === 'object') {
+        var cd = checkinRes.data
+        that.setData({ dailyCheckedIn: !!(cd.checkedIn || cd.hasCheckedIn || cd.checked) })
       }
 
+      // ===== 统计数据（从各 API 汇总，不依赖 user.getMe 返回 stats）=====
+      var stats = { totalPlans: 0, totalCheckins: 0, streak: 0 }
+
+      // 计划数：从计划列表获取
+      if (plansRes.success && plansRes.data && Array.isArray(plansRes.data)) {
+        stats.totalPlans = plansRes.data.length
+      }
+
+      // 打卡总数和连续天数：从 checkin.stats 获取
+      if (statsRes.success && statsRes.data) {
+        var sd = statsRes.data
+        stats.totalCheckins = sd.totalCheckins || sd.total || 0
+        stats.streak = sd.streak || sd.currentStreak || sd.streakDays || 0
+      }
+
+      // 如果有连续签到天数（优先用 dailyCheckin 的 streak）
+      if (checkinRes.success && checkinRes.data && typeof checkinRes.data === 'object') {
+        var cd2 = checkinRes.data
+        var ds = cd2.streak || cd2.streakDays || cd2.newStreak || 0
+        if (ds > stats.streak) { stats.streak = ds }
+      }
+
+      // 应用统计到页面
+      var totalDays = stats.totalCheckins
+      var stage = getGrowthStage(totalDays)
+      that.setData({
+        stats: stats,
+        stageName: stage.name,
+        stageDesc: stage.description,
+        growthState: totalDays > 0 ? 'growing' : 'idle'
+      })
+      wx.setStorageSync('mine_stats', JSON.stringify(stats))
+
+      // ===== 空状态判断 =====
       if (!hasData) {
-        // 未登录或无数据
         var userId = wx.getStorageSync('userId')
         if (!userId) {
           that.setData({
@@ -106,7 +146,6 @@ Page({
             growthState: 'idle'
           })
         } else {
-          // 已登录但 API 失败
           that.setData({
             userInfo: { nickname: '加载失败', avatar: '😊' },
             stageName: '种子期',

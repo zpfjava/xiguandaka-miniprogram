@@ -10,6 +10,10 @@ const _ = db.command
 // 集合名
 const USERS = 'users'
 const SMS_CODES = 'sms_codes'
+const POINTS_HISTORY = 'points_history'
+
+// 新用户注册奖励星星数
+const REGISTER_BONUS_STARS = 50
 
 /**
  * 密码加密（SHA-256 简单实现）
@@ -20,53 +24,163 @@ function hashPassword(password) {
 }
 
 /**
- * 根据 openid 查找或创建用户
+ * 安全获取查询结果数组
+ */
+function safeData(result) {
+  return (result && result.data) ? result.data : []
+}
+
+/**
+ * 将数据库记录转换为前端友好格式（统一 _id → id）
+ */
+function toFrontendFormat(record) {
+  const obj = { ...record }
+  if (obj._id && !obj.id) {
+    obj.id = obj._id
+  }
+  return obj
+}
+
+/**
+ * 添加积分记录
+ */
+async function addPointsRecord(userId, amount, reason, type) {
+  await db.collection(POINTS_HISTORY).add({
+    data: {
+      userId,
+      change: amount,
+      reason: reason,
+      type: type || 'bonus',
+      createdAt: new Date()
+    }
+  })
+}
+
+/**
+ * 根据 openid 查找或创建用户（微信登录专用，带注册奖励）
  */
 async function getOrCreateByOpenid(openid, extraData) {
-  let user = (await db.collection(USERS).where({ openid }).get()).data[0]
-  if (!user) {
+  const rawData = await db.collection(USERS).where({ openid }).get()
+  const list = safeData(rawData)
+  let user = list[0]
+  const isNewUser = !user
+
+  var bonusStars = 0
+
+  if (isNewUser) {
     const userData = {
       openid,
-      nickname: extraData?.nickname || '微信用户',
-      avatar: extraData?.avatarUrl || '',
-      grade: extraData?.grade || '',
-      totalStars: 0,
-      currentStars: 0,
+      nickname: (extraData && extraData.nickname) || '微信用户',
+      avatar: (extraData && extraData.avatarUrl) || '',
+      grade: (extraData && extraData.grade) || '',
+      totalStars: REGISTER_BONUS_STARS,
+      currentStars: REGISTER_BONUS_STARS,
       createdAt: new Date(),
       updatedAt: new Date(),
     }
     const res = await db.collection(USERS).add({ data: userData })
     userData._id = res._id
     user = userData
+    bonusStars = REGISTER_BONUS_STARS
+
+    // 注册奖励积分记录
+    try {
+      await addPointsRecord(res._id, REGISTER_BONUS_STARS, '注册奖励', 'register')
+    } catch (e) {
+      console.error('[user] 注册积分记录写入失败:', e)
+    }
+  } else {
+    // 老用户：检查是否需要补发注册奖励（旧数据 totalStars 为 0 的）
+    var oldTotal = user.totalStars || 0
+    var oldCurrent = user.currentStars || 0
+    if (oldTotal === 0 && oldCurrent === 0) {
+      // 补发注册奖励
+      bonusStars = REGISTER_BONUS_STARS
+      await db.collection(USERS).doc(user._id).update({
+        data: {
+          totalStars: REGISTER_BONUS_STARS,
+          currentStars: REGISTER_BONUS_STARS,
+          updatedAt: new Date()
+        }
+      })
+      user.totalStars = REGISTER_BONUS_STARS
+      user.currentStars = REGISTER_BONUS_STARS
+      try {
+        await addPointsRecord(user._id, REGISTER_BONUS_STARS, '注册奖励补发', 'register')
+      } catch (e) {}
+    }
+
+    // 如果 extraData 有昵称/头像，且当前还是默认值，则更新
+    if (extraData) {
+      var updates = {}
+      var needUpdate = false
+      if (extraData.nickname && (!user.nickname || user.nickname === '微信用户')) {
+        updates.nickname = extraData.nickname
+        needUpdate = true
+      }
+      if (extraData.avatarUrl && !user.avatar) {
+        updates.avatar = extraData.avatarUrl
+        needUpdate = true
+      }
+      if (needUpdate) {
+        updates.updatedAt = new Date()
+        await db.collection(USERS).doc(user._id).update({ data: updates })
+        Object.assign(user, updates)
+      }
+    }
   }
-  // 返回时去掉敏感字段
+
+  // 返回时去掉敏感字段，并映射 _id → id
   delete user.password
-  return user
+  return { user: toFrontendFormat(user), isNewUser, bonusStars }
 }
 
 exports.main = async (event, context) => {
-  const { action, data } = event
+  const { action, data } = event || {}
   const wxContext = cloud.getWXContext()
   const openid = wxContext.OPENID
 
   try {
     switch (action) {
-      // ========== 微信登录 ==========
+      // ========== 微信登录（静默）==========
       case 'wxLogin': {
-        const user = await getOrCreateByOpenid(openid, data)
-        return { success: true, data: user }
+        // 验证 code（如果传了的话）
+        if (!openid) {
+          return { success: false, message: '无法获取用户身份' }
+        }
+        const result = await getOrCreateByOpenid(openid, data)
+        return {
+          success: true,
+          data: toFrontendFormat(result.user),
+          isNewUser: result.isNewUser,
+          bonusStars: result.bonusStars || 0
+        }
       }
 
       // ========== 获取当前用户 ==========
       case 'getMe': {
-        const user = (await db.collection(USERS).where({ openid }).get()).data[0]
+        if (!openid) return { success: false, message: '未登录' }
+        const rawData = await db.collection(USERS).where({ openid }).get()
+        const list = safeData(rawData)
+        const user = list[0]
         if (!user) return { success: false, message: '用户不存在' }
+
+        // 防御：如果 currentStars 为负数（数据异常），自动修正为 0
+        if (typeof user.currentStars === 'number' && user.currentStars < 0) {
+          console.warn('[getMe] 检测到异常负数星星:', user.currentStars, '→ 修正为 0')
+          await db.collection(USERS).doc(user._id).update({
+            data: { currentStars: 0, updatedAt: new Date() }
+          })
+          user.currentStars = 0
+        }
+
         delete user.password
-        return { success: true, data: user }
+        return { success: true, data: toFrontendFormat(user) }
       }
 
       // ========== 更新用户资料 ==========
       case 'updateProfile': {
+        if (!openid) return { success: false, message: '未登录' }
         const updateData = {}
         if (data.nickname !== undefined) updateData.nickname = String(data.nickname).trim()
         if (data.avatar !== undefined) updateData.avatar = String(data.avatar).trim()
@@ -74,60 +188,69 @@ exports.main = async (event, context) => {
         updateData.updatedAt = new Date()
 
         await db.collection(USERS).where({ openid }).update({ data: updateData })
-        const user = (await db.collection(USERS).where({ openid }).get()).data[0]
+        const rawData2 = await db.collection(USERS).where({ openid }).get()
+        const user = safeData(rawData2)[0]
         delete user.password
-        return { success: true, data: user }
+        return { success: true, data: toFrontendFormat(user) }
       }
 
-      // ========== 手机号+密码登录（兼容）==========
+      // ========== 手机号+密码登录 ==========
       case 'login': {
-        const { phone, password } = data
+        const { phone, password } = data || {}
+        if (!phone || !password) {
+          return { success: false, message: '手机号和密码不能为空' }
+        }
         const hashedPwd = hashPassword(password)
-        const users = (await db.collection(USERS).where({
+        const rawData = await db.collection(USERS).where({
           phone,
           password: hashedPwd
-        })).data
+        }).get()
+        const users = safeData(rawData)
         if (!users.length) return { success: false, message: '手机号或密码错误' }
         const user = users[0]
         delete user.password
-        return { success: true, data: user }
+        return { success: true, data: toFrontendFormat(user) }
       }
 
       // ========== 注册（手机号+密码）==========
       case 'register': {
-        const { phone, password, nickname } = data
-        // 检查手机号是否已注册
-        const existing = (await db.collection(USERS).where({ phone })).data
+        const { phone, password, nickname } = data || {}
+        if (!phone || !password) {
+          return { success: false, message: '手机号和密码不能为空' }
+        }
+        const existingRaw = await db.collection(USERS).where({ phone }).get()
+        const existing = safeData(existingRaw)
         if (existing.length) return { success: false, message: '该手机号已注册' }
 
         const userData = {
           phone,
           password: hashPassword(password),
-          nickname: nickname || `用户${phone.slice(-4)}`,
-          totalStars: 0,
-          currentStars: 0,
+          nickname: nickname || ('用户' + phone.slice(-4)),
+          totalStars: REGISTER_BONUS_STARS,
+          currentStars: REGISTER_BONUS_STARS,
           createdAt: new Date(),
           updatedAt: new Date(),
         }
         const res = await db.collection(USERS).add({ data: userData })
         userData._id = res._id
         delete userData.password
-        return { success: true, data: userData }
+        const formattedUser = toFrontendFormat(userData)
+
+        // 注册奖励积分记录
+        try {
+          await addPointsRecord(res._id, REGISTER_BONUS_STARS, '注册奖励', 'register')
+        } catch (e) {}
+
+        return { success: true, data: formattedUser, isNewUser: true, bonusStars: REGISTER_BONUS_STARS }
       }
 
       // ========== 发送短信验证码（模拟）==========
       case 'sendSmsCode': {
-        const { phone } = data
-        // 开发环境：生成验证码存入数据库，实际环境对接短信服务
+        const { phone } = data || {}
+        if (!phone) return { success: false, message: '请输入手机号' }
         const code = String(Math.floor(100000 + Math.random() * 900000))
         await db.collection(SMS_CODES).add({
-          data: {
-            phone,
-            code,
-            used: false,
-            expiresAt: new Date(Date.now() + 5 * 60 * 1000),
-            createdAt: new Date(),
-          }
+          data: { phone, code, used: false, expiresAt: new Date(Date.now() + 5 * 60 * 1000), createdAt: new Date() }
         })
         console.log('[SMS] 验证码:', code, '手机:', phone)
         return { success: true, message: '验证码已发送', data: { code, _devCode: code } }
@@ -135,36 +258,33 @@ exports.main = async (event, context) => {
 
       // ========== 短信验证码登录 ==========
       case 'smsLogin': {
-        const { phone, code } = data
-        // 验证验证码
-        const records = (await db.collection(SMS_CODES).where({
-          phone,
-          code,
-          used: false,
-          expiresAt: _.gt(new Date())
-        })).data
+        const { phone, code } = data || {}
+        if (!phone || !code) return { success: false, message: '手机号和验证码不能为空' }
+        const recordsRaw = await db.collection(SMS_CODES).where({
+          phone, code, used: false, expiresAt: _.gt(new Date())
+        }).get()
+        const records = safeData(recordsRaw)
         if (!records.length) return { success: false, message: '验证码无效或已过期' }
 
-        // 标记为已使用
         await db.collection(SMS_CODES).doc(records[0]._id).update({ data: { used: true } })
 
-        // 查找或创建用户
-        let user = (await db.collection(USERS).where({ phone })).data[0]
-        if (!user) {
+        const userRaw = await db.collection(USERS).where({ phone }).get()
+        const userList = safeData(userRaw)
+        let user = userList[0]
+        const isNewUser = !user
+        if (isNewUser) {
           const userData = {
-            phone,
-            nickname: `用户${phone.slice(-4)}`,
-            totalStars: 0,
-            currentStars: 0,
-            createdAt: new Date(),
-            updatedAt: new Date(),
+            phone, nickname: ('用户' + phone.slice(-4)),
+            totalStars: REGISTER_BONUS_STARS, currentStars: REGISTER_BONUS_STARS,
+            createdAt: new Date(), updatedAt: new Date(),
           }
           const res = await db.collection(USERS).add({ data: userData })
           userData._id = res._id
           user = userData
+          try { await addPointsRecord(res._id, REGISTER_BONUS_STARS, '注册奖励', 'register') } catch (e) {}
         }
         delete user.password
-        return { success: true, data: user }
+        return { success: true, data: toFrontendFormat(user), isNewUser: isNewUser, bonusStars: isNewUser ? REGISTER_BONUS_STARS : 0 }
       }
 
       default:

@@ -1,0 +1,1 @@
+wx.cloud.callFunction({ name: 'dbInit' }).then(console.log)

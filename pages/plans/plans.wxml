@@ -11,7 +11,7 @@
     <view class="plan-list">
       <view 
         wx:for="{{plans}}" 
-        wx:key="id" 
+        wx:key="_id" 
         class="plan-card {{item.isActive ? 'active' : 'inactive'}}"
       >
         <!-- 计划头部 -->
@@ -31,7 +31,7 @@
             checked="{{item.isActive}}"
             color="#7ED957"
             bindchange="togglePlanActive"
-            data-id="{{item.id}}"
+            data-id="{{item.id || item._id}}"
           />
         </view>
 
@@ -48,11 +48,18 @@
         <!-- 操作按钮 -->
         <view class="plan-actions">
           <block wx:if="{{item.isActive}}">
-            <button
-              class="action-btn checkin-btn-card"
-              data-plan="{{item}}"
-              bindtap="goToCheckin"
-            >去打卡</button>
+            <!-- 已打卡：显示已完成 -->
+            <block wx:if="{{item.checkedInToday}}">
+              <view class="action-btn checkedin-btn-card">✓ 已完成</view>
+            </block>
+            <!-- 未打卡：显示去打卡 -->
+            <block wx:else>
+              <button
+                class="action-btn checkin-btn-card"
+                data-plan="{{item}}"
+                bindtap="goToCheckin"
+              >去打卡</button>
+            </block>
             <button
               class="action-btn edit-btn"
               data-item="{{item}}"
@@ -60,7 +67,7 @@
             >编辑</button>
             <button
               class="action-btn delete-btn"
-              data-id="{{item.id}}"
+              data-id="{{item.id || item._id}}"
               bindtap="deletePlan"
             >删除</button>
           </block>

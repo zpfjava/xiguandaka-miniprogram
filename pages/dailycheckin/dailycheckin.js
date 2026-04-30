@@ -138,27 +138,36 @@ Page({
       dailyCheckinApi.status(),
       dailyCheckinApi.calendar()
     ]).then(function(results) {
-      var sr = results[0], cr = results[1], hasData = false
+      // 防御：确保 results 是有效数组
+      if (!results || !Array.isArray(results)) {
+        console.warn('[fetchFreshData] results 非数组:', results)
+        return
+      }
+      var sr = results[0] || {}, cr = results[1] || {}, hasData = false
 
-      if (sr.success && sr.data) {
+      // 签到状态数据（增加防御性检查）
+      if (sr.success && sr.data && typeof sr.data === 'object') {
         hasData = true
         var sd = sr.data
-        var ci = !!sd.checkedIn || !!sd.hasCheckedIn
+        var ci = !!sd.checkedIn || !!sd.hasCheckedIn || !!sd.checked
         that.setData({
           isCheckedIn: ci,
           streakDays: sd.streak || sd.streakDays || 0,
-          todayReward: sd.todayStars || sd.todayReward || 5
+          todayReward: sd.todayStars || sd.todayReward || sd.stars || 5
         })
         that.updateMilestones()
         if (ci) {
           var n = new Date()
           that.setData({
             checkedTime: padZero(n.getHours()) + ':' + padZero(n.getMinutes()),
-            earnedStars: sd.todayStars || sd.todayReward || 5
+            earnedStars: sd.todayStars || sd.todayReward || sd.stars || 5
           })
         }
+      } else if (!sr.success) {
+        console.warn('[fetchFreshData] status API 返回失败:', sr.message)
       }
 
+      // 日历数据（增加防御性检查）
       if (cr.success && cr.data) {
         that._handleCalendarData(cr.data)
       }
@@ -173,26 +182,61 @@ Page({
     })
   },
 
+  /**
+   * 处理日历数据（兼容多种返回格式）
+   * 格式1（云函数新格式）: { year, month, days: [{date, checkedIn, stars}], calendar: {...} }
+   * 格式2（字符串数组）: ['2026-04-29', '2026-04-28', ...]
+   * 格式3（对象映射）: { '2026-04-29': {stars, streak}, ... }
+   */
   _handleCalendarData: function(apiData) {
     var now = new Date()
-    if (apiData && apiData.days) {
+
+    // 防御：apiData 为空或非对象
+    if (!apiData || typeof apiData !== 'object') return
+
+    // 格式1：{ year, month, days: [...] }
+    if (apiData.days && Array.isArray(apiData.days)) {
       var y = apiData.year || now.getFullYear()
       var m = apiData.month || (now.getMonth() + 1)
       this.setData({ currentYear: y, currentMonth: m })
       var dates = []
       for (var i = 0; i < apiData.days.length; i++) {
         var d = apiData.days[i]
-        if (typeof d === 'object' && d.checkedIn && d.date) dates.push(d.date)
+        if (d && typeof d === 'object' && d.date) {
+          dates.push(d.date)
+        } else if (typeof d === 'string' && d.length > 0) {
+          dates.push(d)
+        }
       }
       this.setData({ calendarDays: buildMonthCalendar(y, m, dates.length > 0 ? dates : null) })
       this._checkedDates = dates
       return
     }
+
+    // 格式2：纯字符串数组
     if (Array.isArray(apiData)) {
       this.setData({
         calendarDays: buildMonthCalendar(now.getFullYear(), now.getMonth() + 1, apiData)
       })
       this._checkedDates = apiData
+      return
+    }
+
+    // 格式3：对象映射 { '2026-04-29': {...} }
+    // 从对象中提取已签到的日期 key
+    if (!Array.isArray(apiData)) {
+      var objDates = []
+      for (var key in apiData) {
+        if (apiData.hasOwnProperty(key) && /^\d{4}-\d{2}-\d{2}$/.test(key)) {
+          objDates.push(key)
+        }
+      }
+      if (objDates.length > 0) {
+        this.setData({
+          calendarDays: buildMonthCalendar(now.getFullYear(), now.getMonth() + 1, objDates)
+        })
+        this._checkedDates = objDates
+      }
     }
   },
 
@@ -227,9 +271,23 @@ Page({
 
     dailyCheckinApi.doCheckin().then(function(res) {
       var now = new Date(), stars = 5
-      if (res.success && res.data) {
-        stars = res.data.stars || res.data.starsEarned || that.data.todayReward
-        var ns = res.data.streak || res.data.newStreak || (that.data.streakDays || 0) + 1
+
+      // 防御：res 本身可能为空或异常
+      if (!res) {
+        console.warn('[doCheckin] res 为空')
+        wx.showToast({ title: '无响应，请重试', icon: 'none' })
+        that.setData({ checking: false })
+        return
+      }
+
+      // 调试日志：打印完整响应，方便定位问题
+      console.log('[doCheckin] API 响应:', JSON.stringify(res))
+
+      if (res.success && res.data && typeof res.data === 'object') {
+        stars = res.data.stars || res.data.starsEarned || res.data.totalStars || that.data.todayReward || 5
+        var ns = res.data.streak || res.data.newStreak || res.data.streakDays || (that.data.streakDays || 0) + 1
+        // 确保 ns 是数字
+        if (typeof ns !== 'number') ns = parseInt(ns) || 1
         that.setData({
           isCheckedIn: true, checking: false,
           earnedStars: stars,
@@ -237,7 +295,16 @@ Page({
           streakDays: ns
         })
       } else {
-        wx.showToast({ title: res.message || '签到失败', icon: 'none' })
+        // 过滤掉不友好的系统错误信息（如 Cannot read properties of undefined）
+        var errMsg = res.message || '签到失败'
+        if (errMsg.indexOf('Cannot read') >= 0 ||
+            errMsg.indexOf('undefined') >= 0 ||
+            errMsg.indexOf('null') >= 0 ||
+            errMsg.length > 50) {
+          errMsg = '签到服务异常，请稍后重试'
+          console.error('[doCheckin] 后端返回异常:', res.message, '| 完整响应:', JSON.stringify(res))
+        }
+        wx.showToast({ title: errMsg, icon: 'none' })
         that.setData({ checking: false })
         return
       }
@@ -245,14 +312,31 @@ Page({
       that._saveToCache()
       wx.showToast({ title: '签到成功！+' + stars + ' ⭐', icon: 'success', duration: 2000 })
 
+      // 通知首页刷新（清除旧缓存，确保统计数据更新）
+      try {
+        var app = getApp()
+        if (app && app.globalData) {
+          app.globalData._needRefreshHome = true
+        }
+        // 清除首页缓存
+        wx.removeStorageSync('home_tasks')
+        wx.removeStorageSync('home_stats')
+        // 清除"我的"页面缓存
+        wx.removeStorageSync('mine_stats')
+      } catch (e) {}
+
       // 成就自动检查（传入当前连续签到天数）
-      achievementUtil.checkAndShow({ currentStreak: ns, totalCheckins: 1 })
+      try {
+        achievementUtil.checkAndShow({ currentStreak: ns, totalCheckins: 1 })
+      } catch (e) {
+        console.warn('[doCheckin] 成就检查异常:', e)
+      }
 
       dailyCheckinApi.calendar().then(function(cr) {
-        if (cr.success && cr.data) that._handleCalendarData(cr.data)
+        if (cr && cr.success && cr.data) that._handleCalendarData(cr.data)
       })
     }).catch(function(err) {
-      console.error('签到失败:', err)
+      console.error('签到失败(网络层):', err)
       wx.showToast({ title: '网络异常，请重试', icon: 'none' })
       that.setData({ checking: false })
     })

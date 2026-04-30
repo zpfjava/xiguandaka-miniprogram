@@ -41,31 +41,63 @@ function getGlobalData() {
  */
 function cloudCall(name, action, data) {
   return new Promise(function(resolve) {
-    if (!wx.cloud) {
+    // 全面检查 wx.cloud 是否可用
+    if (!wx.cloud || !wx.cloud.callFunction || typeof wx.cloud.callFunction !== 'function') {
+      console.warn('[cloudCall] wx.cloud 不可用:', !!wx.cloud, !!(wx.cloud && wx.cloud.callFunction))
       resolve({ success: false, message: '云开发未初始化，请检查配置' })
       return
     }
 
-    wx.cloud.callFunction({
-      name: name,
-      data: { action: action, data: data || {} },
-      success: function(res) {
-        var d = res.result
-        if (d && d.success !== undefined) {
-          if (d.success) {
-            resolve(d)
-          } else {
-            resolve({ success: false, message: d.message || '操作失败' })
-          }
-        } else {
-          resolve({ success: true, data: d })
-        }
-      },
-      fail: function(err) {
-        console.error('[cloudCall] error:', name, action, err)
-        resolve({ success: false, message: err.errMsg || '云函数调用失败', _offline: true })
+    // 确保云环境已初始化（防御性检查）
+    var app = getApp()
+    if (app && app.globalData && !app.globalData.cloudInitialized && config.getCloudEnv()) {
+      try {
+        wx.cloud.init({
+          env: config.getCloudEnv(),
+          traceUser: false,
+        })
+        app.globalData.cloudInitialized = true
+        console.log('[cloudCall] 延迟初始化云开发环境:', config.getCloudEnv())
+      } catch (initErr) {
+        console.error('[cloudCall] init 异常:', initErr)
+        resolve({ success: false, message: '云开发初始化失败', _offline: true })
+        return
       }
-    })
+    }
+
+    // 用 try-catch 包裹整个 callFunction 调用，防止框架内部异常导致崩溃
+    try {
+      wx.cloud.callFunction({
+        name: name,
+        data: { action: action, data: data || {} },
+        timeout: 15000, // 15秒超时
+        success: function(res) {
+          // 防御：res.result 可能为 undefined（如云函数超时/报错但仍走 success 回调）
+          var d = res ? res.result : null
+          if (d && typeof d === 'object' && d.success !== undefined) {
+            if (d.success) {
+              resolve(d)
+            } else {
+              resolve({ success: false, message: d.message || '操作失败' })
+            }
+          } else if (d && d.success === false) {
+            // 显式 false
+            resolve({ success: false, message: d.message || '操作失败' })
+          } else {
+            // 无 success 字段，包装为成功格式（兼容旧接口）
+            resolve({ success: true, data: d || {} })
+          }
+        },
+        fail: function(err) {
+          console.error('[cloudCall] error:', name, action, err)
+          var errMsg = (err && err.errMsg) ? err.errMsg : '云函数调用失败'
+          resolve({ success: false, message: errMsg, _offline: true })
+        }
+      })
+    } catch (callErr) {
+      console.error('[cloudCall] callFunction 同步异常:', name, action, callErr)
+      resolve({ success: false, message: '云函数调用异常: ' + (callErr.message || '未知错误'), _offline: true })
+    }
   })
 }
 

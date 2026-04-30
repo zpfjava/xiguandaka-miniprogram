@@ -35,8 +35,10 @@ function safeFormatTime(dateVal) {
  * 前端字段: id, type(earn/spend), description, icon, amount, date, fullDate, time
  */
 function transformRecord(record) {
-  var isEarn = record.change > 0
-  var amount = record.change || 0
+  // 兼容 change 和 amount 两种字段名（不同云函数写入时用的字段不同）
+  var rawAmount = record.change !== undefined ? record.change : (record.amount !== undefined ? record.amount : 0)
+  var isEarn = Number(rawAmount) > 0
+  var amount = Number(rawAmount) || 0
 
   // 翻译 reason 为中文
   var translatedReason = translateReason(record.reason)
@@ -57,7 +59,7 @@ function transformRecord(record) {
   var isValidDate = d && !isNaN(d.getTime())
 
   return {
-    id: record.id,
+    id: record.id || record._id,
     type: isEarn ? 'earn' : 'spend',
     description: translatedReason || (isEarn ? '获得星星' : '消耗星星'),
     icon: icon,
@@ -142,9 +144,14 @@ Page({
       limit: 50,
       month: this.data.filterMonth
     }).then(function(res) {
+      console.log('[points-history] API 原始返回:', JSON.stringify(res))
       if (res.success && res.data) {
         // 后端返回 { data: [...], total: N } 或直接 [...]
         var rawRecords = res.data.data || res.data || []
+        console.log('[points-history] 原始记录数:', rawRecords.length)
+        if (rawRecords.length > 0) {
+          console.log('[points-history] 第一条记录:', JSON.stringify(rawRecords[0]))
+        }
         if (Array.isArray(rawRecords) && rawRecords.length > 0) {
           var records = []
           for (var i = 0; i < rawRecords.length; i++) {

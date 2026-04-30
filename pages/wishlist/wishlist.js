@@ -1,4 +1,4 @@
-﻿﻿/**
+﻿﻿﻿﻿/**
  * 小打卡 - 愿望清单页
  * 首帧优化：onLoad 预渲染完整页面结构 → 页面出现即完整
  */
@@ -288,6 +288,7 @@ Page({
   redeemWish: function(e) {
     var that = this
     var item = e.currentTarget.dataset.item
+    var itemId = item.id || item._id
 
     wx.showModal({
       title: '确认兑换',
@@ -295,7 +296,7 @@ Page({
       confirmColor: '#FF9A3C',
       success: function(res) {
         if (res.confirm) {
-          wishlistApi.redeem(item.id).then(function(res) {
+          wishlistApi.redeem(itemId).then(function(res) {
             if (res.success) {
               // 兑换成功：重新加载数据
               that.loadWishData()
@@ -314,7 +315,7 @@ Page({
 
   deleteWish: function(e) {
     var that = this
-    var id = e.currentTarget.dataset.id
+    var id = e.currentTarget.dataset.id || e.currentTarget.dataset._id
 
     wx.showModal({
       title: '确认删除',
@@ -340,13 +341,14 @@ Page({
    */
   saveStars: function(e) {
     var that = this
-    var id = e.currentTarget.dataset.id
+    var id = e.currentTarget.dataset.id || e.currentTarget.dataset._id
 
     // 找到对应的愿望
     var wishes = that.data.wishes
     var targetWish = null
     for (var i = 0; i < wishes.length; i++) {
-      if (wishes[i].id === id) { targetWish = wishes[i]; break }
+      var wishId = wishes[i].id || wishes[i]._id
+      if (wishId === id) { targetWish = wishes[i]; break }
     }
 
     if (!targetWish) { wx.showToast({ title: '愿望不存在', icon: 'none' }); return }
@@ -361,12 +363,8 @@ Page({
     var maxSave = Math.min(currentStars, remaining)
     if (maxSave <= 0) { wx.showToast({ title: '星星不足', icon: 'none' }); return }
 
-    // 智能选择默认数量：优先选用户能承担的最大档位
-    var defaultAmount = 5
-    if (maxSave >= 20) { defaultAmount = 20 }
-    else if (maxSave >= 10) { defaultAmount = 10 }
-    else if (maxSave >= 5) { defaultAmount = 5 }
-    else { defaultAmount = maxSave }
+    // 智能选择默认数量：默认填满到愿望还需要的最大值（在可用星星范围内）
+    var defaultAmount = maxSave
 
     that.setData({
       showSaveModal: true,

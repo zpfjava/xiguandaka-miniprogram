@@ -66,6 +66,7 @@ function getUserInfo() {
 /**
  * 统一处理登录响应
  * 兼容云函数返回 _id 和 REST API 返回 id
+ * @returns {object|null} 用户对象（可能附带 isNewUser、bonusStars 等额外字段）
  */
 function handleLoginResponse(res) {
   if (res.success && res.data) {
@@ -73,6 +74,9 @@ function handleLoginResponse(res) {
     // 兼容：云函数返回 _id，REST API 返回 id
     var userId = userData._id || userData.id
     safeSetLoginStatus(userId, userData)
+    // 将顶层额外字段（如 isNewUser、bonusStars）合并到用户对象上
+    if (res.isNewUser !== undefined) userData.isNewUser = res.isNewUser
+    if (res.bonusStars !== undefined) userData.bonusStars = res.bonusStars
     return userData
   }
   // API 返回业务错误（如密码错误、验证码无效等）
@@ -187,8 +191,12 @@ function wxLogin() {
         var api = require('./api')
         api.userApi.wxLogin(loginRes.code).then(function(res) {
           if (res.success && res.data) {
-            safeSetLoginStatus(res.data._id || res.data.id, res.data)
-            resolve(res.data)
+            var userData = res.data
+            safeSetLoginStatus(userData._id || userData.id, userData)
+            // 合并额外字段
+            if (res.isNewUser !== undefined) userData.isNewUser = res.isNewUser
+            if (res.bonusStars !== undefined) userData.bonusStars = res.bonusStars
+            resolve(userData)
           } else {
             wx.showToast({ title: res.message || '微信登录失败', icon: 'none' })
             resolve(null)

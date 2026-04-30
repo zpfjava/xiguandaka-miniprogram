@@ -14,7 +14,7 @@ var USE_CLOUD = true
 // 云开发环境 ID（在微信开发者工具 → 云开发控制台获取）
 // 开发环境和生产环境可以不同
 var CLOUD_ENV_IDS = {
-  dev: '',   // 填写你的云开发环境ID，如 'xiaodaka-dev-xxx'
+  dev: 'test-d8g8lwxiif29bca0a',   // 填写你的云开发环境ID，如 'xiaodaka-dev-xxx'
   prod: ''   // 填写生产环境ID
 }
 

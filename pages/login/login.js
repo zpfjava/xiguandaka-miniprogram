@@ -26,7 +26,7 @@ var cooldownTimer = null
 Page({
   data: {
     // 登录模式：'sms' | 'password'
-    loginMode: 'sms',
+    loginMode: 'password',
     // 是否展示其他登录方式面板
     showOtherLogin: false,
     loading: false,
@@ -183,6 +183,9 @@ Page({
     var form = that.data.form
 
     if (that.data.loading) return
+    if (!form.phone || !form.phone.trim()) {
+      wx.showToast({ title: '请输入手机号', icon: 'none' }); return
+    }
     if (!form.phone.match(/^1[3-9]\d{9}$/)) {
       wx.showToast({ title: '请输入正确的手机号', icon: 'none' }); return
     }
@@ -196,10 +199,37 @@ Page({
 
   /**
    * 通用登录成功处理：恢复按钮 → 显示成功提示 → 延迟跳转
+   * @param {string} msg - 成功提示文字
+   * @param {object} [extra] - 额外信息，如 { isNewUser, bonusStars }
    */
-  navigateOnSuccess: function(msg) {
+  navigateOnSuccess: function(msg, extra) {
     var that = this
     that.setData({ loading: false, wxLoggingIn: false })
+
+    // 清理旧缓存，确保首页/mine页从服务器拉取最新数据（避免昵称闪烁、星星数过期）
+    try {
+      wx.removeStorageSync('home_userInfo')
+      wx.removeStorageSync('mine_userInfo')
+    } catch (e) {}
+
+    // 新用户注册奖励 / 老用户补发奖励提示
+    if (extra && extra.bonusStars > 0) {
+      var title = extra.isNewUser ? '🎉 注册成功' : '🎁 星星奖励'
+      var content = extra.isNewUser
+        ? ('欢迎加入小打卡！已获得 ' + extra.bonusStars + ' 星星奖励')
+        : ('已补发 ' + extra.bonusStars + ' 注册奖励星星 ⭐')
+      wx.showModal({
+        title: title,
+        content: content,
+        showCancel: false,
+        confirmText: '开始使用',
+        success: function() {
+          wx.switchTab({ url: '/pages/home/home' })
+        }
+      })
+      return
+    }
+
     wx.showToast({ title: msg || '登录成功', icon: 'success' })
     setTimeout(function() { wx.switchTab({ url: '/pages/home/home' }) }, 600)
   },
@@ -208,14 +238,17 @@ Page({
     var that = this
     var form = that.data.form
 
-    if (!form.smsCode || form.smsCode.length !== 6) {
+    if (!form.smsCode || !form.smsCode.trim()) {
+      wx.showToast({ title: '请输入验证码', icon: 'none' }); return
+    }
+    if (form.smsCode.trim().length !== 6) {
       wx.showToast({ title: '请输入6位验证码', icon: 'none' }); return
     }
 
     that.setData({ loading: true })
 
     smsLogin(form.phone, form.smsCode).then(function(result) {
-      if (result && result.id) {
+      if (result && (result.id || result._id)) {
         that.navigateOnSuccess('登录成功')
       } else {
         that.setData({ loading: false })
@@ -230,14 +263,26 @@ Page({
     var that = this
     var form = that.data.form
 
-    if (!form.password || form.password.length < 6) {
+    var phone = form.phone || ''
+    var password = form.password || ''
+
+    if (!phone || !phone.trim()) {
+      wx.showToast({ title: '请输入手机号', icon: 'none' }); return
+    }
+    if (!phone.match(/^1[3-9]\d{9}$/)) {
+      wx.showToast({ title: '请输入正确的手机号', icon: 'none' }); return
+    }
+    if (!password || !String(password).trim()) {
+      wx.showToast({ title: '请输入密码', icon: 'none' }); return
+    }
+    if (String(password).trim().length < 6) {
       wx.showToast({ title: '密码至少6位', icon: 'none' }); return
     }
 
     that.setData({ loading: true })
 
-    phoneLogin(form.phone, form.password).then(function(result) {
-      if (result && result.id) {
+    phoneLogin(phone, password).then(function(result) {
+      if (result && (result.id || result._id)) {
         that.navigateOnSuccess('登录成功')
       } else {
         that.setData({ loading: false })
@@ -255,13 +300,19 @@ Page({
     var form = that.data.regForm
 
     if (that.data.regLoading) return
+    if (!form.phone || !form.phone.trim()) {
+      wx.showToast({ title: '请输入手机号', icon: 'none' }); return
+    }
     if (!form.phone.match(/^1[3-9]\d{9}$/)) {
       wx.showToast({ title: '请输入正确的手机号', icon: 'none' }); return
     }
-    if (!form.password || form.password.length < 6) {
+    if (!form.password || !String(form.password).trim()) {
+      wx.showToast({ title: '请设置密码', icon: 'none' }); return
+    }
+    if (String(form.password).trim().length < 6) {
       wx.showToast({ title: '密码至少6位', icon: 'none' }); return
     }
-    if (form.password !== form.confirmPassword) {
+    if (String(form.password) !== String(form.confirmPassword)) {
       wx.showToast({ title: '两次密码不一致', icon: 'none' }); return
     }
 
@@ -273,7 +324,7 @@ Page({
       nickname: form.nickname || '',
       grade: form.grade
     }).then(function(result) {
-      if (result && result.id) {
+      if (result && (result.id || result._id)) {
         that.setData({ showRegisterModal: false, regLoading: false })
         wx.showToast({ title: '注册成功', icon: 'success' })
         setTimeout(function() { wx.switchTab({ url: '/pages/home/home' }) }, 600)
@@ -293,7 +344,6 @@ Page({
     var detail = e.detail || {}
 
     if (detail.errMsg && detail.errMsg.indexOf('fail') >= 0) {
-      console.log('用户拒绝手机号授权，降级为静默微信登录')
       that.handleWxSilentLogin()
       return
     }
@@ -301,8 +351,8 @@ Page({
     that.setData({ wxLoggingIn: true })
 
     wxPhoneLogin(detail.code, detail.encryptedData, detail.iv).then(function(result) {
-      if (result && result.id) {
-        that.navigateOnSuccess('微信登录成功')
+      if (result && (result.id || result._id)) {
+        that.navigateOnSuccess('微信登录成功', result)
       } else {
         that.setData({ wxLoggingIn: false })
         that.handleWxSilentLogin()
@@ -319,8 +369,8 @@ Page({
     that.setData({ wxLoggingIn: true })
 
     wxLogin().then(function(result) {
-      if (result && result.id) {
-        that.navigateOnSuccess('登录成功')
+      if (result && (result.id || result._id)) {
+        that.navigateOnSuccess('登录成功', result)
       } else {
         that.setData({ wxLoggingIn: false, showOtherLogin: true })
       }

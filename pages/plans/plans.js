@@ -6,6 +6,7 @@ var api = require('../../utils/api')
 var constants = require('../../utils/constants')
 
 var planApi = api.planApi
+var checkinApi = api.checkinApi
 var SUBJECTS = constants.SUBJECTS
 var FREQUENCIES = constants.FREQUENCIES
 var WEEKDAYS = constants.WEEKDAYS
@@ -101,10 +102,14 @@ Page({
           var total = plan.totalCount > 0 ? plan.totalCount : 0
           var completed = plan.completedCount || 0
           plan.progressPercent = total > 0 ? Math.round((completed / total) * 100) : 0
+          // 默认未打卡（后续由 _loadTodayCheckins 更新）
+          plan.checkedInToday = false
           plans.push(plan)
         }
         that.setData({ plans: plans, isEmpty: false })
         wx.setStorageSync('plans', JSON.stringify(plans))
+        // 加载每个计划的今日打卡状态
+        that._loadTodayCheckins(plans)
       } else {
         // API 返回失败
         console.warn('获取计划列表失败:', res.message)
@@ -202,10 +207,14 @@ Page({
 
     that.setData({ saving: true })
 
-    var doSave = editingPlan
+    // 获取编辑中的计划ID（兼容 id 和 _id 两种字段名）
+    var editingId = editingPlan ? (editingPlan.id || editingPlan._id) : null
+
+    var doSave = editingId
       ? function() {
           // 构建干净的 payload，只包含后端需要的字段
           var payload = {
+            id: editingId,
             subject: form.subject,
             title: form.title,
             frequency: form.frequency,
@@ -213,7 +222,7 @@ Page({
             // notes 作为 description 传给后端（后端会处理 WEEKDAYS 前缀合并）
             description: form.notes || ''
           }
-          return planApi.update(editingPlan.id, payload)
+          return planApi.update(editingId, payload)
         }
       : function() {
           // 创建时同样构建干净 payload
@@ -309,7 +318,20 @@ Page({
 
   togglePlanActive: function(e) {
     var that = this
-    var id = e.currentTarget.dataset.id
+    var id = e.currentTarget.dataset.id || e.currentTarget.dataset._id
+
+    // 防御：如果事件中没有 id，尝试从 data-plan 属性获取
+    if (!id) {
+      var planData = e.currentTarget.dataset.plan
+      if (planData) {
+        id = planData.id || planData._id
+      }
+    }
+    if (!id) {
+      console.warn('[togglePlanActive] 无法获取计划ID', e.currentTarget.dataset)
+      wx.showToast({ title: '操作失败，请重试', icon: 'none' })
+      return
+    }
 
     // 如果正在切换中，忽略重复操作（防止快速双击）
     if (that.data._togglingId === id) return
@@ -392,7 +414,71 @@ Page({
     })
   },
 
+  /**
+   * 查询每个计划今天的打卡状态，更新 UI 显示"去打卡"或"已完成✓"
+   */
+  _loadTodayCheckins: function(plans) {
+    var that = this
+    if (!plans || plans.length === 0) return
+
+    // 获取今日已打卡的计划 ID 列表
+    checkinApi.getList({ pageSize: 100 }).then(function(res) {
+      if (!res.success || !res.data || !res.data.list) return
+
+      // 筛选今天的打卡记录
+      var todayList = []
+      var now = new Date()
+      var todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      var todayEnd = new Date(todayStart.getTime() + 86400000)
+
+      for (var i = 0; i < res.data.list.length; i++) {
+        var c = res.data.list[i]
+        var checkinTime = c.checkinAt || c.createdAt
+        if (checkinTime) {
+          var ct = new Date(checkinTime)
+          if (ct >= todayStart && ct < todayEnd) {
+            todayList.push(c.planId || c.id || c._id)
+          }
+        }
+      }
+
+      console.log('[plans] 今日已打卡计划IDs:', todayList)
+
+      // 更新每个计划的 checkedInToday 状态
+      var updatedPlans = that.data.plans.slice()
+      var changed = false
+      for (var j = 0; j < updatedPlans.length; j++) {
+        var pid = updatedPlans[j].id || updatedPlans[j]._id
+        var isCheckedIn = false
+        for (var t = 0; t < todayList.length; t++) {
+          if (todayList[t] === pid) {
+            isCheckedIn = true
+            break
+          }
+        }
+        if (updatedPlans[j].checkedInToday !== isCheckedIn) {
+          updatedPlans[j].checkedInToday = isCheckedIn
+          changed = true
+        }
+      }
+
+      if (changed) {
+        that.setData({ plans: updatedPlans })
+        wx.setStorageSync('plans', JSON.stringify(updatedPlans))
+      }
+    }).catch(function(err) {
+      console.warn('[plans] 获取今日打卡状态失败:', err)
+    })
+  },
+
   goToCheckin: function(e) {
-    wx.navigateTo({ url: '/pages/checkin/checkin?planId=' + e.currentTarget.dataset.plan.id })
+    var plan = e.currentTarget.dataset.plan
+    var planId = (plan && (plan.id || plan._id)) || ''
+    if (!planId) {
+      console.warn('[goToCheckin] 无法获取计划ID', e.currentTarget.dataset)
+      wx.showToast({ title: '操作失败，请重试', icon: 'none' })
+      return
+    }
+    wx.navigateTo({ url: '/pages/checkin/checkin?planId=' + planId })
   }
 })

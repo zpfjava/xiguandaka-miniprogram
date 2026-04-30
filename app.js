@@ -83,10 +83,11 @@ App({
       if (cloudEnv) {
         wx.cloud.init({
           env: cloudEnv,
-          traceUser: true,
+          traceUser: false,
         })
         console.log('[Cloud] 云开发已初始化, 环境:', cloudEnv)
         this.globalData.cloudInitialized = true
+        this.globalData.cloudEnv = cloudEnv
       } else {
         console.warn('[Cloud] 未配置云开发环境ID，请在 utils/config.js 中设置 CLOUD_ENV_IDS.dev')
         this.globalData.cloudInitialized = false
