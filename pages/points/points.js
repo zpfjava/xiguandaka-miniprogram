@@ -35,16 +35,17 @@ function translateReason(reason) {
 
 Page({
   data: {
-    summary: { currentStars: 0, totalEarned: 0, totalSpent: 0 },
+    // 初始值用 null/空，避免显示 0 后跳变
+    summary: null,
     recentRecords: [],
     loading: false,
     isEmpty: false,
-    _loadingLock: false
+    _loadingLock: false,
+    // 骨架屏状态
+    _skeleton: true
   },
 
   onShow: function() {
-    // 先从缓存恢复（瞬间显示），再静默刷新
-    this._restoreFromCache()
     // 防抖：如果正在加载中则不重复请求
     if (!this.data._loadingLock) {
       this.loadPointsData()
@@ -85,11 +86,21 @@ Page({
       var userRes = results[2]
       var hasData = false
 
+      // 构建最终渲染数据
+      var renderData = {
+        _skeleton: false,
+        _loadingLock: false,
+        summary: null,
+        recentRecords: [],
+        isEmpty: false
+      }
+
+      // 处理摘要数据
       if (summaryRes.success && summaryRes.data) {
         hasData = true
         var sd = summaryRes.data
         // 兼容后端多种字段名，优先使用后端返回值
-        if (!sd.currentStars && sd.currentStars !== 0) {
+        if (sd.currentStars === undefined || sd.currentStars === null) {
           // 后端没返回 currentStars 时从用户信息中取
           if (userRes.success && userRes.data) {
             sd.currentStars = userRes.data.currentStars || userRes.data.totalStars || 0
@@ -97,20 +108,19 @@ Page({
             sd.currentStars = sd.stars || sd.balance || sd.availableStars || 0
           }
         }
-        that.setData({ summary: sd })
+        renderData.summary = sd
         wx.setStorageSync('points_summary', JSON.stringify(sd))
       } else if (userRes.success && userRes.data) {
         // summary 失败时用用户数据兜底
         hasData = true
-        that.setData({
-          summary: {
-            currentStars: userRes.data.currentStars || 0,
-            totalEarned: userRes.data.totalStars || 0,
-            totalSpent: 0
-          }
-        })
+        renderData.summary = {
+          currentStars: userRes.data.currentStars || 0,
+          totalEarned: userRes.data.totalStars || 0,
+          totalSpent: 0
+        }
       }
 
+      // 处理历史记录
       if (historyRes.success && historyRes.data) {
         hasData = true
         var rawRecords = historyRes.data.data || historyRes.data || []
@@ -118,34 +128,33 @@ Page({
         for (var i = 0; i < rawRecords.length; i++) {
           var r = {}
           for (var k in rawRecords[i]) { r[k] = rawRecords[i][k] }
-          // 后端字段: change(+/-) 或 amount, reason, balance, createdAt
-          // 前端展示用 amount、description、type
           var rawChange = r.change !== undefined ? r.change : (r.amount !== undefined ? r.amount : 0)
           if (rawChange !== undefined) { r.amount = rawChange }
           if (!r.description && r.reason) { r.description = translateReason(r.reason) }
           else if (r.description) { r.description = translateReason(r.description) }
-          // 根据 change/amount 正负判断类型
           r.type = (Number(rawChange) || 0) > 0 ? 'earn' : 'spend'
           r.time = formatRelativeTime(r.createdAt || r.date)
           records.push(r)
         }
-        that.setData({ recentRecords: records, isEmpty: records.length === 0 })
+        renderData.recentRecords = records
+        renderData.isEmpty = records.length === 0
         wx.setStorageSync('points_recent_records', JSON.stringify(records))
       }
 
+      // 无数据时的兜底
       if (!hasData) {
-        that.setData({
-          isEmpty: true,
-          summary: { currentStars: 0, totalEarned: 0, totalSpent: 0 },
-          recentRecords: []
-        })
+        renderData.isEmpty = true
+        renderData.summary = { currentStars: 0, totalEarned: 0, totalSpent: 0 }
+        renderData.recentRecords = []
       }
 
-      that.setData({ _loadingLock: false })
+      // ====== 一次性 setData，避免多次渲染导致数字闪烁 ======
+      that.setData(renderData)
     }).catch(function(err) {
       console.error('加载积分数据失败:', err)
-        that.setData({
-          _loadingLock: false,
+      that.setData({
+        _skeleton: false,
+        _loadingLock: false,
         isEmpty: true,
         summary: { currentStars: 0, totalEarned: 0, totalSpent: 0 },
         recentRecords: []

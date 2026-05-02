@@ -71,7 +71,7 @@ export class SmsService {
     // 7. 开发环境：直接返回验证码（生产环境中这里调用短信 API）
     console.log(`📱 [SMS] 验证码已生成：${code}，手机号：${phone}，有效期 5 分钟`);
     // TODO: 生产环境对接短信服务，例如：
-    // await this.tencentSms.send(phone, `【小打卡】您的验证码是${code}，5分钟内有效。`);
+    // await this.tencentSms.send(phone, `【成长习惯打卡助手】您的验证码是${code}，5分钟内有效。`);
 
     return {
       success: true,

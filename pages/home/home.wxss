@@ -5,6 +5,115 @@
   background-color: #FFF8E1;
 }
 
+/* ====== 骨架屏（数据加载中显示） ====== */
+.home-skeleton {
+  padding: 0 30rpx;
+}
+
+.skeleton-header {
+  display: flex;
+  align-items: center;
+  padding: 36rpx 0;
+}
+
+.skeleton-avatar {
+  width: 80rpx;
+  height: 80rpx;
+  margin-right: 20rpx;
+  flex-shrink: 0;
+}
+
+.skeleton-progress-row {
+  display: flex;
+  gap: 20rpx;
+  padding: 0 10rpx;
+}
+
+.skeleton-progress-card, .skeleton-stars-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 24rpx;
+  padding: 28rpx 20rpx;
+}
+
+.skeleton-progress-card { flex: 1.2; }
+.skeleton-stars-card { flex: 0.8; }
+
+.skeleton-ring { width: 160rpx; height: 160rpx; margin-bottom: 16rpx; }
+
+.skeleton-actions-row {
+  display: flex;
+  gap: 16rpx;
+  padding: 24rpx 10rpx 0;
+}
+
+.skeleton-action {
+  flex: 1;
+  border-radius: 20rpx;
+  padding: 24rpx 12rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10rpx;
+}
+
+.skeleton-section {
+  margin: 24rpx 0 0;
+  background-color: #FFFFFF;
+  border-radius: 24rpx;
+  padding: 24rpx 20rpx;
+}
+
+.skeleton-task {
+  display: flex;
+  align-items: center;
+  padding: 24rpx 0;
+  border-bottom: 1rpx solid #F5F5F5;
+}
+.skeleton-task:last-child { border-bottom: none; }
+
+/* 骨架屏通用元素 */
+.skeleton-circle {
+  border-radius: 50%;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+.skeleton-circle.small { width: 56rpx; height: 56rpx; }
+
+.skeleton-line {
+  height: 32rpx;
+  border-radius: 8rpx;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+  margin-bottom: 12rpx;
+}
+.skeleton-line.long { width: 60%; }
+.skeleton-line.medium { width: 40%; }
+.skeleton-line.short { width: 25%; }
+.skeleton-line.tiny { width: 15%; }
+.skeleton-line::after { content: ''; display: block; margin-bottom: 0; }
+
+.skeleton-lines { display: flex; flex-direction: column; }
+.skeleton-lines.flex-1 { flex: 1; margin-left: 20rpx; }
+
+.skeleton-card {
+  background-color: #FFFFFF;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
+}
+
+.skeleton-line.center { margin-left: auto; margin-right: auto; }
+.skeleton-circle.center { margin-left: auto; margin-right: auto; }
+.skeleton-circle.small.center { margin: 0; }
+
+@keyframes skeleton-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
 /* ====== 顶部区域 ====== */
 .home-header {
   background: linear-gradient(135deg, #FFD93D 0%, #FF9A3C 100%);
@@ -201,6 +310,15 @@
   border-radius: 9999rpx;
 }
 .checkin-btn:active { opacity: 0.85; }
+
+/* 加载中占位 */
+.checkin-placeholder {
+  background: transparent;
+  color: #CCCCCC;
+  font-size: 24rpx;
+  padding: 14rpx 28rpx;
+  border-radius: 9999rpx;
+}
 
 /* ====== 统计卡片 ====== */
 .stats-grid {

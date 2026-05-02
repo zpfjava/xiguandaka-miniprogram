@@ -42,7 +42,9 @@ exports.main = async (event, context) => {
     switch (action) {
       // ========== 创建打卡 ==========
       case 'create': {
-        const { planId, content, imageUrls, mood } = data
+        const { planId, content, imageUrls, images, mood } = data
+        // 兼容前端传 images 或 imageUrls 两种字段名
+        const finalImageUrls = imageUrls || images || ''
         console.log('[checkin create] 收到打卡请求: planId=', planId, 'userId=', userId)
 
         // 验证计划归属
@@ -75,7 +77,7 @@ exports.main = async (event, context) => {
           userId,
           planId,
           content: content || '',
-          imageUrls: Array.isArray(imageUrls) ? JSON.stringify(imageUrls) : (imageUrls || ''),
+          imageUrls: Array.isArray(finalImageUrls) ? JSON.stringify(finalImageUrls) : (finalImageUrls || ''),
           mood: mood || 'happy',
           starsGot,
           checkinAt: now,
@@ -106,6 +108,133 @@ exports.main = async (event, context) => {
           }
         })
 
+        // === 检查并解锁成就 ===
+        try {
+          // 获取最新统计数据用于成就判断
+          const statsRes = await db.collection(CHECKINS)
+            .where({ userId })
+            .orderBy('checkinAt', 'desc')
+            .limit(365)
+            .get()
+          const allCheckins = safeData(statsRes)
+
+          // 按日期去重计算连续天数
+          const dateSet = new Set()
+          const uniqueDates = []
+          for (const c of allCheckins) {
+            const d = new Date(c.checkinAt)
+            const dateKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+            if (!dateSet.has(dateKey)) {
+              dateSet.add(dateKey)
+              uniqueDates.push(d)
+            }
+          }
+
+          let checkinStreak = 0
+          if (uniqueDates.length > 0) {
+            const today = new Date(); today.setHours(0, 0, 0, 0)
+            const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1)
+            const lastDate = new Date(uniqueDates[0]); lastDate.setHours(0, 0, 0, 0)
+            if (lastDate.getTime() === today.getTime() || lastDate.getTime() === yesterday.getTime()) {
+              checkinStreak = 1
+              for (let i = 1; i < uniqueDates.length; i++) {
+                const prev = new Date(uniqueDates[i]); prev.setHours(0, 0, 0, 0)
+                const curr = new Date(uniqueDates[i - 1]); curr.setHours(0, 0, 0, 0)
+                const diffDays = Math.round((curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24))
+                if (diffDays === 1) { checkinStreak++ } else { break }
+              }
+            }
+          }
+
+          let totalStarsEarned = 0
+          for (const c of allCheckins) totalStarsEarned += c.starsGot || 0
+
+          let activePlansCount = 0
+          try {
+            const plansCountRes = await db.collection('study_plans').where({ userId, isActive: true }).count()
+            activePlansCount = plansCountRes.total || 0
+          } catch (e) { /* ignore */ }
+
+          // 调用成就云函数内部逻辑检查解锁
+          const achievementStats = {
+            totalCheckins: allCheckins.length,
+            currentStreak: checkinStreak,
+            totalStars: totalStarsEarned,
+            totalPlans: activePlansCount,
+          }
+
+          // 遍历所有成就定义，逐个检查并解锁
+          const ACHIEVEMENTS_DEFS = [
+            { id: 'first_checkin', name: '初次打卡', starsReward: 10 },
+            { id: 'streak_3', name: '坚持3天', starsReward: 15 },
+            { id: 'streak_7', name: '一周达人', starsReward: 30 },
+            { id: 'streak_30', name: '月度之星', starsReward: 100 },
+            { id: 'plans_5', name: '计划达人', starsReward: 20 },
+            { id: 'checkin_10', name: '十全十美', starsReward: 15 },
+            { id: 'checkin_50', name: '半百打卡', starsReward: 50 },
+            { id: 'checkin_100', name: '百次打卡王', starsReward: 150 },
+            { id: 'stars_100', name: '小富翁', starsReward: 20 },
+            { id: 'stars_500', name: '大富翁', starsReward: 80 },
+          ]
+
+          for (const ach of ACHIEVEMENTS_DEFS) {
+            // 检查是否已解锁
+            const existing = (await db.collection('user_achievements').where({
+              userId, achievementId: ach.id
+            })).data
+            if (existing && existing.length > 0) continue
+
+            let shouldUnlock = false
+            switch (ach.id) {
+              case 'first_checkin': shouldUnlock = achievementStats.totalCheckins >= 1; break
+              case 'streak_3': shouldUnlock = achievementStats.currentStreak >= 3; break
+              case 'streak_7': shouldUnlock = achievementStats.currentStreak >= 7; break
+              case 'streak_30': shouldUnlock = achievementStats.currentStreak >= 30; break
+              case 'plans_5': shouldUnlock = achievementStats.totalPlans >= 5; break
+              case 'checkin_10': shouldUnlock = achievementStats.totalCheckins >= 10; break
+              case 'checkin_50': shouldUnlock = achievementStats.totalCheckins >= 50; break
+              case 'checkin_100': shouldUnlock = achievementStats.totalCheckins >= 100; break
+              case 'stars_100': shouldUnlock = achievementStats.totalStars >= 100; break
+              case 'stars_500': shouldUnlock = achievementStats.totalStars >= 500; break
+            }
+
+            if (shouldUnlock) {
+              await db.collection('user_achievements').add({
+                data: {
+                  userId,
+                  achievementId: ach.id,
+                  starsGot: ach.starsReward,
+                  unlockedAt: new Date(),
+                }
+              })
+              // 奖励星星
+              await db.collection('users').where({ _id: userId }).update({
+                data: {
+                  currentStars: _.inc(ach.starsReward),
+                  totalStars: _.inc(ach.starsReward),
+                  updatedAt: new Date(),
+                }
+              })
+              // 记录积分历史
+              try {
+                await db.collection('points_history').add({
+                  data: {
+                    userId,
+                    change: ach.starsReward,
+                    reason: 'achievement',
+                    relatedId: ach.id,
+                    balance: 0,
+                    createdAt: new Date(),
+                  }
+                })
+              } catch (e) { /* ignore */ }
+              console.log('[checkin create] 成就解锁:', ach.id, ach.name, '+' + ach.starsReward + '⭐')
+            }
+          }
+        } catch (achErr) {
+          console.warn('[checkin create] 成就检查失败(非致命):', achErr.message)
+        }
+
         return { success: true, data: toFrontendFormat(checkinData) }
       }
 
@@ -135,15 +264,16 @@ exports.main = async (event, context) => {
 
       // ========== 打卡统计 ==========
       case 'stats': {
-        const totalCount = (await db.collection(CHECKINS).where({ userId })).count().total
-        console.log('[checkin stats] userId=', userId, '总打卡记录数=', totalCount)
-        // 获取所有打卡的日期，用于计算连续天数等
+        // 注意：云数据库 count() 可能不准确，改用实际查询结果计数
         const allCheckinsRaw = await db.collection(CHECKINS)
           .where({ userId })
           .orderBy('checkinAt', 'desc')
           .limit(365)
           .get()
         const allCheckins = safeData(allCheckinsRaw)
+        const totalCount = allCheckins.length
+
+        console.log('[checkin stats] userId=', userId, '总打卡记录数=', totalCount)
 
         // 按日期去重（同一天多个计划只算一次）
         const dateSet = new Set()
@@ -193,6 +323,16 @@ exports.main = async (event, context) => {
         }
 
         console.log('[checkin stats] 统计结果: totalCheckins=', totalCount, 'uniqueDays=', dateSet.size, 'totalStars=', totalStars, 'streak=', streak)
+
+        // 获取活跃计划数
+        let activePlansCount = 0
+        try {
+          const plansRaw = await db.collection('study_plans').where({ userId, isActive: true }).count()
+          activePlansCount = plansRaw.total || 0
+        } catch (e) {
+          console.warn('[checkin stats] 获取计划数失败:', e.message)
+        }
+
         return {
           success: true,
           data: {
@@ -202,6 +342,8 @@ exports.main = async (event, context) => {
             streak: streak,
             currentStreak: streak,
             streakDays: streak,
+            activePlans: activePlansCount,
+            totalPlans: activePlansCount
           }
         }
       }
@@ -226,7 +368,7 @@ exports.main = async (event, context) => {
         return { success: true, message: '已删除' }
       }
 
-      // ========== 打卡热力图 ==========
+      // ========== 打卡热力图（含时段分布）==========
       case 'heatmap': {
         const days = (data && data.days) || 90
         const since = new Date()
@@ -239,12 +381,60 @@ exports.main = async (event, context) => {
 
         // 按日期聚合
         const heatmap = {}
+        // 按科目聚合（用于学习统计页的科目分布）
+        const bySubject = {}
+
         for (const r of records) {
           const d = new Date(r.checkinAt)
           const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
           heatmap[key] = (heatmap[key] || 0) + 1
+
+          // 获取打卡对应的计划科目
+          if (r.planId) {
+            try {
+              const subject = r.subject || '学习'
+              bySubject[subject] = (bySubject[subject] || 0) + 1
+            } catch (e) {
+              bySubject['学习'] = (bySubject['学习'] || 0) + 1
+            }
+          } else {
+            bySubject['学习'] = (bySubject['学习'] || 0) + 1
+          }
         }
-        return { success: true, data: heatmap }
+
+        // 如果没有科目数据，尝试从 study_plans 集合获取活跃计划数作为参考
+        if (Object.keys(bySubject).length === 0 && records.length > 0) {
+          bySubject['学习'] = records.length
+        }
+
+        // 构建时段分布数据（与后端 NestJS 版本一致）
+        const timeSlots = [
+          { label: '早晨\n(6-9点)', count: 0, startHour: 6, endHour: 9 },
+          { label: '上午\n(9-12点)', count: 0, startHour: 9, endHour: 12 },
+          { label: '下午\n(14-18点)', count: 0, startHour: 14, endHour: 18 },
+          { label: '晚上\n(18-22点)', count: 0, startHour: 18, endHour: 22 },
+          { label: '深夜\n22点后', count: 0, startHour: 22, endHour: 24 },
+        ]
+
+        for (const r of records) {
+          const hour = new Date(r.checkinAt).getHours()
+          for (const slot of timeSlots) {
+            if (hour >= slot.startHour && hour < slot.endHour) {
+              slot.count++
+              break
+            }
+          }
+        }
+
+        // 计算时段百分比
+        const totalSlotCheckins = timeSlots.reduce((sum, s) => sum + s.count, 0) || 1
+        const timeSlotsWithPercent = timeSlots.map((slot) => ({
+          label: slot.label,
+          count: slot.count,
+          percent: Math.round((slot.count / totalSlotCheckins) * 100),
+        }))
+
+        return { success: true, data: { heatmap, bySubject, timeSlots: timeSlotsWithPercent } }
       }
 
       default:

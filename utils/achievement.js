@@ -71,18 +71,25 @@ function fetchStatsForAchievement() {
  */
 function checkAndShow(extraStats) {
   fetchStatsForAchievement().then(function(baseStats) {
-    // 合并额外统计数据
+    // 合并额外统计数据（extraStats 优先级更高，覆盖 baseStats）
     if (extraStats) {
       for (var k in extraStats) {
-        baseStats[k] = extraStats[k]
+        if (extraStats[k] !== undefined && extraStats[k] !== null) {
+          baseStats[k] = extraStats[k]
+        }
       }
     }
 
+    console.log('[achievement] 检查成就, stats=', JSON.stringify(baseStats).slice(0, 200))
     return achievementApi.check(baseStats)
   }).then(function(res) {
     if (!res || !res.success) return
 
-    var unlocked = res.data && res.data.unlocked
+    var unlocked = res.data
+    // 兼容：res.data 可能是数组或 { unlocked: [...] } 格式
+    if (!Array.isArray(unlocked)) {
+      unlocked = unlocked.unlocked || []
+    }
     if (!unlocked || unlocked.length === 0) return
 
     // 有新成就解锁！展示弹窗

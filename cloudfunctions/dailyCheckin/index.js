@@ -229,15 +229,42 @@ exports.main = async (event, context) => {
 
       // ========== 签到日历 ==========
       case 'calendar': {
-        const days = (data && data.days) || 30
-        const since = new Date()
-        since.setDate(since.getDate() - days)
+        const days = (data && data.days) || 365
+        // 支持按月份查询日历（格式: { year: 2026, month: 4 }）
+        let querySince = null
+        let queryUntil = null
+
+        if (data && data.year && data.month) {
+          // 按指定月份查询：从该月1号到下月1号
+          const y = parseInt(data.year)
+          const m = parseInt(data.month)
+          if (!isNaN(y) && !isNaN(m)) {
+            querySince = new Date(y, m - 1, 1)
+            queryUntil = new Date(y, m, 1)
+          }
+        }
+
+        // 如果没有指定月份，则用默认天数范围
+        if (!querySince) {
+          querySince = new Date()
+          querySince.setDate(querySince.getDate() - days)
+        }
 
         let recordsRaw
         try {
-          recordsRaw = await db.collection('daily_checkins')
-            .where({ userId, createdAt: _.gte(since) })
-            .get()
+          let dbQuery = db.collection('daily_checkins').where({ userId })
+          if (querySince && queryUntil) {
+            dbQuery = db.collection('daily_checkins').where({
+              userId,
+              createdAt: _.gte(querySince).and(_.lt(queryUntil))
+            })
+          } else {
+            dbQuery = db.collection('daily_checkins').where({
+              userId,
+              createdAt: _.gte(querySince)
+            })
+          }
+          recordsRaw = await dbQuery.get()
         } catch (e) {
           console.error('[calendar] 查询日历失败:', e.message)
           return { success: false, message: '查询签到日历失败' }
@@ -256,7 +283,7 @@ exports.main = async (event, context) => {
             const key = d.getFullYear() + '-' +
               String(d.getMonth() + 1).padStart(2, '0') + '-' +
               String(d.getDate()).padStart(2, '0')
-            calendar[key] = { stars: r.streak || totalStars || 0, streak: r.streak || 0 }
+            calendar[key] = { stars: r.stars || 0, streak: r.streak || 0 }
             daysList.push({ date: key, checkedIn: true, stars: r.stars || 0 })
           } catch (dateErr) {
             // 跳过无效日期记录

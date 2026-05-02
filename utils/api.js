@@ -266,14 +266,15 @@ var wishlistApi = {
 var dailyCheckinApi = {
   status: function() { return call('dailyCheckin', '/daily-checkin/status', 'status') },
   doCheckin: function() { return call('dailyCheckin', '/daily-checkin/checkin', 'doCheckin', {}, 'POST') },
-  calendar: function() { return call('dailyCheckin', '/daily-checkin/calendar', 'calendar') }
+  calendar: function(params) { return call('dailyCheckin', '/daily-checkin/calendar', 'calendar', params || {}) }
 }
 
 // ---------- 成就 API ----------
 var achievementApi = {
   getUserAchievements: function() { return call('achievement', '/achievements', 'getUserAchievements') },
   getAllList: function() { return call('achievement', '/achievements/list', 'getAllList') },
-  check: function(stats) { return call('achievement', '/achievements/check', 'check', { stats: stats }, 'POST') }
+  check: function(stats) { return call('achievement', '/achievements/check', 'check', { stats: stats }, 'POST') },
+  backfill: function() { return call('achievement', '/achievements/backfill', 'backfill', {}, 'POST') }
 }
 
 // ---------- 排行榜 API ----------
@@ -301,7 +302,9 @@ var parentApi = {
   getInfo: function() { return call('parent', '/parent', 'getInfo') },
   bind: function(data) { return call('parent', '/parent/bind', 'bind', data, 'POST') },
   unbind: function() { return call('parent', '/parent', 'unbind', {}, 'DELETE') },
-  updateNotifications: function(notifications) { return call('parent', '/parent/notifications', 'updateNotifications', { notifications: notifications }, 'POST') }
+  updateNotifications: function(notifications) { return call('parent', '/parent/notifications', 'updateNotifications', { notifications: notifications }, 'POST') },
+  sendCode: function(phone) { return call('parent', '/parent/sms/send', 'sendSmsCode', { phone: phone }, 'POST') },
+  sendMessage: function(message) { return call('parent', '/parent/message', 'sendMessage', { message: message }, 'POST') }
 }
 
 // ---------- 反馈 API ----------

@@ -26,7 +26,11 @@
       </view>
     </view>
     
-    <button class="save-profile-btn" bindtap="saveProfile">保存修改</button>
+    <button 
+      class="save-profile-btn {{saved ? 'saved' : ''}} {{saving ? 'saving' : ''}}" 
+      bindtap="saveProfile"
+      disabled="{{saving || saved}}"
+    >{{saving ? '保存中...' : (saved ? '已保存 ✓' : '保存修改')}}</button>
   </view>
 
   <!-- 设置分组 - 通用 -->
@@ -36,7 +40,10 @@
     <view class="setting-item">
       <view class="item-left">
         <text class="item-icon">🔔</text>
-        <text class="item-text">打卡提醒</text>
+        <view class="item-text-wrap">
+          <text class="item-text">打卡提醒</text>
+          <text class="item-desc">{{settings.reminder ? '每天 ' + settings.reminderTime + ' 提醒' : '已关闭'}}</text>
+        </view>
       </view>
       <switch 
         checked="{{settings.reminder}}" 
@@ -60,37 +67,6 @@
       </picker>
     </view>
 
-    <view class="setting-item">
-      <view class="item-left">
-        <text class="item-icon">🌙</text>
-        <view class="item-text-wrap">
-          <text class="item-text">深色模式</text>
-          <text class="item-desc">{{settings.darkMode ? '已开启护眼模式' : '跟随系统'}}</text>
-        </view>
-      </view>
-      <switch
-        checked="{{settings.darkMode}}"
-        color="#7ED957"
-        bindchange="toggleSetting"
-        data-key="darkMode"
-      />
-    </view>
-
-    <view class="setting-item">
-      <view class="item-left">
-        <text class="item-icon">📊</text>
-        <view class="item-text-wrap">
-          <text class="item-text">显示统计数据</text>
-          <text class="item-desc">{{settings.showStats ? '首页展示详细统计卡片' : '简洁模式'}}</text>
-        </view>
-      </view>
-      <switch
-        checked="{{settings.showStats}}"
-        color="#7ED957"
-        bindchange="toggleSetting"
-        data-key="showStats"
-      />
-    </view>
   </view>
 
   <!-- 设置分组 - 数据管理 -->
@@ -160,7 +136,7 @@
     <view class="setting-item" bindtap="showAbout">
       <view class="item-left">
         <text class="item-icon">ℹ️</text>
-        <text class="item-text">关于小打卡</text>
+        <text class="item-text">关于成长习惯打卡助手</text>
       </view>
       <text class="item-arrow">›</text>
     </view>
@@ -168,8 +144,8 @@
 
   <!-- 底部信息 -->
   <view class="footer-info">
-    <view class="footer-logo">🌱 小打卡</view>
-    <view class="footer-desc">让学习变成一种习惯</view>
+    <view class="footer-logo">🌱 成长习惯打卡助手</view>
+    <view class="footer-desc">让好习惯伴你成长</view>
     <view class="footer-version">Version 1.0.0 · Build 20260423</view>
   </view>
 </view>

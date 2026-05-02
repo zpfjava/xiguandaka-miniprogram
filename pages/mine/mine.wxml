@@ -3,7 +3,13 @@
   <!-- 用户信息卡片 -->
   <view class="user-card">
     <view class="user-avatar">
-      {{userInfo.avatar || '😊'}}
+      <image
+        wx:if="{{userInfo.avatar && userInfo.avatar !== '😊'}}"
+        src="{{userInfo.avatar}}"
+        class="avatar-image"
+        mode="aspectFill"
+      />
+      <text wx:else>😊</text>
     </view>
     <view class="user-info">
       <view class="user-name">{{userInfo.nickname || '小朋友'}}</view>
@@ -86,11 +92,12 @@
         <view class="menu-arrow">›</view>
       </view>
 
-      <view class="menu-item" bindtap="goToLeaderboard">
+      <!-- 排行榜功能暂未开放 -->
+      <!-- <view class="menu-item" bindtap="goToLeaderboard">
         <view class="menu-icon">🏅</view>
         <view class="menu-text">排行榜</view>
         <view class="menu-arrow">›</view>
-      </view>
+      </view> -->
     </view>
 
     <view class="menu-group">
@@ -120,5 +127,5 @@
   </view>
 
   <!-- 版本信息 -->
-  <view class="version-info">小打卡 v1.0.0 · 让学习变成一种习惯 🌱</view>
+  <view class="version-info">成长习惯打卡助手 v1.0.0 · 让好习惯伴你成长 🌱</view>
 </view>

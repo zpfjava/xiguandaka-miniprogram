@@ -45,9 +45,21 @@ exports.main = async (event, context) => {
     switch (action) {
       // ========== 获取用户已解锁的成就 ==========
       case 'getUserAchievements': {
-        const unlocked = (await db.collection('user_achievements')
-          .where({ userId })
-          .get()).data
+        // 使用 count + 分页获取全部记录（突破 get() 默认 20 条限制）
+        const countRes = await db.collection('user_achievements').where({ userId }).count()
+        const total = countRes.total || 0
+        let unlocked = []
+        if (total > 0) {
+          const batchSize = 20
+          for (let i = 0; i < total; i += batchSize) {
+            const batch = (await db.collection('user_achievements')
+              .where({ userId })
+              .skip(i)
+              .limit(batchSize)
+              .get()).data
+            unlocked = unlocked.concat(batch)
+          }
+        }
         const achievementIds = unlocked.map(u => u.achievementId)
         const result = ACHIEVEMENTS.filter(a => achievementIds.includes(a.id)).map(a => ({
           ...a,
@@ -59,9 +71,21 @@ exports.main = async (event, context) => {
 
       // ========== 获取所有成就列表（含解锁状态）==========
       case 'getAllList': {
-        const unlocked = (await db.collection('user_achievements')
-          .where({ userId })
-          .get()).data
+        // 使用 count + 分页获取全部记录（突破 get() 默认 20 条限制）
+        const countRes = await db.collection('user_achievements').where({ userId }).count()
+        const total = countRes.total || 0
+        let unlocked = []
+        if (total > 0) {
+          const batchSize = 20
+          for (let i = 0; i < total; i += batchSize) {
+            const batch = (await db.collection('user_achievements')
+              .where({ userId })
+              .skip(i)
+              .limit(batchSize)
+              .get()).data
+            unlocked = unlocked.concat(batch)
+          }
+        }
         const unlockedSet = new Set(unlocked.map(u => u.achievementId))
         const result = ACHIEVEMENTS.map(a => ({
           ...a,
@@ -134,9 +158,152 @@ exports.main = async (event, context) => {
                 updatedAt: new Date(),
               }
             })
+            // 记录积分历史（用于积分明细展示）
+            try {
+              await db.collection('points_history').add({
+                data: {
+                  userId,
+                  change: ach.starsReward,
+                  reason: 'achievement',
+                  relatedId: ach.id,
+                  balance: 0,
+                  createdAt: new Date(),
+                }
+              })
+            } catch (e) {
+              console.warn('[achievement] 写入积分历史失败(非致命):', e.message)
+            }
             newUnlocks.push(ach)
           }
         }
+        return { success: true, data: newUnlocks }
+      }
+
+      // ========== 回溯补全历史成就（从打卡/计划数据重新计算）==========
+      case 'backfill': {
+        console.log('[achievement backfill] 开始回溯补全, userId=', userId)
+
+        // 1. 获取打卡统计数据
+        const allCheckinsRaw = await db.collection('checkins')
+          .where({ userId })
+          .orderBy('checkinAt', 'desc')
+          .limit(365)
+          .get()
+        const allCheckins = safeData(allCheckinsRaw)
+        const totalCheckins = allCheckins.length
+
+        // 按日期去重计算连续天数
+        const dateSet = new Set()
+        const uniqueDates = []
+        for (const c of allCheckins) {
+          const d = new Date(c.checkinAt)
+          const dateKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+          if (!dateSet.has(dateKey)) {
+            dateSet.add(dateKey)
+            uniqueDates.push(d)
+          }
+        }
+
+        let currentStreak = 0
+        if (uniqueDates.length > 0) {
+          const today = new Date(); today.setHours(0, 0, 0, 0)
+          const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1)
+          const lastDate = new Date(uniqueDates[0]); lastDate.setHours(0, 0, 0, 0)
+          if (lastDate.getTime() === today.getTime() || lastDate.getTime() === yesterday.getTime()) {
+            currentStreak = 1
+            for (let i = 1; i < uniqueDates.length; i++) {
+              const prev = new Date(uniqueDates[i]); prev.setHours(0, 0, 0, 0)
+              const curr = new Date(uniqueDates[i - 1]); curr.setHours(0, 0, 0, 0)
+              const diffDays = Math.round((curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24))
+              if (diffDays === 1) { currentStreak++ } else { break }
+            }
+          }
+        }
+
+        // 计算总星星数
+        let totalStars = 0
+        for (const c of allCheckins) totalStars += c.starsGot || 0
+
+        // 获取活跃计划数
+        let totalPlans = 0
+        try {
+          const plansCountRes = await db.collection('study_plans').where({ userId, isActive: true }).count()
+          totalPlans = plansCountRes.total || 0
+        } catch (e) { /* ignore */ }
+
+        // 也从积分历史中补充星星统计
+        try {
+          const historyRaw = await db.collection('points_history')
+            .where({ userId, change: _.gt(0) })
+            .limit(500)
+            .get()
+          const historyList = safeData(historyRaw)
+          const historyStars = historyList.reduce((sum, h) => sum + (h.change || 0), 0)
+          if (historyStars > totalStars) totalStars = historyStars
+        } catch (e) { /* ignore */ }
+
+        const stats = { totalCheckins, currentStreak, totalStars, totalPlans }
+        console.log('[achievement backfill] 统计数据:', JSON.stringify(stats))
+
+        // 2. 逐个检查成就并解锁
+        const newUnlocks = []
+        for (const ach of ACHIEVEMENTS) {
+          // 检查是否已解锁
+          const existing = (await db.collection('user_achievements').where({
+            userId, achievementId: ach.id
+          })).data
+          if (existing && existing.length > 0) continue
+
+          let shouldUnlock = false
+          switch (ach.id) {
+            case 'first_checkin': shouldUnlock = stats.totalCheckins >= 1; break
+            case 'streak_3': shouldUnlock = stats.currentStreak >= 3; break
+            case 'streak_7': shouldUnlock = stats.currentStreak >= 7; break
+            case 'streak_30': shouldUnlock = stats.currentStreak >= 30; break
+            case 'plans_5': shouldUnlock = stats.totalPlans >= 5; break
+            case 'checkin_10': shouldUnlock = stats.totalCheckins >= 10; break
+            case 'checkin_50': shouldUnlock = stats.totalCheckins >= 50; break
+            case 'checkin_100': shouldUnlock = stats.totalCheckins >= 100; break
+            case 'stars_100': shouldUnlock = stats.totalStars >= 100; break
+            case 'stars_500': shouldUnlock = stats.totalStars >= 500; break
+          }
+
+          if (shouldUnlock) {
+            await db.collection('user_achievements').add({
+              data: {
+                userId,
+                achievementId: ach.id,
+                starsGot: ach.starsReward,
+                unlockedAt: new Date(),
+              }
+            })
+            // 奖励星星
+            await db.collection('users').where({ _id: userId }).update({
+              data: {
+                currentStars: _.command.inc(ach.starsReward),
+                totalStars: _.command.inc(ach.starsReward),
+                updatedAt: new Date(),
+              }
+            })
+            // 记录积分历史
+            try {
+              await db.collection('points_history').add({
+                data: {
+                  userId,
+                  change: ach.starsReward,
+                  reason: 'achievement',
+                  relatedId: ach.id,
+                  balance: 0,
+                  createdAt: new Date(),
+                }
+              })
+            } catch (e) { /* ignore */ }
+            newUnlocks.push(ach)
+            console.log('[achievement backfill] 回溯解锁:', ach.id, ach.name)
+          }
+        }
+
+        console.log('[achievement backfill] 完成，新解锁数量:', newUnlocks.length)
         return { success: true, data: newUnlocks }
       }
 

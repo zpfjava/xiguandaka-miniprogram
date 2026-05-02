@@ -27,6 +27,49 @@
 .checkin-text { font-size: 32rpx; color: #333333; margin-top: 16rpx; font-weight: bold; }
 .checkin-reward { font-size: 28rpx; color: #FF9A3C; margin-top: 10rpx; }
 
+/* 骨架屏加载占位（与未签到状态布局完全一致，用 shimmer 动画过渡） */
+.skeleton-emoji {
+  width: 80rpx;
+  height: 80rpx;
+  margin: 0 auto;
+  border-radius: 20rpx;
+  background: linear-gradient(90deg, #F0F0F0 25%, #E8E8E8 50%, #F0F0F0 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}
+.skeleton-text {
+  width: 280rpx;
+  height: 32rpx;
+  margin: 16rpx auto 0;
+  border-radius: 8rpx;
+  background: linear-gradient(90deg, #F0F0F0 25%, #E8E8E8 50%, #F0F0F0 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}
+.skeleton-reward {
+  width: 220rpx;
+  height: 28rpx;
+  margin: 10rpx auto 0;
+  border-radius: 8rpx;
+  background: linear-gradient(90deg, #F0F0F0 25%, #E8E8E8 50%, #F0F0F0 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}
+.skeleton-btn {
+  width: 360rpx;
+  height: 96rpx;
+  margin: 32rpx auto 0;
+  border-radius: 48rpx;
+  background: linear-gradient(90deg, #F0F0F0 25%, #E8E8E8 50%, #F0F0F0 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
 .checkin-btn {
   width: 360rpx;
   height: 96rpx;

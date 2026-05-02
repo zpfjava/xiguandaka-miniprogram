@@ -12,6 +12,16 @@
 }
 .header-title { font-size: 38rpx; font-weight: bold; color: #333333; }
 .header-subtitle { font-size: 26rpx; color: rgba(51, 51, 51, 0.6); margin-top: 8rpx; }
+.beta-tag {
+  display: inline-block;
+  font-size: 20rpx;
+  color: #FFFFFF;
+  background-color: #FF9A3C;
+  padding: 2rpx 12rpx;
+  border-radius: 9999rpx;
+  margin-left: 10rpx;
+  vertical-align: middle;
+}
 
 /* 时间范围 */
 .time-range {

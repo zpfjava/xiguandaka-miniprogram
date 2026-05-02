@@ -216,7 +216,7 @@ Page({
     if (extra && extra.bonusStars > 0) {
       var title = extra.isNewUser ? '🎉 注册成功' : '🎁 星星奖励'
       var content = extra.isNewUser
-        ? ('欢迎加入小打卡！已获得 ' + extra.bonusStars + ' 星星奖励')
+        ? ('欢迎加入成长习惯打卡助手！已获得 ' + extra.bonusStars + ' 星星奖励')
         : ('已补发 ' + extra.bonusStars + ' 注册奖励星星 ⭐')
       wx.showModal({
         title: title,

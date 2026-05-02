@@ -20,7 +20,7 @@
   "window": {
     "backgroundTextStyle": "light",
     "navigationBarBackgroundColor": "#FFD93D",
-    "navigationBarTitleText": "小打卡",
+    "navigationBarTitleText": "成长习惯打卡助手",
     "navigationBarTextStyle": "black",
     "backgroundColor": "#FFF8E1"
   },
@@ -33,26 +33,26 @@
       {
         "pagePath": "pages/home/home",
         "text": "首页",
-        "iconPath": "assets/icons/home.png",
-        "selectedIconPath": "assets/icons/home-active.png"
+        "iconPath": "tab-icons/home.png",
+        "selectedIconPath": "tab-icons/home-active.png"
       },
       {
         "pagePath": "pages/plans/plans",
         "text": "计划",
-        "iconPath": "assets/icons/plans.png",
-        "selectedIconPath": "assets/icons/plans-active.png"
+        "iconPath": "tab-icons/plans.png",
+        "selectedIconPath": "tab-icons/plans-active.png"
       },
       {
         "pagePath": "pages/points/points",
         "text": "积分",
-        "iconPath": "assets/icons/stars.png",
-        "selectedIconPath": "assets/icons/stars-active.png"
+        "iconPath": "tab-icons/stars.png",
+        "selectedIconPath": "tab-icons/stars-active.png"
       },
       {
         "pagePath": "pages/mine/mine",
         "text": "我的",
-        "iconPath": "assets/icons/mine.png",
-        "selectedIconPath": "assets/icons/mine-active.png"
+        "iconPath": "tab-icons/mine.png",
+        "selectedIconPath": "tab-icons/mine-active.png"
       }
     ]
   },

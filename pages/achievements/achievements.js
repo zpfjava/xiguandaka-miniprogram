@@ -15,16 +15,32 @@ Page({
     totalCount: 0,
     progressPercent: 0,
     loading: true,
-    isEmpty: false
+    isEmpty: false,
+    _loadingLock: false
   },
 
   onShow: function() {
-    this.loadAchievements()
+    // 防抖：如果正在加载中则不重复请求
+    if (!this.data._loadingLock) {
+      this.loadAchievements()
+    }
   },
 
   loadAchievements: function() {
     var that = this
-    that.setData({ loading: true, isEmpty: false })
+    // 加锁防止重复请求
+    that.setData({ loading: true, isEmpty: false, _loadingLock: true })
+
+    // 先执行回溯补全（确保历史成就被正确解锁），再加载展示数据
+    achievementApi.backfill()
+      .then(function(backfillRes) {
+        if (backfillRes.success && backfillRes.data && backfillRes.data.length > 0) {
+          console.log('[成就] 回溯补全解锁了', backfillRes.data.length, '个成就:', backfillRes.data.map(function(a) { return a.name }).join(', '))
+        }
+      })
+      .catch(function(e) {
+        console.warn('[成就] 回溯补全失败(非致命):', e)
+      })
 
     // 并行请求：已解锁成就 + 所有成就定义 + 打卡统计（用于计算进度）
     Promise.all([
@@ -103,17 +119,17 @@ Page({
         a.target = a.target || 0
         a.progressPercent = a.unlocked ? 100 : 0
 
-        // 根据成就 ID 匹配对应的当前值
+        // 根据成就 ID 匹配对应的当前值（与云函数 achievement/index.js 的 ACHIEVEMENTS 定义一致）
         if (aid === 'first_checkin') { a.current = totalCheckins > 0 ? 1 : 0; a.target = 1 }
-        else if (aid === 'seven_days') { a.current = currentStreak; a.target = 7 }
-        else if (aid === 'twenty_one_days') { a.current = currentStreak; a.target = 21 }
-        else if (aid === 'hundred_checkins') { a.current = totalCheckins; a.target = 100 }
-        else if (aid === 'plan_master') { a.current = totalPlans; a.target = 10 }
-        else if (aid === 'star_collector') { a.current = totalStars; a.target = 1000 }
-        else if (aid === 'early_bird') { a.current = 0; a.target = 7 } // 暂无数据源
-        else if (aid === 'all_subjects') { a.current = 0; a.target = 6 } // 暂无数据源
-        else if (aid === 'wish_first') { a.current = 0; a.target = 1 } // 暂无数据源
-        else if (aid === 'perfect_week') { a.current = 0; a.target = 1 } // 暂无数据源
+        else if (aid === 'streak_3') { a.current = currentStreak; a.target = 3 }
+        else if (aid === 'streak_7') { a.current = currentStreak; a.target = 7 }
+        else if (aid === 'streak_30') { a.current = currentStreak; a.target = 30 }
+        else if (aid === 'plans_5') { a.current = totalPlans; a.target = 5 }
+        else if (aid === 'checkin_10') { a.current = totalCheckins; a.target = 10 }
+        else if (aid === 'checkin_50') { a.current = totalCheckins; a.target = 50 }
+        else if (aid === 'checkin_100') { a.current = totalCheckins; a.target = 100 }
+        else if (aid === 'stars_100') { a.current = totalStars; a.target = 100 }
+        else if (aid === 'stars_500') { a.current = totalStars; a.target = 500 }
 
         if (!a.unlocked && a.target > 0) {
           a.progressPercent = Math.min(100, Math.round((a.current / a.target) * 100))
@@ -132,14 +148,16 @@ Page({
         unlockedCount: unlockedCount,
         progressPercent: progressPercent,
         loading: false,
-        isEmpty: false
+        isEmpty: false,
+        _loadingLock: false
       })
     }).catch(function(err) {
       console.error('加载成就失败:', err)
       that.setData({
         loading: false,
         isEmpty: true,
-        achievements: []
+        achievements: [],
+        _loadingLock: false
       })
       wx.showToast({ title: '加载失败，请重试', icon: 'none' })
     })

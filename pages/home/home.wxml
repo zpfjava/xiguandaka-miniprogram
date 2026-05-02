@@ -1,7 +1,51 @@
 <!-- 小打卡 - 首页 -->
 <view class="home-page">
-  <!-- 内容区域：_blank 时隐藏所有内容，只留纯色背景 -->
-  <view wx:if="{{!_blank}}" class="home-content">
+  <!-- 骨架屏：数据加载中显示，加载完成后隐藏 -->
+  <block wx:if="{{_skeleton}}">
+    <view class="home-skeleton">
+      <!-- 问候区骨架 -->
+      <view class="skeleton-header">
+        <view class="skeleton-circle skeleton-avatar"></view>
+        <view class="skeleton-lines">
+          <view class="skeleton-line long"></view>
+          <view class="skeleton-line medium"></view>
+        </view>
+      </view>
+      <!-- 进度区骨架 -->
+      <view class="skeleton-progress-row">
+        <view class="skeleton-card skeleton-progress-card">
+          <view class="skeleton-circle skeleton-ring"></view>
+          <view class="skeleton-line short center"></view>
+        </view>
+        <view class="skeleton-card skeleton-stars-card">
+          <view class="skeleton-line short center"></view>
+          <view class="skeleton-line tiny center"></view>
+        </view>
+      </view>
+      <!-- 快捷操作骨架 -->
+      <view class="skeleton-actions-row">
+        <view class="skeleton-card skeleton-action" wx:for="{{4}}" wx:key="*this">
+          <view class="skeleton-circle small center"></view>
+          <view class="skeleton-line tiny center"></view>
+        </view>
+      </view>
+      <!-- 任务列表骨架 -->
+      <view class="skeleton-section">
+        <view class="skeleton-line medium"></view>
+        <view class="skeleton-task" wx:for="{{3}}" wx:key="*this">
+          <view class="skeleton-circle small"></view>
+          <view class="skeleton-lines flex-1">
+            <view class="skeleton-line long"></view>
+            <view class="skeleton-line short"></view>
+          </view>
+          <view class="skeleton-line short"></view>
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <!-- 正式内容：数据就绪后显示 -->
+  <view wx:if="{{!_skeleton}}" class="home-content">
   <!-- 顶部区域 - 问候 + 吉祥物 + 日期 -->
   <view class="home-header">
     <view class="greeting-row">
@@ -45,7 +89,7 @@
     <!-- 右侧：星星卡片 -->
     <view class="stars-card-mini">
       <view class="stars-icon-big">⭐</view>
-      <view class="stars-amount-big">{{userInfo.currentStars || 0}}</view>
+      <view class="stars-amount-big">{{stats.totalStars || userInfo.currentStars || 0}}</view>
       <view class="stars-label">我的星星</view>
     </view>
   </view>
@@ -105,7 +149,10 @@
             <view class="task-desc">{{item.subject}}</view>
           </view>
           <view class="task-right">
-            <block wx:if="{{item.isCompleted}}">
+            <block wx:if="{{item.isCompleted === null}}">
+              <view class="checkin-btn checkin-placeholder">···</view>
+            </block>
+            <block wx:elif="{{item.isCompleted}}">
               <view class="completed-badge">
                 <text>✓</text>
               </view>

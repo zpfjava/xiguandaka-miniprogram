@@ -141,13 +141,15 @@ Page({
   loadRecords: function() {
     var that = this
     pointsApi.history({
-      limit: 50,
+      page: 1,
+      pageSize: 50,
       month: this.data.filterMonth
     }).then(function(res) {
       console.log('[points-history] API 原始返回:', JSON.stringify(res))
       if (res.success && res.data) {
-        // 后端返回 { data: [...], total: N } 或直接 [...]
-        var rawRecords = res.data.data || res.data || []
+        // 后端云函数返回格式: { data: { list: [...], total, page, pageSize } }
+        var rawData = res.data
+        var rawRecords = rawData.list || rawData.data || []
         console.log('[points-history] 原始记录数:', rawRecords.length)
         if (rawRecords.length > 0) {
           console.log('[points-history] 第一条记录:', JSON.stringify(rawRecords[0]))

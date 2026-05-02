@@ -169,6 +169,7 @@ Page({
             wx.removeStorageSync('home_tasks')
             wx.removeStorageSync('home_stats')
             wx.removeStorageSync('mine_stats')
+            wx.removeStorageSync('stats_cache')
           } catch (e) {}
 
           // 成就自动检查（异步，不阻塞用户操作）
@@ -219,6 +220,7 @@ Page({
             wx.removeStorageSync('home_tasks')
             wx.removeStorageSync('home_stats')
             wx.removeStorageSync('mine_stats')
+            wx.removeStorageSync('stats_cache')
           } catch (e) {}
         } else {
           wx.showToast({ title: res.message || '打卡失败', icon: 'none' })

@@ -1,5 +1,5 @@
 {
-  "navigationBarTitleText": "小打卡",
+  "navigationBarTitleText": "成长习惯打卡助手",
   "usingComponents": {
     "mascot": "/components/mascot/mascot",
     "progress-ring": "/components/progress-ring/progress-ring"

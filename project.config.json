@@ -1,1 +1,57 @@
-{"description": "小打卡 - AI智能学科打卡助手", "packOptions": {"ignore": [], "include": []}, "setting": {"bundle": false, "userConfirmedBundleSwitch": false, "urlCheck": false, "scopeDataCheck": false, "coverView": true, "es6": true, "postcss": true, "compileHotReLoad": false, "lazyloadPlaceholderEnable": false, "preloadBackgroundData": false, "minified": true, "autoAudits": false, "newFeature": false, "uglifyFileName": false, "uploadWithSourceMap": true, "useIsolateContext": false, "nodeModules": false, "enhance": true, "useMultiFrameRuntime": true, "showShadowRootInWxmlPanel": true, "packNpmManually": false, "packNpmRelationList": [], "minifyWXSS": true, "showES6CompileOption": false, "minifyWXML": true, "babelSetting": {"ignore": [], "disablePlugins": [], "outputPath": ""}, "compileWorklet": false, "localPlugins": false, "disableUseStrict": false, "useCompilerPlugins": false, "condition": false, "swc": false, "disableSWC": true}, "compileType": "miniprogram", "libVersion": "3.15.2", "appid": "wx0fb3c4e76832fa38", "projectname": "xiaodaka-miniprogram", "condition": {}, "simulatorPluginLibVersion": {}, "editorSetting": {}, "cloudfunctionTemplateRoot": "cloudfunctions/", "cloudfunctionRoot": "cloudfunctions/", "cloudbaseRoot": "cloudfunctions/", "envName": "test-d8g8lwxiif29bca0a"}
+{
+  "description": "成长习惯打卡助手 - AI智能学科打卡助手",
+  "packOptions": {
+    "ignore": [],
+    "include": []
+  },
+  "setting": {
+    "bundle": false,
+    "userConfirmedBundleSwitch": false,
+    "urlCheck": false,
+    "scopeDataCheck": false,
+    "coverView": true,
+    "es6": true,
+    "postcss": true,
+    "compileHotReLoad": false,
+    "lazyloadPlaceholderEnable": false,
+    "preloadBackgroundData": false,
+    "minified": true,
+    "autoAudits": false,
+    "newFeature": false,
+    "uglifyFileName": false,
+    "uploadWithSourceMap": true,
+    "useIsolateContext": false,
+    "nodeModules": false,
+    "enhance": true,
+    "useMultiFrameRuntime": true,
+    "showShadowRootInWxmlPanel": true,
+    "packNpmManually": false,
+    "packNpmRelationList": [],
+    "minifyWXSS": true,
+    "showES6CompileOption": false,
+    "minifyWXML": true,
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": [],
+      "outputPath": ""
+    },
+    "compileWorklet": false,
+    "localPlugins": false,
+    "disableUseStrict": false,
+    "useCompilerPlugins": false,
+    "condition": false,
+    "swc": false,
+    "disableSWC": true
+  },
+  "compileType": "miniprogram",
+  "libVersion": "3.15.2",
+  "appid": "wx0fb3c4e76832fa38",
+  "projectname": "xiaodaka-miniprogram",
+  "condition": {},
+  "simulatorPluginLibVersion": {},
+  "editorSetting": {},
+  "cloudfunctionTemplateRoot": "cloudfunctions/",
+  "cloudfunctionRoot": "cloudfunctions/",
+  "cloudbaseRoot": "cloudfunctions/",
+  "envName": "test-d8g8lwxiif29bca0a"
+}

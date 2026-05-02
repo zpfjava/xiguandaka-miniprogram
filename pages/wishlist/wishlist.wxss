@@ -1,4 +1,23 @@
-/* 愿望清单页样�?*/
+/* 愿望清单页样式 */
+
+/* ====== 骨架屏 Shimmer 动画 ====== */
+@keyframes shimmer {
+  0% { background-position: -400rpx 0; }
+  100% { background-position: 400rpx 0; }
+}
+.shimmer {
+  background: linear-gradient(90deg, #F0F0F0 25%, #E8E8E8 37%, #F0F0F0 63%);
+  background-size: 400rpx 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+  display: inline-block;
+}
+.shimmer-text {
+  background: linear-gradient(90deg, #F0F0F0 25%, #E8E8E8 37%, #F0F0F0 63%);
+  background-size: 400rpx 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+  display: inline-block;
+}
+
 .wishlist-page {
   min-height: 100vh;
   background-color: #FFF8E1;
@@ -91,6 +110,12 @@
 }
 
 .wish-card.redeemed { opacity: 0.7; }
+
+/* 骨架屏卡片 */
+.skeleton-card {
+  align-items: center;
+  padding: 28rpx !important;
+}
 
 .wish-emoji {
   width: 80rpx;

@@ -198,7 +198,7 @@ Page({
 
   onShareAppMessage: function() {
     return {
-      title: '📈 小打卡学习报告 - ' + this.data.reportDate,
+      title: '📈 成长习惯打卡助手学习报告 - ' + this.data.reportDate,
       path: '/pages/report/report',
       imageUrl: ''
     }

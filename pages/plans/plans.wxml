@@ -8,6 +8,14 @@
 
   <!-- 计划列表 -->
   <block wx:if="{{plans.length > 0}}">
+    <!-- 新增按钮（始终显示） -->
+    <view class="add-plan-bar">
+      <view class="add-plan-btn" bindtap="showAddModal">
+        <text class="add-icon">+</text>
+        <text>新增学习计划</text>
+      </view>
+    </view>
+
     <view class="plan-list">
       <view 
         wx:for="{{plans}}" 
@@ -49,10 +57,10 @@
         <view class="plan-actions">
           <block wx:if="{{item.isActive}}">
             <!-- 已打卡：显示已完成 -->
-            <block wx:if="{{item.checkedInToday}}">
+            <block wx:if="{{item.checkedInToday === true}}">
               <view class="action-btn checkedin-btn-card">✓ 已完成</view>
             </block>
-            <!-- 未打卡：显示去打卡 -->
+            <!-- 未打卡或状态未知：显示去打卡（null 时默认为未打卡，避免闪烁） -->
             <block wx:else>
               <button
                 class="action-btn checkin-btn-card"
@@ -103,7 +111,7 @@
 </view>
 
 <!-- 新建/编辑计划弹窗 -->
-<view class="modal-overlay" wx:if="{{showModal}}" catchtouchmove="preventMove">
+<view class="modal-overlay" wx:if="{{showModal}}">
   <view class="modal-content plan-modal">
     <view class="modal-header">
       {{editingPlan ? '编辑计划' : '新建学习计划'}}

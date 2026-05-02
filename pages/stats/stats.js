@@ -65,7 +65,8 @@ Page({
     weekdays: ['一', '二', '三', '四', '五', '六', '日'],
     heatmapData: _buildDefaultHeatmap(),
     timeSlots: _buildDefaultTimeSlots(),
-    _hasRealData: false
+    _hasRealData: false,
+    _loadingLock: false
   },
 
   onLoad: function() {
@@ -73,8 +74,10 @@ Page({
   },
 
   onShow: function() {
-    this._restoreFromCache()
-    this._fetchFreshData()
+    // 防抖：如果正在加载中则不重复请求
+    if (!this.data._loadingLock) {
+      this._fetchFreshData()
+    }
   },
 
   _restoreFromCache: function() {
@@ -122,6 +125,8 @@ Page({
   _fetchFreshData: function() {
     var that = this
     var days = that._getDaysForRange(that.data.activeRange)
+    // 加锁防止重复请求
+    that.setData({ _loadingLock: true })
 
     Promise.all([
       checkinApi.stats(),
@@ -152,10 +157,11 @@ Page({
         that.extractSubjectData(heatmapRes.data)
       }
 
-      that.setData({ _hasRealData: true })
+      that.setData({ _hasRealData: true, _loadingLock: false })
       that._saveToCache()
     }).catch(function(err) {
       console.error('加载统计失败:', err)
+      that.setData({ _loadingLock: false })
     })
   },
 
@@ -165,23 +171,49 @@ Page({
     var heatmapData = []
     var timeSlots = []
 
+    // 兼容两种返回格式：
+    // 旧格式: apiData 直接是 heatmap 对象 { '2026-05-01': 2, ... }
+    // 新格式: apiData = { heatmap: {...}, bySubject: {...} }
+    var rawHeatmap = apiData.heatmap || apiData
+
     // 热力图数据转换
-    if (apiData.heatmap && apiData.heatmap.length > 0) {
-      for (var i = 0; i < apiData.heatmap.length; i++) {
-        var item = apiData.heatmap[i]
+    if (rawHeatmap && typeof rawHeatmap === 'object' && !Array.isArray(rawHeatmap)) {
+      var keys = Object.keys(rawHeatmap)
+      for (var i = 0; i < keys.length; i++) {
+        var item = rawHeatmap[keys[i]]
+        if (typeof item === 'object') {
+          heatmapData.push({
+            date: keys[i],
+            day: parseInt(keys[i].split('-')[2]) || 1,
+            level: item.level || Math.min(4, item.count || 0),
+            count: item.count || 0
+          })
+        } else if (typeof item === 'number') {
+          heatmapData.push({
+            date: keys[i],
+            day: parseInt(keys[i].split('-')[2]) || 1,
+            level: Math.min(4, item),
+            count: item
+          })
+        }
+      }
+    } else if (Array.isArray(rawHeatmap)) {
+      for (var j = 0; j < rawHeatmap.length; j++) {
         heatmapData.push({
-          date: item.date || '',
-          day: item.day || 1,
-          level: item.level || 0,
-          count: item.count || 0
+          date: rawHeatmap[j].date || '',
+          day: rawHeatmap[j].day || 1,
+          level: rawHeatmap[j].level || 0,
+          count: rawHeatmap[j].count || 0
         })
       }
-    } else {
+    }
+
+    if (heatmapData.length === 0) {
       heatmapData = _buildDefaultHeatmap()
     }
 
-    // 时段数据转换
-    if (apiData.timeSlots && apiData.timeSlots.length > 0) {
+    // 时段数据转换（如果后端有返回）
+    if (apiData.timeSlots && Array.isArray(apiData.timeSlots) && apiData.timeSlots.length > 0) {
       timeSlots = apiData.timeSlots
     } else {
       timeSlots = _buildDefaultTimeSlots()
@@ -201,19 +233,22 @@ Page({
    */
   extractSubjectData: function(apiData) {
     var that = this
-    // 如果后端未来扩展了 bySubject 字段
-    if (apiData.bySubject) {
+    // 新格式: apiData = { heatmap: {...}, bySubject: {...} }
+    // 旧格式: apiData.bySubject 直接在对象上
+    var bySubject = apiData.bySubject || null
+
+    if (bySubject && Object.keys(bySubject).length > 0) {
       var subjects = []
-      var keys = Object.keys(apiData.bySubject)
+      var keys = Object.keys(bySubject)
       var total = 0
       for (var ki = 0; ki < keys.length; ki++) {
-        total += apiData.bySubject[keys[ki]]
+        total += bySubject[keys[ki]]
       }
       if (total === 0) total = 1
 
       var colors = ['#FF9A3C', '#7ED957', '#42A5F5', '#AB47BC', '#FF7043']
       for (var i = 0; i < keys.length; i++) {
-        var count = apiData.bySubject[keys[i]]
+        var count = bySubject[keys[i]]
         subjects.push({
           subject: keys[i],
           icon: getSubjectIcon(keys[i]),
@@ -225,8 +260,21 @@ Page({
       if (subjects.length > 0) {
         that.setData({ subjectData: subjects })
       }
+    } else {
+      // 没有科目数据时，如果打卡次数>0，显示默认的"学习"科目
+      var stats = that.data.stats
+      if (stats.totalCheckins > 0 && (!that.data.subjectData || that.data.subjectData.length === 0)) {
+        that.setData({
+          subjectData: [{
+            subject: '学习',
+            icon: '📝',
+            count: stats.totalCheckins,
+            percent: 100,
+            color: '#FF9A3C'
+          }]
+        })
+      }
     }
-    // 否则保持 subjectData 为空数组，显示空状态组件
   },
 
   switchRange: function(e) {
@@ -237,6 +285,8 @@ Page({
   loadStatsData: function() {
     var that = this
     var days = that._getDaysForRange(that.data.activeRange)
+    // 加锁防止重复请求
+    that.setData({ _loadingLock: true })
 
     Promise.all([
       checkinApi.stats(),
@@ -255,6 +305,10 @@ Page({
         that.extractSubjectData(heatmapRes.data)
         that._saveToCache()
       }
+      that.setData({ _loadingLock: false })
+    }).catch(function(err) {
+      console.error('切换时间范围加载失败:', err)
+      that.setData({ _loadingLock: false })
     })
   },
 

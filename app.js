@@ -75,7 +75,7 @@ App({
 
   // 小程序启动时执行
   onLaunch: function() {
-    console.log('小打卡小程序启动 (v' + this.globalData.version + ', 云开发: ' + (config.USE_CLOUD ? '开启' : '关闭') + ')')
+    console.log('成长习惯打卡助手小程序启动 (v' + this.globalData.version + ', 云开发: ' + (config.USE_CLOUD ? '开启' : '关闭') + ')')
 
     // 初始化云开发环境
     if (config.USE_CLOUD && wx.cloud) {

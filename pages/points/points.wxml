@@ -1,12 +1,43 @@
 <!-- 小打卡 - 积分（星星）页 -->
 <view class="points-page">
+  <!-- 骨架屏：数据加载中显示 -->
+  <block wx:if="{{_skeleton}}">
+    <view class="points-skeleton">
+      <!-- 星星卡片骨架 -->
+      <view class="skeleton-stars-card">
+        <view class="skeleton-circle skeleton-star-icon center"></view>
+        <view class="skeleton-line tiny center"></view>
+        <view class="skeleton-line skeleton-count center"></view>
+        <view class="skeleton-line short center"></view>
+        <view class="skeleton-actions-row">
+          <view class="skeleton-line medium"></view>
+          <view class="skeleton-line medium"></view>
+        </view>
+      </view>
+      <!-- 获取方式骨架 -->
+      <view class="skeleton-section-card">
+        <view class="skeleton-line medium"></view>
+        <view class="skeleton-way" wx:for="{{4}}" wx:key="*this">
+          <view class="skeleton-circle small"></view>
+          <view class="skeleton-lines flex-1">
+            <view class="skeleton-line long"></view>
+            <view class="skeleton-line short"></view>
+          </view>
+          <view class="skeleton-line short"></view>
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <!-- 正式内容：数据就绪后显示 -->
+  <block wx:if="{{!_skeleton}}">
   <!-- 星星卡片 -->
   <view class="stars-card">
     <view class="stars-bg">
       <view class="stars-emoji">⭐</view>
       <view class="stars-label">我的星星</view>
-      <view class="stars-count">{{summary.currentStars || 0}}</view>
-      <view class="stars-subtitle">累计获得 {{summary.totalEarned || 0}} 颗</view>
+      <view class="stars-count">{{summary ? (summary.currentStars || 0) : ''}}</view>
+      <view class="stars-subtitle">累计获得 {{summary ? (summary.totalEarned || 0) : ''}} 颗</view>
       
       <!-- 快捷操作 -->
       <view class="stars-actions">
@@ -91,7 +122,7 @@
   </view>
 
   <!-- 空状态提示：只有星星数为0且无记录时才显示 -->
-  <view class="empty-tip" wx:if="{{(summary.currentStars || 0) === 0 && recentRecords.length === 0}}">
+  <view class="empty-tip" wx:if="{{(summary && summary.currentStars || 0) === 0 && recentRecords.length === 0}}">
     <text>还没有积分记录哦，快去打卡赚取第一颗星星吧！🌟</text>
   </view>
 
@@ -102,4 +133,5 @@
       <view class="tips-text">星星可以用来兑换愿望清单中的奖励哦！去"我的"页面添加你的愿望吧~</view>
     </view>
   </view>
+  </block>
 </view>

@@ -1,4 +1,4 @@
-﻿﻿﻿﻿/**
+﻿﻿﻿﻿﻿﻿﻿﻿/**
  * 小打卡 - 愿望清单页
  * 首帧优化：onLoad 预渲染完整页面结构 → 页面出现即完整
  */
@@ -13,7 +13,8 @@ function padZero(n) {
 
 Page({
   data: {
-    currentStars: 0,
+    currentStars: null,
+    _skeleton: true,
     activeTab: 'all',
     wishes: [],
     filteredWishes: [],
@@ -46,14 +47,13 @@ Page({
   },
 
   /**
-   * 页面加载：data 初始值已包含完整页面结构，无需额外操作
+   * 页面加载
    */
   onLoad: function() {
-    // 首帧由 data 初始值保证：loading=false + isEmpty=true → 显示完整空状态页面
+    // 骨架屏由 data 初始值保证：_skeleton=true → 显示骨架屏占位
   },
 
   onShow: function() {
-    this._restoreFromCache()
     this._fetchFreshData()
   },
 
@@ -78,6 +78,15 @@ Page({
     } catch (e) {}
   },
 
+  /**
+   * 清除愿望清单缓存（在存入/兑换/删除操作后调用）
+   */
+  _clearCache: function() {
+    try {
+      wx.removeStorageSync('wl_cache')
+    } catch (e) {}
+  },
+
   _saveToCache: function() {
     try {
       wx.setStorageSync('wl_cache', JSON.stringify({
@@ -93,7 +102,7 @@ Page({
 
   _fetchFreshData: function() {
     var that = this
-    that.setData({ loading: true })
+    that.setData({ loading: true, _skeleton: true })
 
     // 同时请求愿望列表、积分摘要和用户信息（currentStars 兜底）
     Promise.all([
@@ -105,23 +114,23 @@ Page({
       var pointsRes = results[1]
       var userRes = results[2]
 
+      // 计算 currentStars
+      var stars = 0
       if (pointsRes.success && pointsRes.data) {
-        var stars = pointsRes.data.currentStars
+        stars = pointsRes.data.currentStars
         if (!stars && stars !== 0) {
-          // summary 没返回 currentStars，从用户信息取
           if (userRes.success && userRes.data) {
             stars = userRes.data.currentStars || 0
           } else {
             stars = 0
           }
         }
-        that.setData({ currentStars: stars || 0 })
       } else if (userRes.success && userRes.data) {
-        // summary 失败时用用户数据兜底
-        that.setData({ currentStars: userRes.data.currentStars || 0 })
-      } else {
-        that.setData({ currentStars: 0 })
+        stars = userRes.data.currentStars || 0
       }
+
+      // 先关闭骨架屏并设置星星数
+      that.setData({ currentStars: stars || 0, _skeleton: false })
 
       if (wishesRes.success && wishesRes.data) {
         var rawWishes = wishesRes.data || []
@@ -132,12 +141,12 @@ Page({
         that.processWishes(rawWishes)
       } else {
         console.warn('加载愿望列表失败:', wishesRes.message)
-        that.setData({ wishes: [], currentStars: 0, isEmpty: true, loading: false })
+        that.setData({ wishes: [], isEmpty: true, loading: false })
       }
       that._saveToCache()
     }).catch(function(err) {
       console.error('加载数据失败:', err)
-      that.setData({ wishes: [], currentStars: 0, isEmpty: true, loading: false })
+      that.setData({ wishes: [], currentStars: 0, isEmpty: true, loading: false, _skeleton: false })
     })
   },
 
@@ -172,11 +181,13 @@ Page({
 
     that.setData({
       wishes: processed,
+      filteredWishes: [], // 先清空，filterWishes 会重新设置
       totalCount: totalCount,
       pendingCount: pendingCount,
       redeemedCount: redeemedCount,
       isEmpty: false,
-      loading: false
+      loading: false,
+      _skeleton: false
     })
 
     that.filterWishes()
@@ -433,8 +444,9 @@ Page({
     wishlistApi.saveStars(id, amount).then(function(res) {
       wx.hideLoading()
       if (res.success) {
+        // 存入成功：先清除缓存，再刷新数据（避免旧缓存覆盖新数据）
+        that._clearCache()
         wx.showToast({ title: res.message || ('已存入 ' + amount + ' ⭐'), icon: 'success', duration: 2000 })
-        // 刷新数据
         that.loadWishData()
       } else {
         wx.showToast({ title: res.message || '存入失败', icon: 'none' })
@@ -449,6 +461,8 @@ Page({
   loadWishData: function() {
     var that = this
     that.setData({ loading: true })
+    // 刷新数据前先清除缓存，确保显示最新数据
+    this._clearCache()
 
     Promise.all([
       wishlistApi.getAll(),
@@ -457,19 +471,26 @@ Page({
       var wishesRes = results[0]
       var pointsRes = results[1]
 
+      var updateData = { loading: false }
+
       if (pointsRes.success && pointsRes.data) {
-        that.setData({ currentStars: pointsRes.data.currentStars || 0 })
+        updateData.currentStars = pointsRes.data.currentStars || 0
       }
 
       if (wishesRes.success && wishesRes.data) {
         var rawWishes = wishesRes.data || []
         if (rawWishes.length === 0) {
-          that.setData({ wishes: [], isEmpty: true, loading: false })
+          updateData.wishes = []
+          updateData.isEmpty = true
+          that.setData(updateData)
           return
         }
+        // processWishes 内部会 setData，这里只传 wishes 让它处理
         that.processWishes(rawWishes)
       } else {
-        that.setData({ wishes: [], isEmpty: true, loading: false })
+        updateData.wishes = []
+        updateData.isEmpty = true
+        that.setData(updateData)
       }
       that._saveToCache()
     }).catch(function(err) {

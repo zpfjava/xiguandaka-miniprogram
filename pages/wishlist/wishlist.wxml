@@ -8,32 +8,46 @@
 
   <!-- 星星余额 -->
   <view class="balance-card">
-    <view class="balance-label">可用星星</view>
-    <view class="balance-amount">{{currentStars}} ⭐</view>
-    <button class="add-wish-btn" bindtap="showAddModal">+ 新增愿望</button>
+    <block wx:if="{{_skeleton}}">
+      <view class="balance-label shimmer-text" style="width:140rpx;height:28rpx"></view>
+      <view class="balance-amount shimmer" style="width:200rpx;height:48rpx;border-radius:12rpx"></view>
+      <view class="shimmer" style="width:160rpx;height:56rpx;border-radius:32rpx"></view>
+    </block>
+    <block wx:else>
+      <view class="balance-label">可用星星</view>
+      <view class="balance-amount">{{currentStars}} ⭐</view>
+      <button class="add-wish-btn" bindtap="showAddModal">+ 新增愿望</button>
+    </block>
   </view>
 
   <!-- Tab 切换 -->
   <view class="tab-bar">
-    <view 
-      class="tab {{activeTab === 'all' ? 'active' : ''}}"
-      bindtap="switchTab"
-      data-tab="all"
-    >全部 ({{totalCount}})</view>
-    <view 
-      class="tab {{activeTab === 'pending' ? 'active' : ''}}"
-      bindtap="switchTab"
-      data-tab="pending"
-    >待兑换 ({{pendingCount}})</view>
-    <view 
-      class="tab {{activeTab === 'redeemed' ? 'active' : ''}}"
-      bindtap="switchTab"
-      data-tab="redeemed"
-    >已兑换 ({{redeemedCount}})</view>
+    <block wx:if="{{_skeleton}}">
+      <view class="tab"><view class="shimmer" style="width:80rpx;height:30rpx;margin:0 auto;border-radius:8rpx"></view></view>
+      <view class="tab"><view class="shimmer" style="width:90rpx;height:30rpx;margin:0 auto;border-radius:8rpx"></view></view>
+      <view class="tab"><view class="shimmer" style="width:90rpx;height:30rpx;margin:0 auto;border-radius:8rpx"></view></view>
+    </block>
+    <block wx:else>
+      <view
+        class="tab {{activeTab === 'all' ? 'active' : ''}}"
+        bindtap="switchTab"
+        data-tab="all"
+      >全部 ({{totalCount}})</view>
+      <view
+        class="tab {{activeTab === 'pending' ? 'active' : ''}}"
+        bindtap="switchTab"
+        data-tab="pending"
+      >待兑换 ({{pendingCount}})</view>
+      <view
+        class="tab {{activeTab === 'redeemed' ? 'active' : ''}}"
+        bindtap="switchTab"
+        data-tab="redeemed"
+      >已兑换 ({{redeemedCount}})</view>
+    </block>
   </view>
 
   <!-- 愿望列表 -->
-  <block wx:if="{{filteredWishes.length > 0}}">
+  <block wx:if="{{!_skeleton && filteredWishes.length > 0}}">
     <view class="wish-list">
       <view 
         wx:for="{{filteredWishes}}" 
@@ -89,6 +103,24 @@
           data-id="{{item.id || item._id}}"
           catchtap="deleteWish"
         >×</view>
+      </view>
+    </view>
+  </block>
+
+  <!-- 骨架屏占位 -->
+  <block wx:elif="{{_skeleton}}">
+    <view class="wish-list">
+      <view class="wish-card skeleton-card" wx:for="{{[1,2,3]}}" wx:key="*this">
+        <view class="wish-emoji shimmer" style="width:80rpx;height:80rpx;border-radius:20rpx"></view>
+        <view class="wish-info" style="flex:1">
+          <view class="shimmer" style="width:60%;height:34rpx;border-radius:8rpx;margin-bottom:12rpx"></view>
+          <view class="shimmer" style="width:40%;height:24rpx;border-radius:6rpx;margin-bottom:16rpx"></view>
+          <view class="shimmer" style="width:100%;height:16rpx;border-radius:8rpx"></view>
+        </view>
+        <view class="wish-actions">
+          <view class="shimmer" style="width:100rpx;height:56rpx;border-radius:28rpx"></view>
+          <view class="shimmer" style="width:100rpx;height:56rpx;border-radius:28rpx;margin-top:10rpx"></view>
+        </view>
       </view>
     </view>
   </block>

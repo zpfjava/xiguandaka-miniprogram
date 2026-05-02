@@ -3,7 +3,7 @@
   <!-- 顶部 -->
   <view class="page-header">
     <view class="header-title">📈 学习报告</view>
-    <view class="header-subtitle">你的专属学习分析</view>
+    <view class="header-subtitle">你的专属学习分析 <text class="beta-tag">即将上线</text></view>
   </view>
 
   <!-- 时间范围 -->
@@ -123,13 +123,13 @@
   <!-- 一句话总结 -->
   <view class="summary-card">
     <view class="summary-text">「{{summaryText}}」</view>
-    <view class="summary-date">—— 小打卡 · {{reportDate}}</view>
+    <view class="summary-date">—— 成长习惯打卡助手 · {{reportDate}}</view>
   </view>
 
-  <!-- 分享按钮 -->
-  <view class="share-area">
+  <!-- 分享按钮（暂隐藏，功能完善后开放） -->
+  <!-- <view class="share-area">
     <button class="share-btn" bindtap="shareReport">
-      📤 分享给家长
+      📤 分享报告
     </button>
-  </view>
+  </view> -->
 </view>

@@ -51,7 +51,7 @@ var _initMonth = _now.getMonth() + 1
 
 Page({
   data: {
-    isCheckedIn: false,
+    isCheckedIn: null,       // null=加载中, false=未签到, true=已签到
     checking: false,
     todayReward: 5,
     earnedStars: 0,
@@ -77,11 +77,7 @@ Page({
     // 首帧已由 data 中的 calendarDays 保证完整性
   },
 
-  /**
-   * 页面显示：从缓存快速恢复，再后台拉最新数据静默替换
-   */
   onShow: function() {
-    this._restoreFromCache()
     this._fetchFreshData()
   },
 
@@ -345,12 +341,34 @@ Page({
   prevMonth: function() {
     var m = this.data.currentMonth - 1, y = this.data.currentYear
     if (m < 1) { m = 12; y-- }
-    this.setData({ currentYear: y, currentMonth: m, calendarDays: buildMonthCalendar(y, m) })
+    this.setData({ currentYear: y, currentMonth: m })
+    this._loadCalendarForMonth(y, m)
   },
 
   nextMonth: function() {
     var m = this.data.currentMonth + 1, y = this.data.currentYear
     if (m > 12) { m = 1; y++ }
-    this.setData({ currentYear: y, currentMonth: m, calendarDays: buildMonthCalendar(y, m) })
-  }
+    this.setData({ currentYear: y, currentMonth: m })
+    this._loadCalendarForMonth(y, m)
+  },
+
+  /**
+   * 加载指定月份的签到日历数据
+   */
+  _loadCalendarForMonth: function(year, month) {
+    var that = this
+    dailyCheckinApi.calendar({ year: year, month: month }).then(function(res) {
+      if (res && res.success && res.data) {
+        that._handleCalendarData(res.data)
+        // 确保年月与请求一致（防止后端返回默认的当前月份）
+        that.setData({ currentYear: year, currentMonth: month })
+      } else {
+        // 请求失败时显示空日历
+        that.setData({ calendarDays: buildMonthCalendar(year, month) })
+      }
+    }).catch(function(err) {
+      console.error('加载日历数据失败:', err)
+      that.setData({ calendarDays: buildMonthCalendar(year, month) })
+    })
+  },
 })

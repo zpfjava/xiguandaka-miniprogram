@@ -29,13 +29,10 @@ Page({
     try {
       var app = getApp()
       if (app && app.globalData && app.globalData._needRefreshHome) {
-        // 有刷新标记 → 清除旧缓存
         this._clearCache()
       }
     } catch (e) {}
 
-    // 先从缓存恢复（瞬间显示），再静默刷新
-    this._restoreFromCache()
     // 防抖：如果正在加载中则不重复请求
     if (!this.data._loadingLock) {
       this.loadUserData()
@@ -54,13 +51,18 @@ Page({
   /**
    * 从缓存快速恢复
    * 注意：只恢复统计信息，不恢复 userInfo，避免昵称闪烁
+   * 如果缓存数据全是无效值(0)，则跳过恢复，避免用旧的全0数据覆盖
    */
   _restoreFromCache: function() {
     try {
       // 不再从缓存恢复 userInfo，避免昵称闪烁
       var cachedStats = wx.getStorageSync('mine_stats')
       if (cachedStats) {
-        this.setData({ stats: typeof cachedStats === 'string' ? JSON.parse(cachedStats) : cachedStats })
+        var stats = typeof cachedStats === 'string' ? JSON.parse(cachedStats) : cachedStats
+        // 只有当缓存中有有效数据时才恢复（避免全0的脏缓存）
+        if (stats && (stats.totalCheckins > 0 || stats.streak > 0 || stats.totalPlans > 0)) {
+          this.setData({ stats: stats })
+        }
       }
     } catch (e) { /* ignore */ }
   },
@@ -122,15 +124,22 @@ Page({
         if (ds > stats.streak) { stats.streak = ds }
       }
 
-      // 应用统计到页面
+      console.log('[mine] 汇总统计: totalCheckins=', stats.totalCheckins, 'streak=', stats.streak)
+
+      // 应用统计到页面（一次性 setData）
       var totalDays = stats.totalCheckins
       var stage = getGrowthStage(totalDays)
-      that.setData({
+      var renderData = {
+        _loadingLock: false,
         stats: stats,
         stageName: stage.name,
         stageDesc: stage.description,
         growthState: totalDays > 0 ? 'growing' : 'idle'
-      })
+      }
+      if (userInfo && Object.keys(userInfo).length > 0) {
+        renderData.userInfo = userInfo
+      }
+      that.setData(renderData)
       wx.setStorageSync('mine_stats', JSON.stringify(stats))
 
       // ===== 空状态判断 =====
@@ -138,6 +147,7 @@ Page({
         var userId = wx.getStorageSync('userId')
         if (!userId) {
           that.setData({
+            _loadingLock: false,
             isEmpty: true,
             userInfo: {},
             stats: { totalPlans: 0, totalCheckins: 0, streak: 0, streakDays: 0 },
@@ -147,6 +157,7 @@ Page({
           })
         } else {
           that.setData({
+            _loadingLock: false,
             userInfo: { nickname: '加载失败', avatar: '😊' },
             stageName: '种子期',
             stageDesc: '数据加载失败，请检查网络',
@@ -154,8 +165,6 @@ Page({
           })
         }
       }
-
-      that.setData({ _loadingLock: false })
     }).catch(function(err) {
       console.error('加载用户数据失败:', err)
       that.setData({

@@ -3,8 +3,8 @@
   <!-- Logo 区域 -->
   <view class="login-header">
     <view class="logo">🌱</view>
-    <view class="app-name">小打卡</view>
-    <view class="app-slogan">让学习变成一种习惯</view>
+    <view class="app-name">成长习惯打卡助手</view>
+    <view class="app-slogan">让好习惯伴你成长</view>
   </view>
 
   <!-- 微信一键登录（推荐） -->

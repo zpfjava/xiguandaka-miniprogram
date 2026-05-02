@@ -1,10 +1,8 @@
 /**
- * 小打卡 - 设置页
- * 阶段一改造：保存资料时真正调用后端 API
+ * 成长习惯打卡助手 - 设置页
  */
 var api = require('../../utils/api')
 var constants = require('../../utils/constants')
-var notifyUtil = require('../../utils/notify')
 
 var userApi = api.userApi
 var exportApi = api.exportApi
@@ -20,13 +18,12 @@ Page({
     grades: GRADES,
     gradeIndex: 2,
     settings: {
-      reminder: true,
-      reminderTime: '20:00',
-      darkMode: false,
-      showStats: true
+      reminder: false,
+      reminderTime: '20:00'
     },
     cacheSize: '0 KB',
-    saving: false
+    saving: false,
+    saved: false
   },
 
   onLoad: function() {
@@ -36,7 +33,6 @@ Page({
   },
 
   loadUserInfo: function() {
-    // 从后端获取用户信息
     var that = this
     userApi.getMe().then(function(res) {
       if (res.success && res.data) {
@@ -55,7 +51,6 @@ Page({
           gradeIndex: gradeIndex >= 0 ? gradeIndex : 2
         })
       }
-      // 失败时保持默认值（空字符串），不使用假数据
     }).catch(function(err) {
       console.error('加载用户信息失败:', err)
     })
@@ -71,14 +66,18 @@ Page({
   },
 
   onNicknameInput: function(e) {
-    this.setData({ 'userInfo.nickname': e.detail.value })
+    this.setData({ 
+      'userInfo.nickname': e.detail.value,
+      saved: false 
+    })
   },
 
   onGradeChange: function(e) {
     var index = parseInt(e.detail.value)
     this.setData({
       gradeIndex: index,
-      'userInfo.grade': GRADES[index]
+      'userInfo.grade': GRADES[index],
+      saved: false
     })
   },
 
@@ -91,12 +90,14 @@ Page({
       return
     }
 
-    that.setData({ saving: true })
+    that.setData({ saving: true, saved: false })
 
     userApi.updateProfile(userInfo).then(function(res) {
       that.setData({ saving: false })
 
       if (res.success) {
+        that.setData({ saved: true })
+
         // 更新全局数据
         var app = getApp()
         var newGlobalUserInfo = {}
@@ -118,6 +119,10 @@ Page({
     })
   },
 
+  /**
+   * 通用设置开关切换
+   * 每个设置项都有明确的用户反馈和实际效果
+   */
   toggleSetting: function(e) {
     var that = this
     var key = e.currentTarget.dataset.key
@@ -129,46 +134,86 @@ Page({
     try {
       wx.setStorageSync('settings', settings)
 
-      if (key === 'reminder' && settings.reminder) {
-        that.setupReminder(settings.reminderTime)
+      switch (key) {
+        case 'reminder':
+          that._handleReminderToggle(settings)
+          break
+        default:
+          var label = settings[key] ? '已开启' : '已关闭'
+          wx.showToast({ title: label, icon: 'none' })
       }
-
-      // 深色模式：立即应用到当前页面 + 设置全局标记
-      if (key === 'darkMode') {
-        if (settings.darkMode) {
-          // 设置深色模式（通过在 page 上添加 class 或修改全局数据）
-          wx.setNavigationBarColor({
-            frontColor: '#ffffff',
-            backgroundColor: '#1a1a1a'
-          })
-          wx.showToast({ title: '已开启深色模式', icon: 'none' })
-        } else {
-          wx.setNavigationBarColor({
-            frontColor: '#000000',
-            backgroundColor: '#FFF8E1'
-          })
-          wx.showToast({ title: '已关闭深色模式', icon: 'none' })
-        }
-        // 标记全局状态，其他页面 onShow 时可读取
-        var app = getApp()
-        if (app && app.globalData) {
-          app.globalData._darkMode = settings.darkMode
-        }
-      }
-
-      // 显示统计数据：提示用户效果
-      if (key === 'showStats') {
-        wx.showToast({
-          title: settings.showStats ? '首页将显示详细统计' : '首页隐藏详细统计',
-          icon: 'none'
-        })
-      }
-    } catch (e) {}
-
-    if (key !== 'darkMode' && key !== 'showStats') {
-      var label = settings[key] ? '已开启' : '已关闭'
-      wx.showToast({ title: label, icon: 'none' })
+    } catch (e) {
+      console.error('保存设置失败:', e)
     }
+  },
+
+  /**
+   * 打卡提醒开关处理
+   * 纯本地方案：保存提醒配置，不依赖订阅消息（模板未配置）
+   */
+  _handleReminderToggle: function(settings) {
+    if (settings.reminder) {
+      wx.showToast({ 
+        title: '已设置每天 ' + settings.reminderTime + ' 提醒打卡', 
+        icon: 'none',
+        duration: 2000
+      })
+    } else {
+      wx.showToast({ title: '已关闭提醒', icon: 'none' })
+    }
+
+    // 保存提醒配置到本地（供其他页面读取）
+    wx.setStorageSync('reminder_config', {
+      enabled: settings.reminder,
+      time: settings.reminderTime,
+      updatedAt: new Date().toISOString()
+    })
+  },
+
+  /**
+   * 深色模式切换处理
+   * 注意：当前仅影响设置页导航栏颜色。完整深色模式需要每个页面适配。
+   */
+  _handleDarkModeToggle: function(settings) {
+    if (settings.darkMode) {
+      wx.setNavigationBarColor({
+        frontColor: '#ffffff',
+        backgroundColor: '#1a1a1a'
+      })
+      wx.showToast({ title: '已开启深色模式（当前页面）', icon: 'none' })
+    } else {
+      wx.setNavigationBarColor({
+        frontColor: '#000000',
+        backgroundColor: '#FFF8E1'
+      })
+      wx.showToast({ title: '已关闭深色模式', icon: 'none' })
+    }
+
+    // 写入全局状态（预留：其他页面可读取此值做适配）
+    var app = getApp()
+    if (app && app.globalData) {
+      app.globalData._darkMode = settings.darkMode
+    }
+    wx.setStorageSync('_darkMode', settings.darkMode)
+  },
+
+  /**
+   * 显示统计数据切换处理
+   * 当前仅保存偏好，首页暂未实现简洁/详细两种模式切换。
+   * 如不需要此功能可在 WXML 中隐藏该选项。
+   */
+  _handleShowStatsToggle: function(settings) {
+    // 写入全局状态（预留：首页可读取此值决定展示方式）
+    var app = getApp()
+    if (app && app.globalData) {
+      app.globalData._showStats = settings.showStats
+    }
+    wx.setStorageSync('_showStats', settings.showStats)
+
+    wx.showToast({
+      title: settings.showStats ? '已开启详细统计' : '已使用简洁模式',
+      icon: 'none'
+    })
   },
 
   onTimeChange: function(e) {
@@ -179,22 +224,15 @@ Page({
     that.setData({ settings: settings })
     wx.setStorageSync('settings', settings)
 
+    // 更新提醒配置
     if (settings.reminder) {
-      that.setupReminder(e.detail.value)
+      wx.setStorageSync('reminder_config', {
+        enabled: true,
+        time: e.detail.value,
+        updatedAt: new Date().toISOString()
+      })
+      wx.showToast({ title: '提醒时间已更新为 ' + e.detail.value, icon: 'none' })
     }
-  },
-
-  setupReminder: function(time) {
-    var that = this
-    // 使用通知工具设置本地提醒
-    var result = notifyUtil.setLocalReminder(time, '该去学习打卡啦！📚')
-
-    // 尝试请求订阅消息权限（如果模板 ID 已配置）
-    notifyUtil.onCheckinSuccess().then(function(res) {
-      if (res && !res.skipped) {
-        console.log('订阅消息授权结果:', res.results)
-      }
-    })
   },
 
   goToPrivacy: function() {
@@ -202,8 +240,8 @@ Page({
   },
 
   /**
-   * 导出全部数据（JSON 格式）
-   * 获取后返回数据摘要，用户可查看或复制
+   * 导出全部数据
+   * 先尝试云函数（需部署 export 云函数），失败时自动降级为本地缓存导出
    */
   exportData: function() {
     var that = this
@@ -212,42 +250,116 @@ Page({
     exportApi.getAllData().then(function(res) {
       wx.hideLoading()
       if (res.success && res.data) {
-        var data = res.data
-        var exportText = JSON.stringify(data, null, 2)
-        var summary = ''
-
-        // 构建数据摘要
-        if (data.checkins) summary += '打卡记录: ' + data.checkins.length + ' 条\n'
-        if (data.plans) summary += '学习计划: ' + data.plans.length + ' 个\n'
-        if (data.pointsHistory) summary += '积分记录: ' + data.pointsHistory.length + ' 条\n'
-        if (data.wishlists) summary += '愿望清单: ' + data.wishlists.length + ' 个\n'
-        if (data.dailyCheckins) summary += '签到记录: ' + data.dailyCheckins.length + ' 天\n'
-
-        wx.showModal({
-          title: '📤 导出成功',
-          content: '数据概览：\n' + summary + '\n点击确定复制完整 JSON 数据',
-          showCancel: true,
-          cancelText: '取消',
-          confirmText: '复制数据',
-          confirmColor: '#FF9A3C',
-          success: function(modalRes) {
-            if (modalRes.confirm) {
-              wx.setClipboardData({
-                data: exportText,
-                success: function() {
-                  wx.showToast({ title: '已复制到剪贴板', icon: 'success' })
-                }
-              })
-            }
-          }
-        })
+        that._showExportResult(res.data)
       } else {
-        wx.showToast({ title: res.message || '导出失败', icon: 'none' })
+        console.warn('[export] 云函数返回失败，使用本地缓存:', res.message || '未知错误')
+        that._exportLocalData()
       }
     }).catch(function(err) {
       wx.hideLoading()
-      console.error('导出数据失败:', err)
-      wx.showToast({ title: '网络异常，请重试', icon: 'none' })
+      // 判断是否是 FUNCTION_NOT_FOUND 错误（云函数未部署）
+      var errMsg = (err && err.message) ? err.message : ''
+      var isFunctionNotFound = errMsg.indexOf('FUNCTION_NOT_FOUND') > -1 || 
+                               errMsg.indexOf('-501000') > -1 ||
+                               (err && err._offline)
+      if (isFunctionNotFound) {
+        console.warn('[export] 云函数未部署，使用本地缓存导出')
+      } else {
+        console.error('[export] 导出失败:', err)
+      }
+      that._exportLocalData()
+    })
+  },
+
+  /**
+   * 从本地 Storage 导出可用的缓存数据（降级方案）
+   */
+  _exportLocalData: function() {
+    var data = {
+      exportedAt: new Date().toISOString(),
+      version: '1.0.0 (local)',
+      source: '本地缓存（部分数据）',
+      note: '完整数据请在网络正常时导出',
+      counts: {},
+    }
+
+    var totalRecords = 0
+
+    // 从各缓存 key 收集可用数据
+    var cacheKeys = [
+      'home_userInfo', 'mine_userInfo', 'mine_stats',
+      'stats_cache', 'plans_cache', 'wishlist_cache',
+      'settings', 'reminder_config'
+    ]
+
+    var cachedData = {}
+    for (var i = 0; i < cacheKeys.length; i++) {
+      try {
+        var val = wx.getStorageSync(cacheKeys[i])
+        if (val) {
+          cachedData[cacheKeys[i]] = typeof val === 'string' ? JSON.parse(val) : val
+          totalRecords++
+        }
+      } catch (e) {}
+    }
+
+    data.cachedData = cachedData
+    data.counts.totalCacheEntries = totalRecords
+
+    var exportText = JSON.stringify(data, null, 2)
+
+    wx.showModal({
+      title: '📤 本地数据导出',
+      content: '当前为离线/网络异常状态，已导出本地缓存数据（共 ' + totalRecords + ' 条记录）。\n\n联网后可获得完整数据。',
+      showCancel: true,
+      cancelText: '取消',
+      confirmText: '复制数据',
+      confirmColor: '#FF9A3C',
+      success: function(modalRes) {
+        if (modalRes.confirm) {
+          wx.setClipboardData({
+            data: exportText,
+            success: function() {
+              wx.showToast({ title: '已复制到剪贴板', icon: 'success' })
+            }
+          })
+        }
+      }
+    })
+  },
+
+  /**
+   * 显示云函数导出结果
+   */
+  _showExportResult: function(data) {
+    var exportText = JSON.stringify(data, null, 2)
+    var summary = ''
+
+    if (data.counts) {
+      if (data.counts.checkins) summary += '打卡记录: ' + data.counts.checkins + ' 条\n'
+      if (data.counts.plans) summary += '学习计划: ' + data.counts.plans + ' 个\n'
+      if (data.counts.pointsHistory) summary += '积分记录: ' + data.counts.pointsHistory + ' 条\n'
+      if (data.counts.wishlists) summary += '愿望清单: ' + data.counts.wishlists + ' 个\n'
+      if (data.counts.dailyCheckins) summary += '签到记录: ' + data.counts.dailyCheckins + ' 天\n'
+    }
+
+    wx.showModal({
+      title: '📤 导出成功',
+      content: '数据概览：\n' + (summary || '无数据') + '\n点击确定复制完整 JSON 数据',
+      showCancel: true,
+      cancelText: '取消',
+      confirmText: '复制数据',
+      confirmColor: '#FF9A3C',
+      success: function(modalRes) {
+        if (modalRes.confirm) {
+          wx.setClipboardData({
+            data: exportText,
+            success: function() {
+              wx.showToast({ title: '已复制到剪贴板', icon: 'success' })
+            }
+          })
+        }
+      }
     })
   },
 
@@ -270,6 +382,7 @@ Page({
           summary += '总打卡: ' + (report.summary.totalCheckins || 0) + ' 次\n'
           summary += '获得星星: ' + (report.summary.totalStars || 0) + ' 颗\n'
           summary += '连续天数: ' + (report.streak && report.streak.current ? report.streak.current : 0) + ' 天\n'
+          summary += '活跃计划: ' + (report.summary.totalPlans || 0) + ' 个\n'
         }
 
         wx.showModal({
@@ -296,7 +409,7 @@ Page({
     }).catch(function(err) {
       wx.hideLoading()
       console.error('导出报告失败:', err)
-      wx.showToast({ title: '网络异常，请重试', icon: 'none' })
+      wx.showToast({ title: '网络异常，请检查网络后重试', icon: 'none' })
     })
   },
 
@@ -315,7 +428,6 @@ Page({
           that.setData({ cacheSize: '0 KB' })
           wx.showToast({ title: '缓存已清除', icon: 'success' })
 
-          // 跳转到登录页
           setTimeout(function() {
             wx.reLaunch({ url: '/pages/login/login' })
           }, 1000)
@@ -368,8 +480,8 @@ Page({
 
   showAbout: function() {
     wx.showModal({
-      title: '关于小打卡',
-      content: '小打卡 v1.0.0\n\n一款专为小朋友设计的学习打卡应用，通过游戏化的方式帮助养成学习习惯。\n\n让学习变成一种习惯 🌱',
+      title: '关于成长习惯打卡助手',
+      content: '成长习惯打卡助手 v1.0.0\n\n一款专为小朋友设计的学习打卡应用，通过游戏化的方式帮助养成良好习惯。\n\n让好习惯伴你成长 🌱',
       showCancel: false,
       confirmText: '我知道了'
     })
@@ -389,14 +501,11 @@ Page({
 
         var tempFilePath = res.tempFiles[0].tempFilePath
 
-        // 立即在页面上预览新头像
         that.setData({ 'userInfo.avatar': tempFilePath })
 
         wx.showLoading({ title: '正在上传...', mask: true })
 
-        // 根据配置选择上传方式
         if (config.USE_CLOUD) {
-          // 云函数模式：上传到云存储
           wx.cloud.uploadFile({
             cloudPath: 'avatar/' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + tempFilePath.match(/\.[^.]+$/)[0],
             filePath: tempFilePath,
@@ -404,7 +513,6 @@ Page({
               wx.hideLoading()
               if (uploadRes.fileID) {
                 that.setData({ 'userInfo.avatar': uploadRes.fileID })
-                // 同时更新到后端（保存 fileID 到用户记录）
                 api.userApi.updateProfile({ avatar: uploadRes.fileID }).then(function() {
                   wx.showToast({ title: '头像已更换', icon: 'success' })
                 }).catch(function() {
@@ -417,12 +525,9 @@ Page({
             fail: function(err) {
               wx.hideLoading()
               console.warn('[云存储] 头像上传失败:', err)
-              // 保持本地临时路径
-              console.log('使用本地临时头像')
             }
           })
         } else {
-          // HTTP 模式：上传到后端服务器
           var gd = (function() {
             try { var a = getApp(); return (a && a.globalData) ? a.globalData : {} } catch (e) { return {} }
           })()
@@ -441,23 +546,28 @@ Page({
                 if (data.url) {
                   that.setData({ 'userInfo.avatar': data.url })
                   wx.showToast({ title: '头像已更换', icon: 'success' })
-                } else {
-                  console.warn('上传返回无URL，使用本地路径')
                 }
               } catch(e) {
-                console.warn('上传响应解析失败，使用本地头像')
+                console.warn('上传响应解析失败')
               }
             },
             fail: function() {
               wx.hideLoading()
-              console.log('上传接口不可用，使用本地临时头像')
             }
           })
         }
       },
       fail: function() {
-        // 用户取消选择，不做处理
+        // 用户取消选择
       }
     })
   }
 })
+
+/**
+ * 获取当前页面实例（用于异步回调中 setData）
+ */
+function getPageInstance() {
+  var pages = getCurrentPages()
+  return pages[pages.length - 1] || null
+}

@@ -96,6 +96,17 @@
 .save-profile-btn::after { border: none; }
 .save-profile-btn:active { opacity: 0.85; }
 
+/* 保存中：半透明 + 禁止点击 */
+.save-profile-btn.saving {
+  opacity: 0.6;
+}
+
+/* 已保存：绿色完成态 */
+.save-profile-btn.saved {
+  background: linear-gradient(135deg, #7ED957 0%, #5CB85C 100%);
+  color: #FFFFFF;
+}
+
 /* 设置分组 */
 .setting-group {
   margin-top: 20rpx;

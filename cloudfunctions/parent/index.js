@@ -74,6 +74,41 @@ exports.main = async (event, context) => {
         return { success: true, message: '已更新' }
       }
 
+      // ========== 发送验证码（调用短信服务）==========
+      case 'sendSmsCode': {
+        const { phone } = data
+        if (!phone || !phone.match(/^1[3-9]\d{9}$/)) {
+          return { success: false, message: '请输入正确的手机号' }
+        }
+        // TODO: 接入真实短信服务商（如腾讯云短信、阿里云短信）
+        // 当前为开发阶段，直接返回成功，验证码固定为 123456
+        console.log('[parent sendSmsCode] 开发模式：模拟发送验证码到', phone)
+        return { success: true, code: '123456', message: '验证码已发送（开发模式）' }
+      }
+
+      // ========== 给家长发送留言 ==========
+      case 'sendMessage': {
+        const { message } = data
+        if (!message || !message.trim()) {
+          return { success: false, message: '留言内容不能为空' }
+        }
+        // 检查是否已绑定
+        const bind = (await db.collection('parent_binds').where({ userId })).data[0]
+        if (!bind) return { success: false, message: '未绑定家长，无法发送留言' }
+
+        // 写入留言记录
+        await db.collection('parent_messages').add({
+          data: {
+            userId,
+            from: 'child',
+            content: message.trim(),
+            read: false,
+            createdAt: new Date(),
+          }
+        })
+        return { success: true, message: '留言已发送' }
+      }
+
       default:
         return { success: false, message: '未知操作: ' + action }
     }

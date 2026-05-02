@@ -1,0 +1,1 @@
+{"name": "export", "version": "1.0.0", "description": "数据导出云函数 - 导出用户全部数据/学习报告/CSV", "main": "index.js", "dependencies": {"wx-server-sdk": "~2.6.3"}, "scripts": {"test": "echo \"Error: no test specified\" && exit 1"}, "author": "", "license": "ISC"}

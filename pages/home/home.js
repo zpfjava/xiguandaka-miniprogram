@@ -31,7 +31,8 @@ Page({
     emptyTip: '暂无数据',
     _loadingLock: false,
     _blank: false,
-    // 乐观更新：记录已完成的计划 ID（防止被后端数据覆盖）
+    // 首页加载状态：true=显示骨架屏，false=数据已就绪
+    _skeleton: true,
     _optimisticCompletedIds: []
   },
 
@@ -41,32 +42,31 @@ Page({
       this.setData({ _blank: false })
     }
     this.setData({ greeting: getGreeting(), todayDate: getTodayDate() })
-    // 先从缓存恢复（瞬间显示），再静默刷新
-    this._restoreFromCache()
 
-    // 检查是否有来自打卡页的刷新标记
+    // 检查是否有来自打卡页的刷新标记（乐观更新场景）
     try {
       var app = getApp()
-      if (app && app.globalData) {
-        if (app.globalData._needRefreshHome) {
-          app.globalData._needRefreshHome = false
-          // 有刷新标记 → 清除旧缓存，强制重新加载（忽略防抖锁）
-          this._clearCache()
-          this.setData({ _loadingLock: false })
-          // 乐观更新：立即标记对应计划为已完成
-          var markPlanId = app.globalData._markPlanCompleted
-          if (markPlanId) {
-            app.globalData._markPlanCompleted = null
-            this.markTaskCompleted(markPlanId)
-          }
-          this.loadHomeData()
-          return
+      if (app && app.globalData && app.globalData._needRefreshHome) {
+        app.globalData._needRefreshHome = false
+        var markPlanId = app.globalData._markPlanCompleted
+        if (markPlanId) {
+          app.globalData._markPlanCompleted = null
+          this.markTaskCompleted(markPlanId)
         }
+        // 有刷新标记 → 强制重新加载
+        this.setData({ _skeleton: true, _loadingLock: false })
+        this.loadHomeData()
+        return
       }
     } catch (e) {}
 
     // 防抖：如果正在加载中则不重复请求
     if (!this.data._loadingLock) {
+      // 首次进入或无缓存时显示骨架屏；有缓存且数据已就绪则保持当前状态
+      var hasCachedTasks = wx.getStorageSync('home_tasks')
+      if (!hasCachedTasks || !this.data.todayTasks || this.data.todayTasks.length === 0) {
+        this.setData({ _skeleton: true })
+      }
       this.loadHomeData()
     }
   },
@@ -119,18 +119,9 @@ Page({
       pointsApi.summary(),
       dailyCheckinApi.status()
     ]).then(function(results) {
-      // ===== 调试日志：打印所有 API 返回值 =====
-      console.log('=== 首页数据加载调试 ===')
-      console.log('[0] user.getMe:', JSON.stringify(results[0]))
-      console.log('[1] plan.todayProgress:', JSON.stringify(results[1]))
-      console.log('[2] checkin.stats:', JSON.stringify(results[2]))
-      console.log('[3] points.summary:', JSON.stringify(results[3]))
-      console.log('[4] dailyCheckin.status:', JSON.stringify(results[4]))
-      console.log('========================')
-
-      // 防御：确保 results 是有效数组（Promise.all 某个 reject 被 catch 后可能异常）
+      // 防御：确保 results 是有效数组
       if (!results || !Array.isArray(results)) {
-        that.setData({ _loadingLock: false })
+        that.setData({ _loadingLock: false, _skeleton: false })
         that.handleEmptyState()
         return
       }
@@ -152,40 +143,21 @@ Page({
           userInfo.totalEarned = pointsRes.data.totalEarned || 0
           userInfo.totalSpent = pointsRes.data.totalSpent || 0
         }
-        that.setData({ userInfo: userInfo })
-        wx.setStorageSync('home_userInfo', JSON.stringify(userInfo))
       }
 
       // 今日任务
+      var tasks = []
       if (plansRes.success && plansRes.data) {
         hasAnySuccess = true
         var rawTasks = plansRes.data || []
-        console.log('[home] 原始任务数:', rawTasks.length)
-        var tasks = []
         for (var ti = 0; ti < rawTasks.length && ti < 8; ti++) {
           var t = rawTasks[ti]
-          console.log('[home] 任务[' + ti + ']:', 'id=' + (t.id || t._id), 'title=' + t.title, 'isCompleted=' + t.isCompleted, 'completedCount=' + t.completedCount)
           var task = {}
           for (var tk in t) { task[tk] = t[tk] }
-          task.isCompleted = task.isCompleted || false
+          task.isCompleted = task.isCompleted != null ? task.isCompleted : null
           task.subjectIcon = getSubjectIcon(task.subject)
-          // 乐观更新：如果该计划 ID 在乐观完成列表中，强制标记为已完成
-          var optIds = that.data._optimisticCompletedIds || []
-          for (var oi = 0; oi < optIds.length; oi++) {
-            var taskId = task.id || task._id
-            if (optIds[oi] === taskId) {
-              task.isCompleted = true
-              break
-            }
-          }
           tasks.push(task)
         }
-        that.setData({ todayTasks: tasks })
-        wx.setStorageSync('home_tasks', JSON.stringify(tasks))
-        that.updateProgress()
-      } else {
-        // 没有任务数据时显示空状态
-        that.setData({ todayTasks: [], isEmpty: false })
       }
 
       // 统计数据（从各 API 汇总）
@@ -196,58 +168,64 @@ Page({
         streak: 0
       }
 
-      // 计划数：从 todayProgress 返回的数组长度获取
+      // 计划数
       if (plansRes.success && plansRes.data && Array.isArray(plansRes.data)) {
         mergedStats.totalPlans = plansRes.data.length
       }
 
-      // 打卡总数 + 连续天数：从 checkin.stats 获取
+      // 打卡总数 + 连续天数
       if (statsRes.success && statsRes.data) {
         var sd = statsRes.data
-        // totalCheckins 可能缺失（旧版兼容），用 uniqueDays 兜底
         mergedStats.totalCheckins = sd.totalCheckins || sd.total || sd.uniqueDays || 0
-        // 注意：checkin.stats 的 totalStars 只是打卡获得的星星总和，不是用户总星星
-        // 不再用它覆盖 mergedStats.totalStars，留给 points.summary 和 userRes 处理
         mergedStats.streak = sd.streak || sd.currentStreak || sd.streakDays || 0
       }
 
-      // 星星数：优先从 points.summary 获取（更准确）
+      // 星星数：优先从 points.summary 获取
       if (pointsRes.success && pointsRes.data) {
         var pd = pointsRes.data
-        if (pd.currentStars !== undefined && !mergedStats.totalStars) {
+        if (pd.currentStars !== undefined) {
           mergedStats.totalStars = pd.currentStars || pd.totalStars || 0
         }
       }
-      // 如果 userRes 有星星数据也合并
-      if (userRes.success && userRes.data) {
-        var ud = userRes.data
-        if (!mergedStats.totalStars && ud.totalStars) {
-          mergedStats.totalStars = ud.totalStars
-        }
+      if (!mergedStats.totalStars && userRes.success && userRes.data) {
+        var ud2 = userRes.data
+        mergedStats.totalStars = ud2.totalStars || ud2.currentStars || 0
       }
 
-      // 连续签到天数：优先从 dailyCheckin.status 获取（更准确，基于每日签到）
+      // 连续签到天数
       if (dailyRes.success && dailyRes.data && typeof dailyRes.data === 'object') {
         var dd = dailyRes.data
         var ds = dd.streak || dd.streakDays || dd.newStreak || 0
         if (ds > mergedStats.streak) { mergedStats.streak = ds }
       }
 
-      console.log('[home] 最终统计:', JSON.stringify(mergedStats))
-      that.setData({ stats: mergedStats })
-      wx.setStorageSync('home_stats', JSON.stringify(mergedStats))
-      hasAnySuccess = true
+      // ====== 一次性 setData，避免多次渲染导致闪烁 ======
+      var renderData = {
+        _skeleton: false,
+        _loadingLock: false,
+        todayTasks: tasks,
+        stats: mergedStats
+      }
+      if (userInfo && Object.keys(userInfo).length > 0) {
+        renderData.userInfo = userInfo
+        wx.setStorageSync('home_userInfo', JSON.stringify(userInfo))
+      }
+      that.setData(renderData)
 
-      // 如果全部 API 都失败（可能是未登录或网络问题）
+      // 缓存 + 更新进度（不触发额外渲染，因为 updateProgress 内部会 setData）
+      wx.setStorageSync('home_tasks', JSON.stringify(tasks))
+      wx.setStorageSync('home_stats', JSON.stringify(mergedStats))
+      that.updateProgress()
+
+      hasAnySuccess = true
+      that.updateEncouragement()
+
       if (!hasAnySuccess) {
         that.handleEmptyState()
       }
-
-      that.setData({ _loadingLock: false })
-      that.updateEncouragement()
     }).catch(function(err) {
       console.error('首页数据加载失败:', err)
-      that.setData({ _loadingLock: false })
+      that.setData({ _skeleton: false, _loadingLock: false })
       that.handleEmptyState()
     })
   },

@@ -32,21 +32,16 @@ Page({
   },
 
   onShow: function() {
-    // 先从缓存恢复（瞬间显示），再静默刷新
-    this._restoreFromCache()
-
     // 检查是否有来自打卡页的刷新标记
     try {
       var app = getApp()
       if (app && app.globalData) {
-        // 打卡后刷新标记
         if (app.globalData._needRefreshPlans) {
           app.globalData._needRefreshPlans = false
           this.setData({ _loadingLock: false })
           this.loadPlans()
           return
         }
-        // 首页传递的刷新标记（兼容）
         if (app.globalData._needRefreshHome) {
           this.setData({ _loadingLock: false })
           this.loadPlans()
@@ -94,6 +89,21 @@ Page({
           return
         }
         var plans = []
+        // 合并缓存中已有的 checkedInToday 状态（避免重置导致闪烁）
+        var cachedPlanMap = {}
+        try {
+          var cachedPlans = wx.getStorageSync('plans')
+          if (cachedPlans) {
+            cachedPlans = typeof cachedPlans === 'string' ? JSON.parse(cachedPlans) : cachedPlans
+            if (cachedPlans && Array.isArray(cachedPlans)) {
+              for (var c = 0; c < cachedPlans.length; c++) {
+                var cpId = cachedPlans[c].id || cachedPlans[c]._id
+                if (cpId) cachedPlanMap[cpId] = cachedPlans[c].checkedInToday
+              }
+            }
+          }
+        } catch (e) { /* ignore */ }
+
         for (var i = 0; i < rawPlans.length; i++) {
           var p = rawPlans[i]
           var plan = {}
@@ -102,8 +112,9 @@ Page({
           var total = plan.totalCount > 0 ? plan.totalCount : 0
           var completed = plan.completedCount || 0
           plan.progressPercent = total > 0 ? Math.round((completed / total) * 100) : 0
-          // 默认未打卡（后续由 _loadTodayCheckins 更新）
-          plan.checkedInToday = false
+          // 优先使用缓存中的打卡状态，避免从 null 闪烁到实际值
+          var pid = plan.id || plan._id
+          plan.checkedInToday = (cachedPlanMap[pid] !== undefined) ? cachedPlanMap[pid] : null
           plans.push(plan)
         }
         that.setData({ plans: plans, isEmpty: false })
@@ -416,6 +427,7 @@ Page({
 
   /**
    * 查询每个计划今天的打卡状态，更新 UI 显示"去打卡"或"已完成✓"
+   * 仅当状态真正发生变化时才 setData，避免不必要的重绘
    */
   _loadTodayCheckins: function(plans) {
     var that = this

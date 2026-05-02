@@ -8,13 +8,22 @@
 
   <!-- 签到卡片 -->
   <view class="checkin-card">
+    <!-- 加载中状态（骨架屏占位，与未签到布局一致） -->
+    <block wx:if="{{isCheckedIn === null}}">
+      <view class="skeleton-emoji"></view>
+      <view class="skeleton-text"></view>
+      <view class="skeleton-reward"></view>
+
+      <view class="skeleton-btn"></view>
+    </block>
+
     <!-- 未签到状态 -->
-    <block wx:if="{{!isCheckedIn}}">
+    <block wx:elif="{{!isCheckedIn}}">
       <view class="checkin-emoji">📋</view>
       <view class="checkin-text">今天还没签到哦</view>
       <view class="checkin-reward">签到可获得 +{{todayReward}} ⭐</view>
-      
-      <button 
+
+      <button
         class="checkin-btn {{checking ? 'btn-loading' : ''}}"
         bindtap="doCheckin"
         disabled="{{checking}}"
