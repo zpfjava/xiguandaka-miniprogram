@@ -1,7 +1,11 @@
 {
   "description": "成长习惯打卡助手 - AI智能学科打卡助手",
   "packOptions": {
-    "ignore": [],
+    "ignore": [
+      { "type": "folder", "value": "backend" },
+      { "type": "folder", "value": "database" },
+      { "type": "file", "value": ".catpaw" }
+    ],
     "include": []
   },
   "setting": {
