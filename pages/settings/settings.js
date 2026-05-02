@@ -121,7 +121,6 @@ Page({
 
   /**
    * 通用设置开关切换
-   * 每个设置项都有明确的用户反馈和实际效果
    */
   toggleSetting: function(e) {
     var that = this
@@ -149,7 +148,7 @@ Page({
 
   /**
    * 打卡提醒开关处理
-   * 纯本地方案：保存提醒配置，不依赖订阅消息（模板未配置）
+   * 纯本地方案：保存提醒配置到本地，供 app.js onShow 读取并触发提醒
    */
   _handleReminderToggle: function(settings) {
     // 保存提醒配置到本地（供 app.js onShow 读取并触发）
@@ -170,52 +169,6 @@ Page({
     } else {
       wx.showToast({ title: '已关闭提醒', icon: 'none' })
     }
-  },
-
-  /**
-   * 深色模式切换处理
-   * 注意：当前仅影响设置页导航栏颜色。完整深色模式需要每个页面适配。
-   */
-  _handleDarkModeToggle: function(settings) {
-    if (settings.darkMode) {
-      wx.setNavigationBarColor({
-        frontColor: '#ffffff',
-        backgroundColor: '#1a1a1a'
-      })
-      wx.showToast({ title: '已开启深色模式（当前页面）', icon: 'none' })
-    } else {
-      wx.setNavigationBarColor({
-        frontColor: '#000000',
-        backgroundColor: '#FFF8E1'
-      })
-      wx.showToast({ title: '已关闭深色模式', icon: 'none' })
-    }
-
-    // 写入全局状态（预留：其他页面可读取此值做适配）
-    var app = getApp()
-    if (app && app.globalData) {
-      app.globalData._darkMode = settings.darkMode
-    }
-    wx.setStorageSync('_darkMode', settings.darkMode)
-  },
-
-  /**
-   * 显示统计数据切换处理
-   * 当前仅保存偏好，首页暂未实现简洁/详细两种模式切换。
-   * 如不需要此功能可在 WXML 中隐藏该选项。
-   */
-  _handleShowStatsToggle: function(settings) {
-    // 写入全局状态（预留：首页可读取此值决定展示方式）
-    var app = getApp()
-    if (app && app.globalData) {
-      app.globalData._showStats = settings.showStats
-    }
-    wx.setStorageSync('_showStats', settings.showStats)
-
-    wx.showToast({
-      title: settings.showStats ? '已开启详细统计' : '已使用简洁模式',
-      icon: 'none'
-    })
   },
 
   onTimeChange: function(e) {
@@ -242,8 +195,8 @@ Page({
   },
 
   /**
-   * 导出全部数据
-   * 先尝试云函数（需部署 export 云函数），失败时自动降级为本地缓存导出
+   * 导出全部数据（调用 export 云函数）
+   * 如果云函数未部署，会弹出明确提示引导用户部署
    */
   exportData: function() {
     var that = this
@@ -254,155 +207,26 @@ Page({
       if (res.success && res.data) {
         that._showExportResult(res.data)
       } else {
-        console.warn('[export] 云函数返回失败，使用本地缓存:', res.message || '未知错误')
-        that._exportLocalData()
+        var msg = res.message || '导出失败'
+        console.warn('[export] 云函数返回失败:', msg)
+        wx.showToast({ title: msg, icon: 'none' })
       }
     }).catch(function(err) {
       wx.hideLoading()
       console.error('[export] 导出失败:', err)
-      // 无论什么错误，都走本地降级方案
-      that._exportLocalData()
-    })
-  },
-
-  /**
-   * 从本地 Storage 导出可用的缓存数据（降级方案）
-   * 增强版：收集更多可用数据，生成更友好的报告
-   */
-  _exportLocalData: function() {
-    var data = {
-      exportedAt: new Date().toISOString(),
-      version: '1.0.0 (local)',
-      source: '本地缓存（部分数据）',
-      note: '完整数据请在网络正常时导出',
-      user: {},
-      counts: {},
-      checkins: [],
-      plans: [],
-      wishlist: [],
-      pointsHistory: []
-    }
-
-    var totalRecords = 0
-
-    // 1. 用户信息
-    try {
-      var userInfo = wx.getStorageSync('userInfo') || wx.getStorageSync('home_userInfo') || wx.getStorageSync('mine_userInfo')
-      if (userInfo) {
-        data.user = typeof userInfo === 'string' ? JSON.parse(userInfo) : userInfo
-        totalRecords++
-      }
-    } catch (e) {}
-
-    // 2. 积分/星星信息
-    try {
-      var pointsCache = wx.getStorageSync('points_cache') || wx.getStorageSync('points_summary')
-      if (pointsCache) {
-        data.points = typeof pointsCache === 'string' ? JSON.parse(pointsCache) : pointsCache
-        totalRecords++
-      }
-    } catch (e) {}
-
-    // 3. 学习计划
-    try {
-      var plansCache = wx.getStorageSync('plans')
-      if (plansCache) {
-        var plans = typeof plansCache === 'string' ? JSON.parse(plansCache) : plansCache
-        if (Array.isArray(plans)) {
-          data.plans = plans
-          data.counts.plans = plans.length
-          totalRecords++
-        }
-      }
-    } catch (e) {}
-
-    // 4. 愿望清单
-    try {
-      var wlCache = wx.getStorageSync('wl_cache') || wx.getStorageSync('wishlist_cache')
-      if (wlCache) {
-        var wl = typeof wlCache === 'string' ? JSON.parse(wlCache) : wlCache
-        if (wl && wl.wishes) {
-          data.wishlist = wl.wishes
-          data.counts.wishlist = wl.wishes.length
-          totalRecords++
-        }
-      }
-    } catch (e) {}
-
-    // 5. 签到数据
-    try {
-      var dcCache = wx.getStorageSync('dc_cache')
-      if (dcCache) {
-        var dc = typeof dcCache === 'string' ? JSON.parse(dcCache) : dcCache
-        data.dailyCheckin = {
-          isCheckedIn: dc.isCheckedIn,
-          streakDays: dc.streakDays || 0,
-          todayReward: dc.todayReward || 5,
-          earnedStars: dc.earnedStars || 0
-        }
-        totalRecords++
-      }
-    } catch (e) {}
-
-    // 6. 统计数据
-    try {
-      var statsCache = wx.getStorageSync('stats_cache') || wx.getStorageSync('mine_stats')
-      if (statsCache) {
-        data.stats = typeof statsCache === 'string' ? JSON.parse(statsCache) : statsCache
-        totalRecords++
-      }
-    } catch (e) {}
-
-    // 7. 设置信息
-    try {
-      var settings = wx.getStorageSync('settings')
-      if (settings) {
-        data.settings = typeof settings === 'string' ? JSON.parse(settings) : settings
-        totalRecords++
-      }
-    } catch (e) {}
-
-    data.counts.totalCacheEntries = totalRecords
-
-    // 生成友好的文本摘要
-    var summaryText = '📊 小打卡数据导出\\n'
-      + '⏰ 导出时间: ' + new Date().toLocaleString('zh-CN') + '\\n'
-      + '📦 数据来源: 本地缓存\\n\\n'
-
-    if (data.user && data.user.nickname) {
-      summaryText += '👤 用户: ' + data.user.nickname + '\\n'
-    }
-    if (data.dailyCheckin) {
-      summaryText += '✅ 今日签到: ' + (data.dailyCheckin.isCheckedIn ? '已签到' : '未签到') + '\\n'
-      summaryText += '🔥 连续签到: ' + (data.dailyCheckin.streakDays || 0) + ' 天\\n'
-    }
-    if (data.counts.plans > 0) {
-      summaryText += '📚 学习计划: ' + data.counts.plans + ' 个\\n'
-    }
-    if (data.counts.wishlist > 0) {
-      summaryText += '🎁 愿望清单: ' + data.counts.wishlist + ' 个\\n'
-    }
-
-    summaryText += '\\n💡 完整 JSON 数据已复制到剪贴板'
-
-    var exportText = JSON.stringify(data, null, 2)
-
-    wx.showModal({
-      title: '📤 数据导出',
-      content: summaryText,
-      showCancel: true,
-      cancelText: '取消',
-      confirmText: '复制数据',
-      confirmColor: '#FF9A3C',
-      success: function(modalRes) {
-        if (modalRes.confirm) {
-          wx.setClipboardData({
-            data: exportText,
-            success: function() {
-              wx.showToast({ title: '已复制到剪贴板', icon: 'success' })
-            }
-          })
-        }
+      var errMsg = (err && err.message) ? err.message : '' + ''
+      var isFunctionNotFound = errMsg.indexOf('FUNCTION_NOT_FOUND') > -1 ||
+                               errMsg.indexOf('-501000') > -1 ||
+                               errMsg.indexOf('cloud function not found') > -1
+      if (isFunctionNotFound) {
+        wx.showModal({
+          title: '⚠️ 缺少云函数',
+          content: '「export」云函数未部署。\n\n请在微信开发者工具中：\n右键 cloudfunctions/export 文件夹 → 上传并部署：云端安装依赖\n\n部署后即可正常使用导出功能。',
+          showCancel: false,
+          confirmText: '我知道了'
+        })
+      } else {
+        wx.showToast({ title: '导出失败：' + (errMsg.slice(0, 20) || '网络异常'), icon: 'none' })
       }
     })
   },
@@ -443,8 +267,8 @@ Page({
   },
 
   /**
-   * 导出学习报告
-   * 先尝试云函数，失败时用本地缓存数据生成简易报告
+   * 导出学习报告（调用 export 云函数）
+   * 如果云函数未部署，会弹出明确提示引导用户部署
    */
   exportReport: function() {
     var that = this
@@ -455,19 +279,32 @@ Page({
       if (res.success && res.data) {
         that._showReportResult(res.data)
       } else {
-        console.warn('[exportReport] 云函数返回失败，使用本地缓存生成报告:', res.message)
-        that._generateLocalReport()
+        var msg = res.message || '生成失败'
+        console.warn('[exportReport] 云函数返回失败:', msg)
+        wx.showToast({ title: msg, icon: 'none' })
       }
     }).catch(function(err) {
       wx.hideLoading()
       console.error('[exportReport] 导出报告失败:', err)
-      // 降级为本地报告
-      that._generateLocalReport()
+      var errMsg = (err && err.message) ? err.message : '' + ''
+      var isFunctionNotFound = errMsg.indexOf('FUNCTION_NOT_FOUND') > -1 ||
+                               errMsg.indexOf('-501000') > -1 ||
+                               errMsg.indexOf('cloud function not found') > -1
+      if (isFunctionNotFound) {
+        wx.showModal({
+          title: '⚠️ 缺少云函数',
+          content: '「export」云函数未部署。\n\n请在微信开发者工具中：\n右键 cloudfunctions/export 文件夹 → 上传并部署：云端安装依赖\n\n部署后即可正常使用报告功能。',
+          showCancel: false,
+          confirmText: '我知道了'
+        })
+      } else {
+        wx.showToast({ title: '报告生成失败：' + (errMsg.slice(0, 20) || '网络异常'), icon: 'none' })
+      }
     })
   },
 
   /**
-   * 显示云函数报告结果（增强版）
+   * 显示云函数报告结果
    */
   _showReportResult: function(report) {
     var reportText = JSON.stringify(report, null, 2)
@@ -501,98 +338,6 @@ Page({
       showCancel: true,
       cancelText: '关闭',
       confirmText: '复制详情',
-      confirmColor: '#FF9A3C',
-      success: function(modalRes) {
-        if (modalRes.confirm) {
-          wx.setClipboardData({
-            data: reportText,
-            success: function() {
-              wx.showToast({ title: '已复制到剪贴板', icon: 'success' })
-            }
-          })
-        }
-      }
-    })
-  },
-
-  /**
-   * 从本地缓存生成简易学习报告（降级方案）
-   */
-  _generateLocalReport: function() {
-    var report = {
-      generatedAt: new Date().toISOString(),
-      source: '本地缓存（部分数据）',
-      period: 'week'
-    }
-
-    var summaryText = '📋 学习报告（本地缓存）\n'
-    summaryText += '⏰ 生成时间: ' + new Date().toLocaleString('zh-CN') + '\n'
-    summaryText += '📦 数据来源: 本地缓存\n\n'
-
-    // 签到数据
-    try {
-      var dcCache = wx.getStorageSync('dc_cache')
-      if (dcCache) {
-        var dc = typeof dcCache === 'string' ? JSON.parse(dcCache) : dcCache
-        report.dailyCheckin = dc
-        summaryText += '✅ 今日签到: ' + (dc.isCheckedIn ? '已签到 ✅' : '未签到') + '\n'
-        summaryText += '🔥 连续签到: ' + (dc.streakDays || 0) + ' 天\n'
-        if (dc.earnedStars > 0) {
-          summaryText += '⭐ 今日获得: ' + dc.earnedStars + ' 颗星星\n'
-        }
-      }
-    } catch (e) {}
-
-    // 学习计划
-    try {
-      var plansCache = wx.getStorageSync('plans')
-      if (plansCache) {
-        var plans = typeof plansCache === 'string' ? JSON.parse(plansCache) : plansCache
-        if (Array.isArray(plans)) {
-          var activeCount = 0
-          var totalCompleted = 0
-          for (var i = 0; i < plans.length; i++) {
-            if (plans[i].isActive !== false) activeCount++
-            totalCompleted += plans[i].completedCount || 0
-          }
-          report.plans = { total: plans.length, active: activeCount, totalCompleted: totalCompleted }
-          summaryText += '\n📚 学习计划:\n'
-          summaryText += '  · 总计划: ' + plans.length + ' 个\n'
-          summaryText += '  · 进行中: ' + activeCount + ' 个\n'
-          summaryText += '  · 累计完成: ' + totalCompleted + ' 次\n'
-        }
-      }
-    } catch (e) {}
-
-    // 愿望清单
-    try {
-      var wlCache = wx.getStorageSync('wl_cache')
-      if (wlCache) {
-        var wl = typeof wlCache === 'string' ? JSON.parse(wlCache) : wlCache
-        if (wl && wl.wishes) {
-          var pendingCount = 0
-          var redeemedCount = 0
-          for (var j = 0; j < wl.wishes.length; j++) {
-            if (wl.wishes[j].status === 'pending') pendingCount++
-            else if (wl.wishes[j].status === 'redeemed') redeemedCount++
-          }
-          summaryText += '\n🎁 愿望清单:\n'
-          summaryText += '  · 待兑换: ' + pendingCount + ' 个\n'
-          summaryText += '  · 已兑换: ' + redeemedCount + ' 个\n'
-        }
-      }
-    } catch (e) {}
-
-    summaryText += '\n💡 完整数据请联网后获取'
-
-    var reportText = JSON.stringify(report, null, 2)
-
-    wx.showModal({
-      title: '📋 学习报告',
-      content: summaryText,
-      showCancel: true,
-      cancelText: '关闭',
-      confirmText: '复制报告',
       confirmColor: '#FF9A3C',
       success: function(modalRes) {
         if (modalRes.confirm) {
@@ -757,11 +502,3 @@ Page({
     })
   }
 })
-
-/**
- * 获取当前页面实例（用于异步回调中 setData）
- */
-function getPageInstance() {
-  var pages = getCurrentPages()
-  return pages[pages.length - 1] || null
-}
