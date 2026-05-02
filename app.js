@@ -103,7 +103,59 @@ App({
 
   // 小程序显示时执行
   onShow: function() {
-    // 全局显示逻辑
+    // 检查并触发打卡提醒
+    this._checkReminder()
+  },
+
+  /**
+   * 检查打卡提醒：读取用户设置的提醒时间，到达时弹出提醒
+   * 每次 onShow 都会检查，确保用户打开小程序时能收到提醒
+   */
+  _checkReminder: function() {
+    try {
+      var config = wx.getStorageSync('reminder_config')
+      if (!config || !config.enabled || !config.time) return
+
+      var now = new Date()
+      var h = now.getHours()
+      var m = now.getMinutes()
+      var currentTime = (h < 10 ? '0' + h : '' + h) + ':' + (m < 10 ? '0' + m : '' + m)
+
+      // 解析目标时间
+      var targetParts = config.time.split(':')
+      var targetH = parseInt(targetParts[0]) || 20
+      var targetM = parseInt(targetParts[1]) || 0
+
+      // 计算时间差（分钟），如果在目标时间前后 5 分钟内且今天还未提醒过，则触发
+      var diffMinutes = h * 60 + m - (targetH * 60 + targetM)
+
+      if (diffMinutes >= -2 && diffMinutes <= 5) {
+        // 检查今天是否已提醒过
+        var todayStr = now.getFullYear() + '-' + (now.getMonth() + 1) + '-' + now.getDate()
+        var lastRemindDate = wx.getStorageSync('last_remind_date') || ''
+        if (lastRemindDate === todayStr) return // 今天已提醒
+
+        // 标记今天已提醒
+        wx.setStorageSync('last_remind_date', todayStr)
+
+        // 弹出提醒
+        wx.showModal({
+          title: '🔔 打卡提醒',
+          content: '该打卡啦！坚持每天打卡，养成好习惯~',
+          showCancel: true,
+          cancelText: '稍后再说',
+          confirmText: '去打卡',
+          confirmColor: '#FF9A3C',
+          success: function(res) {
+            if (res.confirm) {
+              wx.switchTab({ url: '/pages/dailycheckin/dailycheckin' })
+            }
+          }
+        })
+      }
+    } catch (e) {
+      // 忽略异常
+    }
   },
 
   // 检查小程序更新

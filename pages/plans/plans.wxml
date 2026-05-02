@@ -24,7 +24,7 @@
       >
         <!-- 计划头部 -->
         <view class="plan-header">
-          <view class="plan-icon {{item.isActive ? '' : 'icon-gray'}}">{{item.subjectIcon}}</view>
+          <view class="plan-icon {{item.isActive ? '' : 'icon-gray'}}">{{item.subjectIcon || '📝'}}</view>
           <view class="plan-info">
             <view class="plan-title {{item.isActive ? '' : 'title-gray'}}">{{item.title}}</view>
             <view class="plan-meta">

@@ -152,7 +152,16 @@ Page({
    * 纯本地方案：保存提醒配置，不依赖订阅消息（模板未配置）
    */
   _handleReminderToggle: function(settings) {
+    // 保存提醒配置到本地（供 app.js onShow 读取并触发）
+    wx.setStorageSync('reminder_config', {
+      enabled: settings.reminder,
+      time: settings.reminderTime,
+      updatedAt: new Date().toISOString()
+    })
+
+    // 清除旧的提醒日期标记（让新设置立即生效）
     if (settings.reminder) {
+      wx.removeStorageSync('last_remind_date')
       wx.showToast({ 
         title: '已设置每天 ' + settings.reminderTime + ' 提醒打卡', 
         icon: 'none',
@@ -161,13 +170,6 @@ Page({
     } else {
       wx.showToast({ title: '已关闭提醒', icon: 'none' })
     }
-
-    // 保存提醒配置到本地（供其他页面读取）
-    wx.setStorageSync('reminder_config', {
-      enabled: settings.reminder,
-      time: settings.reminderTime,
-      updatedAt: new Date().toISOString()
-    })
   },
 
   /**
@@ -257,22 +259,15 @@ Page({
       }
     }).catch(function(err) {
       wx.hideLoading()
-      // 判断是否是 FUNCTION_NOT_FOUND 错误（云函数未部署）
-      var errMsg = (err && err.message) ? err.message : ''
-      var isFunctionNotFound = errMsg.indexOf('FUNCTION_NOT_FOUND') > -1 || 
-                               errMsg.indexOf('-501000') > -1 ||
-                               (err && err._offline)
-      if (isFunctionNotFound) {
-        console.warn('[export] 云函数未部署，使用本地缓存导出')
-      } else {
-        console.error('[export] 导出失败:', err)
-      }
+      console.error('[export] 导出失败:', err)
+      // 无论什么错误，都走本地降级方案
       that._exportLocalData()
     })
   },
 
   /**
    * 从本地 Storage 导出可用的缓存数据（降级方案）
+   * 增强版：收集更多可用数据，生成更友好的报告
    */
   _exportLocalData: function() {
     var data = {
@@ -280,37 +275,121 @@ Page({
       version: '1.0.0 (local)',
       source: '本地缓存（部分数据）',
       note: '完整数据请在网络正常时导出',
+      user: {},
       counts: {},
+      checkins: [],
+      plans: [],
+      wishlist: [],
+      pointsHistory: []
     }
 
     var totalRecords = 0
 
-    // 从各缓存 key 收集可用数据
-    var cacheKeys = [
-      'home_userInfo', 'mine_userInfo', 'mine_stats',
-      'stats_cache', 'plans_cache', 'wishlist_cache',
-      'settings', 'reminder_config'
-    ]
+    // 1. 用户信息
+    try {
+      var userInfo = wx.getStorageSync('userInfo') || wx.getStorageSync('home_userInfo') || wx.getStorageSync('mine_userInfo')
+      if (userInfo) {
+        data.user = typeof userInfo === 'string' ? JSON.parse(userInfo) : userInfo
+        totalRecords++
+      }
+    } catch (e) {}
 
-    var cachedData = {}
-    for (var i = 0; i < cacheKeys.length; i++) {
-      try {
-        var val = wx.getStorageSync(cacheKeys[i])
-        if (val) {
-          cachedData[cacheKeys[i]] = typeof val === 'string' ? JSON.parse(val) : val
+    // 2. 积分/星星信息
+    try {
+      var pointsCache = wx.getStorageSync('points_cache') || wx.getStorageSync('points_summary')
+      if (pointsCache) {
+        data.points = typeof pointsCache === 'string' ? JSON.parse(pointsCache) : pointsCache
+        totalRecords++
+      }
+    } catch (e) {}
+
+    // 3. 学习计划
+    try {
+      var plansCache = wx.getStorageSync('plans')
+      if (plansCache) {
+        var plans = typeof plansCache === 'string' ? JSON.parse(plansCache) : plansCache
+        if (Array.isArray(plans)) {
+          data.plans = plans
+          data.counts.plans = plans.length
           totalRecords++
         }
-      } catch (e) {}
+      }
+    } catch (e) {}
+
+    // 4. 愿望清单
+    try {
+      var wlCache = wx.getStorageSync('wl_cache') || wx.getStorageSync('wishlist_cache')
+      if (wlCache) {
+        var wl = typeof wlCache === 'string' ? JSON.parse(wlCache) : wlCache
+        if (wl && wl.wishes) {
+          data.wishlist = wl.wishes
+          data.counts.wishlist = wl.wishes.length
+          totalRecords++
+        }
+      }
+    } catch (e) {}
+
+    // 5. 签到数据
+    try {
+      var dcCache = wx.getStorageSync('dc_cache')
+      if (dcCache) {
+        var dc = typeof dcCache === 'string' ? JSON.parse(dcCache) : dcCache
+        data.dailyCheckin = {
+          isCheckedIn: dc.isCheckedIn,
+          streakDays: dc.streakDays || 0,
+          todayReward: dc.todayReward || 5,
+          earnedStars: dc.earnedStars || 0
+        }
+        totalRecords++
+      }
+    } catch (e) {}
+
+    // 6. 统计数据
+    try {
+      var statsCache = wx.getStorageSync('stats_cache') || wx.getStorageSync('mine_stats')
+      if (statsCache) {
+        data.stats = typeof statsCache === 'string' ? JSON.parse(statsCache) : statsCache
+        totalRecords++
+      }
+    } catch (e) {}
+
+    // 7. 设置信息
+    try {
+      var settings = wx.getStorageSync('settings')
+      if (settings) {
+        data.settings = typeof settings === 'string' ? JSON.parse(settings) : settings
+        totalRecords++
+      }
+    } catch (e) {}
+
+    data.counts.totalCacheEntries = totalRecords
+
+    // 生成友好的文本摘要
+    var summaryText = '📊 小打卡数据导出\\n'
+      + '⏰ 导出时间: ' + new Date().toLocaleString('zh-CN') + '\\n'
+      + '📦 数据来源: 本地缓存\\n\\n'
+
+    if (data.user && data.user.nickname) {
+      summaryText += '👤 用户: ' + data.user.nickname + '\\n'
+    }
+    if (data.dailyCheckin) {
+      summaryText += '✅ 今日签到: ' + (data.dailyCheckin.isCheckedIn ? '已签到' : '未签到') + '\\n'
+      summaryText += '🔥 连续签到: ' + (data.dailyCheckin.streakDays || 0) + ' 天\\n'
+    }
+    if (data.counts.plans > 0) {
+      summaryText += '📚 学习计划: ' + data.counts.plans + ' 个\\n'
+    }
+    if (data.counts.wishlist > 0) {
+      summaryText += '🎁 愿望清单: ' + data.counts.wishlist + ' 个\\n'
     }
 
-    data.cachedData = cachedData
-    data.counts.totalCacheEntries = totalRecords
+    summaryText += '\\n💡 完整 JSON 数据已复制到剪贴板'
 
     var exportText = JSON.stringify(data, null, 2)
 
     wx.showModal({
-      title: '📤 本地数据导出',
-      content: '当前为离线/网络异常状态，已导出本地缓存数据（共 ' + totalRecords + ' 条记录）。\n\n联网后可获得完整数据。',
+      title: '📤 数据导出',
+      content: summaryText,
       showCancel: true,
       cancelText: '取消',
       confirmText: '复制数据',
@@ -365,6 +444,7 @@ Page({
 
   /**
    * 导出学习报告
+   * 先尝试云函数，失败时用本地缓存数据生成简易报告
    */
   exportReport: function() {
     var that = this
@@ -373,43 +453,157 @@ Page({
     exportApi.getReport().then(function(res) {
       wx.hideLoading()
       if (res.success && res.data) {
-        var report = res.data
-        var reportText = JSON.stringify(report, null, 2)
-
-        // 构建报告摘要
-        var summary = ''
-        if (report.summary) {
-          summary += '总打卡: ' + (report.summary.totalCheckins || 0) + ' 次\n'
-          summary += '获得星星: ' + (report.summary.totalStars || 0) + ' 颗\n'
-          summary += '连续天数: ' + (report.streak && report.streak.current ? report.streak.current : 0) + ' 天\n'
-          summary += '活跃计划: ' + (report.summary.totalPlans || 0) + ' 个\n'
-        }
-
-        wx.showModal({
-          title: '📋 学习报告',
-          content: summary || '报告已生成',
-          showCancel: true,
-          cancelText: '关闭',
-          confirmText: '复制详情',
-          confirmColor: '#FF9A3C',
-          success: function(modalRes) {
-            if (modalRes.confirm) {
-              wx.setClipboardData({
-                data: reportText,
-                success: function() {
-                  wx.showToast({ title: '已复制到剪贴板', icon: 'success' })
-                }
-              })
-            }
-          }
-        })
+        that._showReportResult(res.data)
       } else {
-        wx.showToast({ title: res.message || '生成失败', icon: 'none' })
+        console.warn('[exportReport] 云函数返回失败，使用本地缓存生成报告:', res.message)
+        that._generateLocalReport()
       }
     }).catch(function(err) {
       wx.hideLoading()
-      console.error('导出报告失败:', err)
-      wx.showToast({ title: '网络异常，请检查网络后重试', icon: 'none' })
+      console.error('[exportReport] 导出报告失败:', err)
+      // 降级为本地报告
+      that._generateLocalReport()
+    })
+  },
+
+  /**
+   * 显示云函数报告结果（增强版）
+   */
+  _showReportResult: function(report) {
+    var reportText = JSON.stringify(report, null, 2)
+
+    var summary = '📋 学习报告\n'
+    if (report.summary) {
+      summary += '⏰ 统计周期: ' + (report.period === 'week' ? '本周' : report.period === 'month' ? '本月' : '近30天') + '\n'
+      summary += '✅ 总打卡: ' + (report.summary.totalCheckins || 0) + ' 次\n'
+      summary += '⭐ 获得星星: ' + (report.summary.totalStars || 0) + ' 颗\n'
+      summary += '🔥 连续签到: ' + ((report.streak && report.streak.current) || 0) + ' 天\n'
+      summary += '📚 活跃计划: ' + (report.summary.totalPlans || 0) + ' 个\n'
+      summary += '📅 活跃天数: ' + (report.summary.activeDays || 0) + ' 天\n'
+      if (report.summary.avgPerDay > 0) {
+        summary += '📊 日均打卡: ' + report.summary.avgPerDay + ' 次\n'
+      }
+    }
+
+    if (report.subjects && report.subjects.length > 0) {
+      summary += '\n📖 学科分布:\n'
+      for (var i = 0; i < Math.min(report.subjects.length, 5); i++) {
+        var s = report.subjects[i]
+        summary += '  · ' + s.subject + ': ' + s.count + '次 (' + (s.stars || 0) + '⭐)\n'
+      }
+    }
+
+    summary += '\n💡 点击确定复制完整报告'
+
+    wx.showModal({
+      title: '学习报告',
+      content: summary,
+      showCancel: true,
+      cancelText: '关闭',
+      confirmText: '复制详情',
+      confirmColor: '#FF9A3C',
+      success: function(modalRes) {
+        if (modalRes.confirm) {
+          wx.setClipboardData({
+            data: reportText,
+            success: function() {
+              wx.showToast({ title: '已复制到剪贴板', icon: 'success' })
+            }
+          })
+        }
+      }
+    })
+  },
+
+  /**
+   * 从本地缓存生成简易学习报告（降级方案）
+   */
+  _generateLocalReport: function() {
+    var report = {
+      generatedAt: new Date().toISOString(),
+      source: '本地缓存（部分数据）',
+      period: 'week'
+    }
+
+    var summaryText = '📋 学习报告（本地缓存）\n'
+    summaryText += '⏰ 生成时间: ' + new Date().toLocaleString('zh-CN') + '\n'
+    summaryText += '📦 数据来源: 本地缓存\n\n'
+
+    // 签到数据
+    try {
+      var dcCache = wx.getStorageSync('dc_cache')
+      if (dcCache) {
+        var dc = typeof dcCache === 'string' ? JSON.parse(dcCache) : dcCache
+        report.dailyCheckin = dc
+        summaryText += '✅ 今日签到: ' + (dc.isCheckedIn ? '已签到 ✅' : '未签到') + '\n'
+        summaryText += '🔥 连续签到: ' + (dc.streakDays || 0) + ' 天\n'
+        if (dc.earnedStars > 0) {
+          summaryText += '⭐ 今日获得: ' + dc.earnedStars + ' 颗星星\n'
+        }
+      }
+    } catch (e) {}
+
+    // 学习计划
+    try {
+      var plansCache = wx.getStorageSync('plans')
+      if (plansCache) {
+        var plans = typeof plansCache === 'string' ? JSON.parse(plansCache) : plansCache
+        if (Array.isArray(plans)) {
+          var activeCount = 0
+          var totalCompleted = 0
+          for (var i = 0; i < plans.length; i++) {
+            if (plans[i].isActive !== false) activeCount++
+            totalCompleted += plans[i].completedCount || 0
+          }
+          report.plans = { total: plans.length, active: activeCount, totalCompleted: totalCompleted }
+          summaryText += '\n📚 学习计划:\n'
+          summaryText += '  · 总计划: ' + plans.length + ' 个\n'
+          summaryText += '  · 进行中: ' + activeCount + ' 个\n'
+          summaryText += '  · 累计完成: ' + totalCompleted + ' 次\n'
+        }
+      }
+    } catch (e) {}
+
+    // 愿望清单
+    try {
+      var wlCache = wx.getStorageSync('wl_cache')
+      if (wlCache) {
+        var wl = typeof wlCache === 'string' ? JSON.parse(wlCache) : wlCache
+        if (wl && wl.wishes) {
+          var pendingCount = 0
+          var redeemedCount = 0
+          for (var j = 0; j < wl.wishes.length; j++) {
+            if (wl.wishes[j].status === 'pending') pendingCount++
+            else if (wl.wishes[j].status === 'redeemed') redeemedCount++
+          }
+          summaryText += '\n🎁 愿望清单:\n'
+          summaryText += '  · 待兑换: ' + pendingCount + ' 个\n'
+          summaryText += '  · 已兑换: ' + redeemedCount + ' 个\n'
+        }
+      }
+    } catch (e) {}
+
+    summaryText += '\n💡 完整数据请联网后获取'
+
+    var reportText = JSON.stringify(report, null, 2)
+
+    wx.showModal({
+      title: '📋 学习报告',
+      content: summaryText,
+      showCancel: true,
+      cancelText: '关闭',
+      confirmText: '复制报告',
+      confirmColor: '#FF9A3C',
+      success: function(modalRes) {
+        if (modalRes.confirm) {
+          wx.setClipboardData({
+            data: reportText,
+            success: function() {
+              wx.showToast({ title: '已复制到剪贴板', icon: 'success' })
+            }
+          })
+        }
+      }
     })
   },
 

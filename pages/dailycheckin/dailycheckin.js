@@ -263,6 +263,13 @@ Page({
   doCheckin: function() {
     var that = this
     if (that.data.checking) return
+
+    // 前端拦截：如果已经签到，直接提示
+    if (that.data.isCheckedIn === true) {
+      wx.showToast({ title: '今天已经签到过了~', icon: 'none' })
+      return
+    }
+
     that.setData({ checking: true })
 
     dailyCheckinApi.doCheckin().then(function(res) {
@@ -293,6 +300,12 @@ Page({
       } else {
         // 过滤掉不友好的系统错误信息（如 Cannot read properties of undefined）
         var errMsg = res.message || '签到失败'
+        // 特殊处理：已签到的情况
+        if (errMsg.indexOf('已经签到') >= 0 || errMsg.indexOf('已签到') >= 0) {
+          that.setData({ checking: false, isCheckedIn: true })
+          wx.showToast({ title: '今天已经签到过了~', icon: 'none' })
+          return
+        }
         if (errMsg.indexOf('Cannot read') >= 0 ||
             errMsg.indexOf('undefined') >= 0 ||
             errMsg.indexOf('null') >= 0 ||
