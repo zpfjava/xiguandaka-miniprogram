@@ -27,7 +27,8 @@ Page({
     saveMsg: '',
     nicknameError: '',
     gradeError: '',
-    hasChanges: false
+    hasChanges: false,
+    _savingLock: false // 🔑 防重复提交锁
   },
 
   onLoad: function() {
@@ -76,12 +77,18 @@ Page({
 
   onNicknameInput: function(e) {
     var val = e.detail.value
+    // 🔑 防抖：只更新值，不频繁触发变更检测和UI刷新
+    var oldNick = this.data.userInfo.nickname
+    if (oldNick === val) return // 值没变不触发 setData
+
+    this.data.userInfo.nickname = val // 直接修改 data（不触发渲染）
     this.setData({ 
       'userInfo.nickname': val,
       saveStatus: '',
-      nicknameError: '',
-      hasChanges: this._checkChanges(val, this.data.userInfo.grade)
+      nicknameError: ''
     })
+    // 延迟检测变更，避免输入时频繁计算
+    this._debounceChange()
   },
 
   onGradeChange: function(e) {
@@ -97,6 +104,20 @@ Page({
   },
 
   /**
+   * 防抖变更检测
+   */
+  _debounceChange: function() {
+    if (this._changeTimer) clearTimeout(this._changeTimer)
+    var that = this
+    this._changeTimer = setTimeout(function() {
+      that._changeTimer = null
+      that.setData({
+        hasChanges: that._checkChanges(that.data.userInfo.nickname, that.data.userInfo.grade)
+      })
+    }, 300)
+  },
+
+  /**
    * 检测是否有变更
    */
   _checkChanges: function(nickname, grade) {
@@ -107,6 +128,11 @@ Page({
 
   saveProfile: function() {
     var that = this
+
+    // 🔑 防重复提交
+    if (that._savingLock || that.data.saving) return
+    that._savingLock = true
+
     var userInfo = that.data.userInfo
 
     // 重置错误提示
@@ -124,11 +150,16 @@ Page({
       hasError = true
     }
 
-    if (hasError) return
+    if (hasError) {
+      that._savingLock = false
+      return
+    }
 
     that.setData({ saving: true, saveStatus: '', saveMsg: '' })
 
     userApi.updateProfile(userInfo).then(function(res) {
+      that._savingLock = false
+
       if (res.success) {
         // 更新原始值为当前值（用于后续变更检测）
         that.setData({
@@ -152,7 +183,7 @@ Page({
         if (app.globalData) { app.globalData.userInfo = newGlobalUserInfo }
         wx.setStorageSync('home_userInfo', JSON.stringify(userInfo))
 
-        // 3秒后自动隐藏成功提示
+        // 3秒后恢复按钮可点击状态
         setTimeout(function() {
           if (that.data.saveStatus === 'success') {
             that.setData({ saveStatus: '', saveMsg: '' })
@@ -166,6 +197,7 @@ Page({
         })
       }
     }).catch(function(err) {
+      that._savingLock = false
       console.error('保存用户信息失败:', err)
       that.setData({
         saving: false,

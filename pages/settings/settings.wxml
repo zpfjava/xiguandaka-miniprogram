@@ -35,9 +35,9 @@
     <!-- 保存按钮 + 状态提示 -->
     <view class="save-area">
       <button 
-        class="save-profile-btn {{saving ? 'saving' : ''}} {{!hasChanges && !saveStatus ? 'btn-idle' : ''}}" 
+        class="save-profile-btn {{saving ? 'saving' : ''}} {{saveStatus === 'success' ? 'btn-success' : ''}} {{!hasChanges && !saveStatus ? 'btn-idle' : ''}}" 
         bindtap="saveProfile"
-        disabled="{{saving || (!hasChanges && !saveStatus)}}"
+        disabled="{{saving || saveStatus === 'success' || (!hasChanges && !saveStatus)}}"
       >
         <text wx:if="{{saving}}" class="btn-loading">⟳</text>
         <text wx:if="{{saving}}"> 保存中...</text>

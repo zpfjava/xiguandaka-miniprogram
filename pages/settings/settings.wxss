@@ -146,6 +146,12 @@
   opacity: 0.9;
 }
 
+/* 保存成功态：绿色 + 禁用感 */
+.save-profile-btn.btn-success {
+  background: linear-gradient(135deg, #7ED957 0%, #5CB85C 100%);
+  color: #FFFFFF;
+}
+
 /* 加载旋转动画 */
 .btn-loading {
   display: inline-block;
