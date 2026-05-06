@@ -17,7 +17,9 @@
 .dark-mode .item-text { color: #e0e0e0; }
 .dark-mode .item-desc { color: #888888; }
 .dark-mode .nickname-input { background-color: #333333; color: #e0e0e0; }
+.dark-mode .nickname-input.input-error { background-color: #3a2222; border-color: #FF4D4F; }
 .dark-mode .grade-picker { background-color: #333333; color: #cccccc; }
+.dark-mode .grade-picker.picker-error { background-color: #3a2222; border-color: #FF4D4F; }
 .dark-mode .footer-logo { color: #e0e0e0; }
 .dark-mode .footer-desc { color: #888888; }
 .dark-mode .footer-version { color: #666666; }
@@ -58,6 +60,10 @@
 
 .profile-edit { flex: 1; }
 
+.input-wrap {
+  margin-bottom: 8rpx;
+}
+
 .nickname-input {
   width: 100%;
   height: 72rpx;
@@ -69,9 +75,14 @@
   border-radius: 16rpx;
   border: 2rpx solid transparent;
   box-sizing: border-box;
-  margin-bottom: 14rpx;
 }
 .nickname-input:focus { border-color: #FFD93D; }
+
+/* 输入框错误态 */
+.nickname-input.input-error {
+  border-color: #FF4D4F;
+  background-color: #FFF1F0;
+}
 
 .grade-picker {
   height: 64rpx;
@@ -81,10 +92,33 @@
   color: #666666;
   background-color: #F8F8F8;
   border-radius: 12rpx;
+  border: 2rpx solid transparent;
+}
+.grade-picker.picker-error {
+  border-color: #FF4D4F;
+  background-color: #FFF1F0;
+  color: #FF4D4F;
+}
+
+/* 字段错误提示 */
+.field-error {
+  font-size: 22rpx;
+  color: #FF4D4F;
+  padding: 4rpx 0 0 8rpx;
+}
+
+/* 保存区域 */
+.save-area {
+  margin-top: 28rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .save-profile-btn {
-  margin-top: 28rpx;
+  width: 100%;
+  height: 84rpx;
+  line-height: 84rpx;
   background: linear-gradient(135deg, #FFD93D 0%, #FF9A3C 100%);
   color: #333333;
   font-size: 30rpx;
@@ -92,19 +126,62 @@
   border-radius: 40rpx;
   text-align: center;
   border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .save-profile-btn::after { border: none; }
 .save-profile-btn:active { opacity: 0.85; }
 
-/* 保存中：半透明 + 禁止点击 */
+/* 未变更时按钮置灰 */
+.save-profile-btn.btn-idle {
+  background: #CCCCCC;
+  color: #999999;
+}
+.save-profile-btn.btn-idle:active { opacity: 1; }
+
+/* 保存中状态 */
 .save-profile-btn.saving {
-  opacity: 0.6;
+  background: linear-gradient(135deg, #FFB347 0%, #FF8C00 100%);
+  opacity: 0.9;
 }
 
-/* 已保存：绿色完成态 */
-.save-profile-btn.saved {
-  background: linear-gradient(135deg, #7ED957 0%, #5CB85C 100%);
-  color: #FFFFFF;
+/* 加载旋转动画 */
+.btn-loading {
+  display: inline-block;
+  animation: rotate 1s linear infinite;
+  font-size: 28rpx;
+}
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* 内联状态提示 */
+.save-tip {
+  margin-top: 16rpx;
+  padding: 10rpx 24rpx;
+  border-radius: 20rpx;
+  font-size: 24rpx;
+  display: flex;
+  align-items: center;
+  animation: fadeInUp 0.3s ease-out;
+}
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(10rpx); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.tip-icon { margin-right: 8rpx; }
+
+.save-tip-success {
+  background-color: #F0FFF0;
+  color: #52C41A;
+}
+
+.save-tip-error {
+  background-color: #FFF2F0;
+  color: #FF4D4F;
 }
 
 /* 设置分组 */

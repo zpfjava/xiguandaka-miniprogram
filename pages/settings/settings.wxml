@@ -14,23 +14,46 @@
       </view>
       
       <view class="profile-edit">
-        <input
-          class="nickname-input"
-          placeholder="输入昵称"
-          value="{{userInfo.nickname}}"
-          bindinput="onNicknameInput"
-        />
-        <picker mode="selector" range="{{grades}}" value="{{gradeIndex}}" bindchange="onGradeChange">
-          <view class="grade-picker">{{userInfo.grade || '选择年级'}} ▼</view>
-        </picker>
+        <view class="input-wrap">
+          <input
+            class="nickname-input {{nicknameError ? 'input-error' : ''}}"
+            placeholder="输入昵称"
+            value="{{userInfo.nickname}}"
+            bindinput="onNicknameInput"
+          />
+          <view wx:if="{{nicknameError}}" class="field-error">{{nicknameError}}</view>
+        </view>
+        <view class="input-wrap">
+          <picker mode="selector" range="{{grades}}" value="{{gradeIndex}}" bindchange="onGradeChange">
+            <view class="grade-picker {{gradeError ? 'picker-error' : ''}}">{{userInfo.grade || '选择年级'}} ▼</view>
+          </picker>
+          <view wx:if="{{gradeError}}" class="field-error">{{gradeError}}</view>
+        </view>
       </view>
     </view>
     
-    <button 
-      class="save-profile-btn {{saved ? 'saved' : ''}} {{saving ? 'saving' : ''}}" 
-      bindtap="saveProfile"
-      disabled="{{saving || saved}}"
-    >{{saving ? '保存中...' : (saved ? '已保存 ✓' : '保存修改')}}</button>
+    <!-- 保存按钮 + 状态提示 -->
+    <view class="save-area">
+      <button 
+        class="save-profile-btn {{saving ? 'saving' : ''}} {{!hasChanges && !saveStatus ? 'btn-idle' : ''}}" 
+        bindtap="saveProfile"
+        disabled="{{saving || (!hasChanges && !saveStatus)}}"
+      >
+        <text wx:if="{{saving}}" class="btn-loading">⟳</text>
+        <text wx:if="{{saving}}"> 保存中...</text>
+        <text wx:elif="{{saveStatus === 'success'}}">✓ 保存成功</text>
+        <text wx:else>保存修改</text>
+      </button>
+      <!-- 内联状态提示 -->
+      <view wx:if="{{saveStatus === 'success'}}" class="save-tip save-tip-success">
+        <text class="tip-icon">✅</text>
+        <text>{{saveMsg}}</text>
+      </view>
+      <view wx:if="{{saveStatus === 'error'}}" class="save-tip save-tip-error">
+        <text class="tip-icon">⚠️</text>
+        <text>{{saveMsg}}</text>
+      </view>
+    </view>
   </view>
 
   <!-- 设置分组 - 通用 -->

@@ -23,7 +23,11 @@ Page({
     },
     cacheSize: '0 KB',
     saving: false,
-    saved: false
+    saveStatus: '', // '' | 'success' | 'error'
+    saveMsg: '',
+    nicknameError: '',
+    gradeError: '',
+    hasChanges: false
   },
 
   onLoad: function() {
@@ -48,7 +52,12 @@ Page({
             avatar: info.avatar || '😊',
             grade: info.grade || ''
           },
-          gradeIndex: gradeIndex >= 0 ? gradeIndex : 2
+          gradeIndex: gradeIndex >= 0 ? gradeIndex : 2,
+          // 🔑 保存原始值用于变更检测
+          _originalInfo: {
+            nickname: info.nickname || '',
+            grade: info.grade || ''
+          }
         })
       }
     }).catch(function(err) {
@@ -66,43 +75,72 @@ Page({
   },
 
   onNicknameInput: function(e) {
+    var val = e.detail.value
     this.setData({ 
-      'userInfo.nickname': e.detail.value,
-      saved: false 
+      'userInfo.nickname': val,
+      saveStatus: '',
+      nicknameError: '',
+      hasChanges: this._checkChanges(val, this.data.userInfo.grade)
     })
   },
 
   onGradeChange: function(e) {
     var index = parseInt(e.detail.value)
+    var grade = GRADES[index]
     this.setData({
       gradeIndex: index,
-      'userInfo.grade': GRADES[index],
-      saved: false
+      'userInfo.grade': grade,
+      saveStatus: '',
+      gradeError: '',
+      hasChanges: this._checkChanges(this.data.userInfo.nickname, grade)
     })
+  },
+
+  /**
+   * 检测是否有变更
+   */
+  _checkChanges: function(nickname, grade) {
+    var orig = this.data._originalInfo
+    if (!orig) return true
+    return (nickname || '') !== (orig.nickname || '') || (grade || '') !== (orig.grade || '')
   },
 
   saveProfile: function() {
     var that = this
     var userInfo = that.data.userInfo
 
+    // 重置错误提示
+    that.setData({ nicknameError: '', gradeError: '' })
+
+    var hasError = false
+
     if (!userInfo.nickname.trim()) {
-      wx.showToast({ title: '请输入昵称', icon: 'none' })
-      return
+      that.setData({ nicknameError: '请输入昵称' })
+      hasError = true
     }
 
-    // 🔑 校验年级必选（不能为空，不能是默认占位）
     if (!userInfo.grade || !userInfo.grade.trim()) {
-      wx.showToast({ title: '请选择年级', icon: 'none' })
-      return
+      that.setData({ gradeError: '请选择年级' })
+      hasError = true
     }
 
-    that.setData({ saving: true, saved: false })
+    if (hasError) return
+
+    that.setData({ saving: true, saveStatus: '', saveMsg: '' })
 
     userApi.updateProfile(userInfo).then(function(res) {
-      that.setData({ saving: false })
-
       if (res.success) {
-        that.setData({ saved: true })
+        // 更新原始值为当前值（用于后续变更检测）
+        that.setData({
+          saving: false,
+          saveStatus: 'success',
+          saveMsg: '保存成功',
+          hasChanges: false,
+          _originalInfo: {
+            nickname: userInfo.nickname,
+            grade: userInfo.grade
+          }
+        })
 
         // 更新全局数据
         var app = getApp()
@@ -114,14 +152,26 @@ Page({
         if (app.globalData) { app.globalData.userInfo = newGlobalUserInfo }
         wx.setStorageSync('home_userInfo', JSON.stringify(userInfo))
 
-        wx.showToast({ title: '保存成功！', icon: 'success' })
+        // 3秒后自动隐藏成功提示
+        setTimeout(function() {
+          if (that.data.saveStatus === 'success') {
+            that.setData({ saveStatus: '', saveMsg: '' })
+          }
+        }, 3000)
       } else {
-        wx.showToast({ title: res.message || '保存失败', icon: 'none' })
+        that.setData({
+          saving: false,
+          saveStatus: 'error',
+          saveMsg: res.message || '保存失败'
+        })
       }
     }).catch(function(err) {
       console.error('保存用户信息失败:', err)
-      that.setData({ saving: false })
-      wx.showToast({ title: '网络异常，请重试', icon: 'none' })
+      that.setData({
+        saving: false,
+        saveStatus: 'error',
+        saveMsg: '网络异常，请重试'
+      })
     })
   },
 
