@@ -177,7 +177,8 @@ exports.main = async (event, context) => {
             totalPlansCount = plansCountRes.total || 0
           } catch (e) { /* ignore */ }
 
-          // 调用成就云函数内部逻辑检查解锁
+          // 🔑 调用成就云函数内部逻辑检查解锁
+          //    注意：只检查打卡相关的成就，不检查 plans_5（计划达人由 plans.js 创建计划时触发）
           const achievementStats = {
             totalCheckins: allCheckins.length,
             currentStreak: checkinStreak,
@@ -185,13 +186,14 @@ exports.main = async (event, context) => {
             totalPlans: totalPlansCount,
           }
 
-          // 遍历所有成就定义，逐个检查并解锁
+          // 遍历所有成就定义，逐个检查并解锁（仅打卡相关成就）
           const ACHIEVEMENTS_DEFS = [
             { id: 'first_checkin', name: '初次打卡', starsReward: 10 },
             { id: 'streak_3', name: '坚持3天', starsReward: 15 },
             { id: 'streak_7', name: '一周达人', starsReward: 30 },
             { id: 'streak_30', name: '月度之星', starsReward: 100 },
-            { id: 'plans_5', name: '计划达人', starsReward: 20 },
+            // 🔑 plans_5 不在这里检查！由 plans.js 创建计划时通过 achievement 云函数的 check action 触发
+            // { id: 'plans_5', name: '计划达人', starsReward: 20 },
             { id: 'checkin_10', name: '十全十美', starsReward: 15 },
             { id: 'checkin_50', name: '半百打卡', starsReward: 50 },
             { id: 'checkin_100', name: '百次打卡王', starsReward: 150 },
@@ -199,12 +201,22 @@ exports.main = async (event, context) => {
             { id: 'stars_500', name: '大富翁', starsReward: 80 },
           ]
 
+          // 🔑 收集本次新解锁的成就列表，返回给前端用于弹窗展示
+          const newUnlockedAchievements = []
+
           for (const ach of ACHIEVEMENTS_DEFS) {
-            // 检查是否已解锁
-            const existing = (await db.collection('user_achievements').where({
-              userId, achievementId: ach.id
-            })).data
-            if (existing && existing.length > 0) continue
+            // 🔑 用 count() 检查是否已解锁（比 .get().data 更可靠）
+            let alreadyUnlocked = false
+            try {
+              const countRes = await db.collection('user_achievements').where({
+                userId, achievementId: ach.id
+              }).count()
+              alreadyUnlocked = (countRes.total || 0) > 0
+            } catch (countErr) {
+              // 查询失败保守处理：假设已存在
+              alreadyUnlocked = true
+            }
+            if (alreadyUnlocked) continue
 
             let shouldUnlock = false
             switch (ach.id) {
@@ -252,14 +264,23 @@ exports.main = async (event, context) => {
                 })
               } catch (e) { /* ignore */ }
               console.log('[checkin create] 成就解锁:', ach.id, ach.name, '+' + ach.starsReward + '⭐')
+              
+              // 🔑 记录到本次新解锁列表（返回给前端弹窗用）
+              newUnlockedAchievements.push({
+                achievementId: ach.id,
+                name: ach.name,
+                starsReward: ach.starsReward,
+              })
             }
           }
-        } catch (achErr) {
-          console.warn('[checkin create] 成就检查失败(非致命):', achErr.message)
-        }
 
-        return { success: true, data: toFrontendFormat(checkinData) }
+        return { success: true, data: toFrontendFormat(checkinData), newAchievements: newUnlockedAchievements }
+      } catch (achErr) {
+        console.warn('[checkin create] 成就检查失败(非致命):', achErr.message)
+        // 🔑 成就检查失败不影响打卡本身，仍然返回成功
+        return { success: true, data: toFrontendFormat(checkinData), newAchievements: [] }
       }
+      } // ========== create 结束 ==========
 
       // ========== 获取打卡列表 ==========
       case 'getList': {
@@ -408,6 +429,29 @@ exports.main = async (event, context) => {
         // 按科目聚合（用于学习统计页的科目分布）
         const bySubject = {}
 
+        // 🔧 收集所有 planId，批量查询 study_plans 获取科目名称（避免逐条查询）
+        const planIds = [...new Set(records.filter(r => r.planId).map(r => r.planId))]
+        const planMap = {}  // planId → { subject, title }
+        if (planIds.length > 0) {
+          // 分批查询（云数据库 in 限制最多 20 个）
+          const BATCH_SIZE = 20
+          for (let i = 0; i < planIds.length; i += BATCH_SIZE) {
+            const batch = planIds.slice(i, i + BATCH_SIZE)
+            try {
+              const plansRaw = await db.collection('study_plans')
+                .where({ _id: _.in(batch) })
+                .field({ _id: true, subject: true, title: true })
+                .get()
+              const plans = safeData(plansRaw)
+              for (const p of plans) {
+                planMap[p._id] = p
+              }
+            } catch (e) {
+              console.warn('[checkin heatmap] 批量查询计划失败:', e.message)
+            }
+          }
+        }
+
         for (const r of records) {
           const d = new Date(r.checkinAt)
           // 🔑 转为北京时间显示
@@ -415,22 +459,12 @@ exports.main = async (event, context) => {
           const key = `${beijingD.getUTCFullYear()}-${String(beijingD.getUTCMonth() + 1).padStart(2, '0')}-${String(beijingD.getUTCDate()).padStart(2, '0')}`
           heatmap[key] = (heatmap[key] || 0) + 1
 
-          // 获取打卡对应的计划科目
-          if (r.planId) {
-            try {
-              const subject = r.subject || '学习'
-              bySubject[subject] = (bySubject[subject] || 0) + 1
-            } catch (e) {
-              bySubject['学习'] = (bySubject['学习'] || 0) + 1
-            }
-          } else {
-            bySubject['学习'] = (bySubject['学习'] || 0) + 1
+          // 🔧 通过 planId 从 study_plans 获取真实科目名称
+          let subject = '学习'
+          if (r.planId && planMap[r.planId]) {
+            subject = planMap[r.planId].subject || planMap[r.planId].title || '学习'
           }
-        }
-
-        // 如果没有科目数据，尝试从 study_plans 集合获取活跃计划数作为参考
-        if (Object.keys(bySubject).length === 0 && records.length > 0) {
-          bySubject['学习'] = records.length
+          bySubject[subject] = (bySubject[subject] || 0) + 1
         }
 
         // 构建时段分布数据（与后端 NestJS 版本一致）
@@ -443,9 +477,11 @@ exports.main = async (event, context) => {
         ]
 
         for (const r of records) {
-          const hour = new Date(r.checkinAt).getHours()
+          // 🔧 转为北京时间后再取小时（避免 UTC 时区导致时段偏移）
+          const checkinDate = new Date(r.checkinAt)
+          const beijingHour = new Date(checkinDate.getTime() + 8 * 60 * 60 * 1000).getUTCHours()
           for (const slot of timeSlots) {
-            if (hour >= slot.startHour && hour < slot.endHour) {
+            if (beijingHour >= slot.startHour && beijingHour < slot.endHour) {
               slot.count++
               break
             }

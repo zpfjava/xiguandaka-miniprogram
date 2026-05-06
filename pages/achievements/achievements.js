@@ -31,23 +31,32 @@ Page({
     // 加锁防止重复请求
     that.setData({ loading: true, isEmpty: false, _loadingLock: true })
 
-    // 先执行回溯补全（确保历史成就被正确解锁），再加载展示数据
+    // 🔑 关键修复：先等待回溯补全完成，再加载展示数据
+    //    之前的 bug：backfill 和数据加载并行发出，导致 getUserAchievements 在 backfill 写入前返回
+    //    结果：成就实际已解锁但页面显示"未解锁"（进度对了但 unlocked 状态不对）
     achievementApi.backfill()
       .then(function(backfillRes) {
         if (backfillRes.success && backfillRes.data && backfillRes.data.length > 0) {
           console.log('[成就] 回溯补全解锁了', backfillRes.data.length, '个成就:', backfillRes.data.map(function(a) { return a.name }).join(', '))
         }
+        // 🔑 backfill 完成后，再并行请求展示数据（此时 user_achievements 已是最新的）
+        return Promise.all([
+          achievementApi.getUserAchievements(),
+          achievementApi.getAllList(),
+          checkinApi.stats()
+        ])
       })
       .catch(function(e) {
+        // backfill 失败也不影响加载展示数据
         console.warn('[成就] 回溯补全失败(非致命):', e)
+        // backfill 失败时仍然加载数据
+        return Promise.all([
+          achievementApi.getUserAchievements(),
+          achievementApi.getAllList(),
+          checkinApi.stats()
+        ])
       })
-
-    // 并行请求：已解锁成就 + 所有成就定义 + 打卡统计（用于计算进度）
-    Promise.all([
-      achievementApi.getUserAchievements(),
-      achievementApi.getAllList(),
-      checkinApi.stats()
-    ]).then(function(results) {
+      .then(function(results) {
       var unlockedRes = results[0]
       var allRes = results[1]
       var statsRes = results[2]

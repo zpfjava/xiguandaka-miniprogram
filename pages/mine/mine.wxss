@@ -132,6 +132,9 @@
   border-radius: 9999rpx;
   margin-right: 16rpx;
 }
+.menu-badge.coming-soon {
+  background-color: #999999;
+}
 
 /* ====== 退出登录 ====== */
 .logout-area { padding: 30rpx; }

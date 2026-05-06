@@ -163,12 +163,62 @@
   padding: 60rpx 30rpx;
 }
 
-/* 加载中 */
-.loading-tip {
-  text-align: center;
-  font-size: 26rpx;
-  color: #999999;
-  padding: 80rpx 30rpx;
+/* 加载中 - 骨架屏 */
+.skeleton-card {
+  background-color: #FFFFFF;
+  animation: none !important;
+}
+
+.skeleton-icon {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 20rpx;
+  flex-shrink: 0;
+  margin-right: 20rpx;
+}
+
+.skeleton-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.skeleton-reward {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8rpx;
+  margin-left: 16rpx;
+  flex-shrink: 0;
+}
+
+/* Shimmer 闪烁动画 */
+.shimmer {
+  background-color: #F0F0F0 !important;
+  position: relative;
+  overflow: hidden;
+}
+.shimmer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -150%;
+  width: 150%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.5) 30%,
+    rgba(255, 255, 255, 0.8) 50%,
+    rgba(255, 255, 255, 0.5) 70%,
+    transparent 100%
+  );
+  animation: shimmer-sweep 1.6s ease-in-out infinite;
+}
+
+@keyframes shimmer-sweep {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(250%); }
 }
 
 /* 空状态 */

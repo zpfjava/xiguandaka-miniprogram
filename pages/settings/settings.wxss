@@ -201,6 +201,14 @@
   margin-right: 8rpx;
 }
 
+/* 通用设置空状态 */
+.setting-empty-hint {
+  padding: 40rpx 30rpx;
+  text-align: center;
+  font-size: 26rpx;
+  color: #BBBBBB;
+}
+
 /* 底部信息 */
 .footer-info {
   padding: 60rpx 30rpx 30rpx;

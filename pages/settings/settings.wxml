@@ -46,41 +46,6 @@
     </view>
   </view>
 
-  <!-- 设置分组 - 通用 -->
-  <view class="setting-group">
-    <view class="group-title">通用设置</view>
-    
-    <view class="setting-item">
-      <view class="item-left">
-        <text class="item-icon">🔔</text>
-        <view class="item-text-wrap">
-          <text class="item-text">打卡提醒</text>
-          <text class="item-desc">{{settings.reminder ? '每天 ' + settings.reminderTime + ' 提醒' : '已关闭'}}</text>
-        </view>
-      </view>
-      <switch 
-        checked="{{settings.reminder}}" 
-        color="#7ED957"
-        bindchange="toggleSetting"
-        data-key="reminder"
-      />
-    </view>
-
-    <view class="setting-item">
-      <view class="item-left">
-        <text class="item-icon">🕐</text>
-        <text class="item-text">提醒时间</text>
-      </view>
-      <picker 
-        mode="time" 
-        value="{{settings.reminderTime}}" 
-        bindchange="onTimeChange"
-      >
-        <view class="item-value">{{settings.reminderTime}} ›</view>
-      </picker>
-    </view>
-
-  </view>
 
   <!-- 设置分组 - 数据管理 -->
   <view class="setting-group">

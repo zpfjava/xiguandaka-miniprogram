@@ -104,6 +104,7 @@
       <view class="menu-item" bindtap="goToParent">
         <view class="menu-icon">👨‍👩‍👧</view>
         <view class="menu-text">家长绑定</view>
+        <view class="menu-badge coming-soon">待开发</view>
         <view class="menu-arrow">›</view>
       </view>
 

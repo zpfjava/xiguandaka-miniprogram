@@ -11,6 +11,23 @@ function padZero(n) {
   return n < 10 ? '0' + n : '' + n
 }
 
+/**
+ * 将日期值格式化为 'YYYY-MM-DD' 字符串
+ * 兼容 Date 对象、ISO 字符串、时间戳等各种格式
+ */
+function formatDate(dateVal) {
+  if (!dateVal) return ''
+  var d = dateVal
+  if (typeof d === 'string') {
+    // 云数据库有时返回 ISO 格式字符串
+    d = new Date(d)
+  } else if (typeof d === 'number') {
+    d = new Date(d)
+  }
+  if (!(d instanceof Date) || isNaN(d.getTime())) return ''
+  return d.getFullYear() + '-' + padZero(d.getMonth() + 1) + '-' + padZero(d.getDate())
+}
+
 Page({
   data: {
     currentStars: null,
@@ -150,24 +167,68 @@ Page({
     })
   },
 
+  /**
+   * 安全值提取：确保字段是期望的标量类型（字符串/数字）
+   * 防止云数据库返回 Date 对象、嵌套对象等导致 [object Object]
+   */
+  _safeStr: function(val, fallback) {
+    if (val === undefined || val === null) return (fallback === undefined ? '' : fallback)
+    if (typeof val === 'string') return val
+    if (typeof val === 'number') return String(val)
+    // 对象/Date 等非标量类型 → 转为字符串或使用 fallback
+    if (typeof val === 'object') {
+      // Date 对象
+      if (val instanceof Date && !isNaN(val.getTime())) {
+        return formatDate(val)
+      }
+      // 尝试取 .text 或 .value 等常见子字段
+      if (val.text) return this._safeStr(val.text, fallback)
+      if (val.value !== undefined) return this._safeStr(val.value, fallback)
+    }
+    return (fallback === undefined ? '' : fallback)
+  },
+
+  _safeNum: function(val, fallback) {
+    if (val === undefined || val === null) return (fallback === undefined ? 0 : fallback)
+    if (typeof val === 'number') return val
+    if (typeof val === 'string') {
+      var n = parseInt(val, 10)
+      return isNaN(n) ? (fallback || 0) : n
+    }
+    if (typeof val === 'object' && val.value !== undefined) return this._safeNum(val.value, fallback)
+    return (fallback === undefined ? 0 : fallback)
+  },
+
   processWishes: function(wishes) {
     var that = this
     var currentStars = that.data.currentStars
 
     var processed = []
     for (var i = 0; i < (wishes || []).length; i++) {
+      var raw = wishes[i] || {}
       var w = {}
-      for (var k in wishes[i]) { w[k] = wishes[i][k] }
-      // 后端返回的是 starsCost，前端展示用 costStars
-      w.costStars = w.starsCost || w.costStars || 0
-      // 兼容处理：如果有 savedStars 就用，否则为 0
-      if (w.savedStars === undefined) {
-        w.savedStars = 0
-      }
+
+      // 🔑 只复制安全需要的字段，避免把 Date 对象等非标量数据带入渲染
+      w.id = raw._id || raw.id || ''
+      w._id = raw._id || raw.id || ''
+      w.title = that._safeStr(raw.title, '')
+      w.description = that._safeStr(raw.description, '')
+      w.emoji = that._safeStr(raw.emoji, '🎁')
+      w.status = that._safeStr(raw.status, 'pending')
+
+      // 后端返回的是 starsCost，前端展示用 costStars（确保是数字）
+      w.starsCost = that._safeNum(raw.starsCost, that._safeNum(raw.costStars, 0))
+      w.costStars = w.starsCost
+
+      // savedStars 必须是数字
+      w.savedStars = that._safeNum(raw.savedStars, 0)
+
       w.progressPercent = w.costStars > 0 ? Math.min(100, Math.round((w.savedStars / w.costStars) * 100)) : 0
       w.canSave = w.status === 'pending' && w.savedStars < w.costStars
       // 兑换条件：已存入星星足够（存满即可兑换），不依赖当前可用星星数
       w.canRedeem = w.status === 'pending' && w.savedStars >= w.costStars
+      // 🔑 将 redeemedAt (Date 对象) 格式化为 redeemedDate (字符串)，防止 [object Object]
+      w.redeemedDate = formatDate(raw.redeemedAt)
       processed.push(w)
     }
 
@@ -216,7 +277,20 @@ Page({
       filtered = wishes
     }
 
-    this.setData({ filteredWishes: filtered })
+    // 🔑 同步重新计算 Tab 计数（乐观更新后 wishes 已变化，需同步更新 badge 数字）
+    var pendingCount = 0
+    var redeemedCount = 0
+    for (var k = 0; k < wishes.length; k++) {
+      if (wishes[k].status === 'pending') pendingCount++
+      else if (wishes[k].status === 'redeemed') redeemedCount++
+    }
+
+    this.setData({
+      filteredWishes: filtered,
+      pendingCount: pendingCount,
+      redeemedCount: redeemedCount,
+      totalCount: wishes.length
+    })
   },
 
   /**
@@ -248,8 +322,16 @@ Page({
   onDescInput: function(e) { this.setData({ 'form.description': e.detail.value }) },
 
   onCostInput: function(e) {
-    var val = parseInt(e.detail.value) || 0
-    val = Math.max(5, Math.min(9999, val))
+    var raw = e.detail.value
+    // 允许临时为空（用户正在删除输入），不强制下限
+    // 只在最终提交 saveWish 时校验 >= 5
+    if (raw === '' || raw === null || raw === undefined) {
+      this.setData({ 'form.costStars': '' })
+      return
+    }
+    var val = parseInt(raw) || 0
+    if (val < 0) val = 0
+    if (val > 9999) val = 9999
     this.setData({ 'form.costStars': val })
   },
 
@@ -269,6 +351,14 @@ Page({
     var saving = that.data.saving
     if (saving) return
     if (!form.title.trim()) { wx.showToast({ title: '请输入愿望名称', icon: 'none' }); return }
+
+    // 校验星星数（允许用户输入过程中为空，但提交时必须 >= 5）
+    var costStars = parseInt(form.costStars) || 0
+    if (costStars < 5) {
+      wx.showToast({ title: '星星数至少需要 5 颗', icon: 'none' })
+      that.setData({ 'form.costStars': 5 })
+      return
+    }
 
     that.setData({ saving: true })
 
@@ -311,21 +401,43 @@ Page({
           wishlistApi.redeem(itemId).then(function(res) {
             wx.hideLoading()
             if (res.success) {
-              // 🔑 乐观更新：立即标记为已兑换
+              // 🔑 乐观更新：基于当前页面数据本地计算，不触发后台刷新
               var wishes = that.data.wishes
               var updatedWishes = []
               for (var i = 0; i < wishes.length; i++) {
-                var w = {}
-                for (var k in wishes[i]) { w[k] = wishes[i] }
-                if ((w.id || w._id) === itemId) { w.status = 'redeemed' }
+                var raw = wishes[i] || {}
+                var w = {
+                  id: raw._id || raw.id || '',
+                  _id: raw._id || raw.id || '',
+                  title: that._safeStr(raw.title, ''),
+                  description: that._safeStr(raw.description, ''),
+                  emoji: that._safeStr(raw.emoji, '🎁'),
+                  status: that._safeStr(raw.status, 'pending'),
+                  starsCost: that._safeNum(raw.starsCost, 0),
+                  costStars: that._safeNum(raw.starsCost, that._safeNum(raw.costStars, 0)),
+                  savedStars: that._safeNum(raw.savedStars, 0),
+                  redeemedDate: raw.redeemedDate || ''
+                }
+
+                if ((w.id || w._id) === itemId) {
+                  w.status = 'redeemed'
+                  w.redeemedDate = formatDate(new Date())
+                  w.progressPercent = 100
+                  w.canSave = false
+                  w.canRedeem = false
+                } else {
+                  w.progressPercent = raw.progressPercent || 0
+                  w.canSave = !!raw.canSave
+                  w.canRedeem = !!raw.canRedeem
+                }
                 updatedWishes.push(w)
               }
               that.setData({ wishes: updatedWishes })
               that.filterWishes()
               that._clearCache()
               wx.showToast({ title: '兑换成功！获得' + item.title + ' 🎉', icon: 'success' })
-              // 后台静默刷新
-              that.loadWishData()
+              // ❌ 不再调用 loadWishData！后台刷新会用对象型字段覆盖正确数据导致 [object Object] 闪烁
+              // ✅ 下次用户进入此页面（onShow）时会自动加载最新数据
             } else {
               wx.showToast({ title: res.message || '兑换失败', icon: 'none' })
             }
@@ -462,7 +574,9 @@ Page({
 
   /**
    * 执行存入操作（调用后端 API）
-   * 🔑 优化：乐观更新 UI，不等后端返回就立即刷新页面显示
+   * 🔑 优化：乐观更新 UI，用本地计算结果直接渲染，不触发后台刷新
+   *    后台刷新会导致后端返回的对象型字段覆盖正确的本地数据，产生 [object Object] 闪烁
+   *    下次用户 onShow 进入页面时会自动拉取最新数据，无需此处刷新
    */
   doSaveStars: function(id, amount) {
     var that = this
@@ -471,23 +585,40 @@ Page({
     wishlistApi.saveStars(id, amount).then(function(res) {
       wx.hideLoading()
       if (res.success) {
-        // 🔑 乐观更新：立即更新本地数据，不等 loadWishData 完成
+        // 🔑 乐观更新：基于当前页面数据本地计算，不依赖后端返回
         var wishes = that.data.wishes
         var newStars = (that.data.currentStars || 0) - amount
         var updatedWishes = []
+
         for (var i = 0; i < wishes.length; i++) {
-          var w = {}
-          for (var k in wishes[i]) { w[k] = wishes[i] }
+          var raw = wishes[i] || {}
+          var w = {
+            id: raw._id || raw.id || '',
+            _id: raw._id || raw.id || '',
+            title: that._safeStr(raw.title, ''),
+            description: that._safeStr(raw.description, ''),
+            emoji: that._safeStr(raw.emoji, '🎁'),
+            status: that._safeStr(raw.status, 'pending'),
+            starsCost: that._safeNum(raw.starsCost, 0),
+            costStars: that._safeNum(raw.starsCost, that._safeNum(raw.costStars, 0)),
+            savedStars: that._safeNum(raw.savedStars, 0),
+            redeemedDate: raw.redeemedDate || ''
+          }
+
           if ((w.id || w._id) === id) {
-            w.savedStars = (w.savedStars || 0) + amount
+            w.savedStars = w.savedStars + amount
             w.progressPercent = w.costStars > 0 ? Math.min(100, Math.round((w.savedStars / w.costStars) * 100)) : 0
             w.canSave = w.status === 'pending' && w.savedStars < w.costStars
             w.canRedeem = w.status === 'pending' && w.savedStars >= w.costStars
+          } else {
+            w.progressPercent = raw.progressPercent || 0
+            w.canSave = !!raw.canSave
+            w.canRedeem = !!raw.canRedeem
           }
           updatedWishes.push(w)
         }
 
-        // 立即更新 UI（用户瞬间看到变化）
+        // 立即更新 UI（用户瞬间看到最终状态，无闪烁）
         that.setData({
           currentStars: newStars,
           wishes: updatedWishes
@@ -497,8 +628,8 @@ Page({
 
         wx.showToast({ title: res.message || ('已存入 ' + amount + ' ⭐'), icon: 'success', duration: 1500 })
 
-        // 后台静默刷新（确保与服务器一致）
-        that.loadWishData()
+        // ❌ 不再调用 loadWishData！后台刷新会用对象型字段覆盖正确数据导致 [object Object] 闪烁
+        // ✅ 下次用户进入此页面（onShow）时会自动加载最新数据
       } else {
         wx.showToast({ title: res.message || '存入失败', icon: 'none' })
       }

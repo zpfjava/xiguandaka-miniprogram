@@ -105,30 +105,6 @@
     </button>
   </view>
 
-  <!-- 联系我们 -->
-  <view class="contact-section">
-    <view class="contact-title">📞 其他联系方式</view>
-    
-    <view class="contact-list">
-      <view class="contact-item" bindtap="copyContact" data-value='xiaodaka@example.com'>
-        <view class="contact-icon">📧</view>
-        <view class="contact-info">
-          <view class="contact-name">邮件支持</view>
-          <view class="contact-detail">xiaodaka@example.com</view>
-        </view>
-        <view class="contact-action">复制</view>
-      </view>
-
-      <view class="contact-item" bindtap="copyContact" data-value='400-123-4567'>
-        <view class="contact-icon">📱</view>
-        <view class="contact-info">
-          <view class="contact-name">客服热线</view>
-          <view class="contact-detail">400-123-4567 (工作日 9:00-18:00)</view>
-        </view>
-        <view class="contact-action">复制</view>
-      </view>
-    </view>
-  </view>
 
   <!-- 版本信息 -->
   <view class="version-info">

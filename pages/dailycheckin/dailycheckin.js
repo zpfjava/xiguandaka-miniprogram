@@ -423,7 +423,7 @@ Page({
       that._checkingLock = false
       that.updateMilestones()
       that._saveToCache()
-      wx.showToast({ title: '签到成功！+' + stars + ' ⭐', icon: 'success', duration: 2000 })
+      wx.showToast({ title: '签到成功！+' + stars + ' ⭐', icon: 'success', duration: 1500 })
 
       // 通知首页刷新（清除旧缓存，确保统计数据更新）
       try {
@@ -431,19 +431,21 @@ Page({
         if (app && app.globalData) {
           app.globalData._needRefreshHome = true
         }
-        // 清除首页缓存
         wx.removeStorageSync('home_tasks')
         wx.removeStorageSync('home_stats')
-        // 清除"我的"页面缓存
         wx.removeStorageSync('mine_stats')
       } catch (e) {}
 
-      // 成就自动检查（传入当前连续签到天数）
-      try {
-        achievementUtil.checkAndShow({ currentStreak: ns, totalCheckins: 1 })
-      } catch (e) {
-        console.warn('[doCheckin] 成就检查异常:', e)
-      }
+      // 🔑 延迟展示成就解锁弹窗（等 showToast 结束后再弹 modal，避免被覆盖）
+      //    微信 showToast 和 showModal 不能同时存在，toast 会"吃掉"紧随其后的 modal
+      setTimeout(function() {
+        try {
+          var achievementUtil = require('../../utils/achievement')
+          achievementUtil.showNewAchievements({ currentStreak: ns, totalCheckins: 1 })
+        } catch (e) {
+          console.warn('[doCheckin] 成就展示异常:', e)
+        }
+      }, 1600) // toast duration=1500ms + 100ms 缓冲
 
       dailyCheckinApi.calendar().then(function(cr) {
         if (cr && cr.success && cr.data) that._handleCalendarData(cr.data)

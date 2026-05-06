@@ -8,6 +8,7 @@
 var auth = require('../../utils/auth')
 var constants = require('../../utils/constants')
 var config = require('../../utils/config')
+var achievementUtil = require('../../utils/achievement')
 
 var smsLogin = auth.smsLogin
 var phoneLogin = auth.phoneLogin
@@ -212,6 +213,13 @@ Page({
       wx.removeStorageSync('mine_userInfo')
     } catch (e) {}
 
+    // 🔑 登录/注册成功后主动触发成就检查（异步，不阻塞跳转）
+    try {
+      achievementUtil.checkAndShow({})
+    } catch (e) {
+      console.warn('[login] 成就检查异常:', e)
+    }
+
     // 新用户注册奖励 / 老用户补发奖励提示
     if (extra && extra.bonusStars > 0) {
       var title = extra.isNewUser ? '🎉 注册成功' : '🎁 星星奖励'
@@ -330,8 +338,8 @@ Page({
     }).then(function(result) {
       if (result && (result.id || result._id)) {
         that.setData({ showRegisterModal: false, regLoading: false })
-        wx.showToast({ title: '注册成功', icon: 'success' })
-        setTimeout(function() { wx.switchTab({ url: '/pages/home/home' }) }, 600)
+        // 🔑 统一走 navigateOnSuccess：自动处理缓存清理、奖励提示、成就检查等
+        that.navigateOnSuccess('注册成功', result)
       } else {
         that.setData({ regLoading: false })
       }

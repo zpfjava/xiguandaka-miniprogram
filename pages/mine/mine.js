@@ -206,7 +206,7 @@ Page({
   goToStats: function() { wx.navigateTo({ url: '/pages/stats/stats' }) },
   goToReport: function() { wx.navigateTo({ url: '/pages/report/report' }) },
   goToLeaderboard: function() { wx.navigateTo({ url: '/pages/leaderboard/leaderboard' }) },
-  goToParent: function() { wx.navigateTo({ url: '/pages/parent/parent' }) },
+  goToParent: function() { wx.showToast({ title: '家长绑定功能开发中...', icon: 'none' }) },
   goToHelp: function() { wx.navigateTo({ url: '/pages/help/help' }) },
 
   handleLogout: function() {

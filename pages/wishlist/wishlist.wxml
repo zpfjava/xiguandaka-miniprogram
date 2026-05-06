@@ -74,7 +74,7 @@
           
           <!-- 已兑换标记 -->
           <block wx:if="{{item.status === 'redeemed'}}">
-            <view class="redeemed-badge">✅ 已于 {{item.redeemedDate || '2026-04-20'}} 兑换</view>
+            <view class="redeemed-badge">✅ 已于 {{item.redeemedDate}} 兑换</view>
           </block>
         </view>
 
@@ -177,7 +177,7 @@
           <view class="star-minus" bindtap="decreaseStars">−</view>
           <input
             class="star-number-input"
-            type="number"
+            type="digit"
             value="{{form.costStars}}"
             bindinput="onCostInput"
           />

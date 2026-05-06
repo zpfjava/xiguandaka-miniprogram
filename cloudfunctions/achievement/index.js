@@ -5,6 +5,7 @@
 const cloud = require('wx-server-sdk')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
+const _ = db.command  // 🔑 云数据库命令对象（用于 inc、gt 等操作符）
 
 // 预设成就定义
 const ACHIEVEMENTS = [
@@ -108,16 +109,31 @@ exports.main = async (event, context) => {
       case 'check': {
         // 🔑 data 格式为 { stats: { totalCheckins, totalPlans, ... } }
         const stats = (data && data.stats) ? data.stats : (data || {})
-        console.log('[achievement check] 收到 stats:', JSON.stringify(stats).slice(0, 300))
+        console.log('[achievement check] 收到 stats:', JSON.stringify(stats).slice(0, 500))
         const newUnlocks = []
 
         for (const ach of ACHIEVEMENTS) {
-          // 检查是否已解锁
-          const existing = (await db.collection('user_achievements').where({
-            userId,
-            achievementId: ach.id
-          })).data
-          if (existing.length) continue
+          // 🔑 用 count() 代替 get() 检查是否已解锁（更可靠，避免 .data 为空导致的误判）
+          let alreadyUnlocked = false
+          try {
+            const countRes = await db.collection('user_achievements').where({
+              userId,
+              achievementId: ach.id
+            }).count()
+            alreadyUnlocked = (countRes.total || 0) > 0
+          } catch (queryErr) {
+            console.warn('[achievement check] 查询已解锁记录失败(非致命):', ach.id, queryErr.message)
+            // 查询失败时保守处理：假设已存在，避免重复发放
+            alreadyUnlocked = true
+          }
+
+          // 🔑 详细日志
+          if (ach.id === 'plans_5' || ach.id === 'first_checkin') {
+            console.log('[achievement check]', ach.id, '→ alreadyUnlocked=', alreadyUnlocked, ', 条件值=', 
+              ach.id === 'plans_5' ? stats.totalPlans : stats.totalCheckins)
+          }
+          
+          if (alreadyUnlocked) continue
 
           let shouldUnlock = false
           switch (ach.id) {
@@ -165,8 +181,8 @@ exports.main = async (event, context) => {
             // 奖励星星
             await db.collection('users').where({ _id: userId }).update({
               data: {
-                currentStars: _.command.inc(ach.starsReward),
-                totalStars: _.command.inc(ach.starsReward),
+                currentStars: _.inc(ach.starsReward),
+                totalStars: _.inc(ach.starsReward),
                 updatedAt: new Date(),
               }
             })
@@ -243,10 +259,10 @@ exports.main = async (event, context) => {
         let totalStars = 0
         for (const c of allCheckins) totalStars += c.starsGot || 0
 
-        // 获取活跃计划数
+        // 🔑 获取全部计划数（不限制 isActive，因为 plans_5 成就是"创建5个计划"）
         let totalPlans = 0
         try {
-          const plansCountRes = await db.collection('study_plans').where({ userId, isActive: true }).count()
+          const plansCountRes = await db.collection('study_plans').where({ userId }).count()
           totalPlans = plansCountRes.total || 0
         } catch (e) { /* ignore */ }
 
@@ -267,11 +283,18 @@ exports.main = async (event, context) => {
         // 2. 逐个检查成就并解锁
         const newUnlocks = []
         for (const ach of ACHIEVEMENTS) {
-          // 检查是否已解锁
-          const existing = (await db.collection('user_achievements').where({
-            userId, achievementId: ach.id
-          })).data
-          if (existing && existing.length > 0) continue
+          // 🔑 防御性检查：确保已解锁查询结果有效（.data 可能为 undefined）
+          let existing = []
+          try {
+            const queryRes = await db.collection('user_achievements').where({
+              userId, achievementId: ach.id
+            }).get()
+            existing = (queryRes && queryRes.data) ? queryRes.data : []
+          } catch (queryErr) {
+            console.warn('[achievement backfill] 查询已解锁记录失败(非致命):', ach.id, queryErr.message)
+            existing = []
+          }
+          if (existing.length > 0) continue
 
           let shouldUnlock = false
           switch (ach.id) {
@@ -299,8 +322,8 @@ exports.main = async (event, context) => {
             // 奖励星星
             await db.collection('users').where({ _id: userId }).update({
               data: {
-                currentStars: _.command.inc(ach.starsReward),
-                totalStars: _.command.inc(ach.starsReward),
+                currentStars: _.inc(ach.starsReward),
+                totalStars: _.inc(ach.starsReward),
                 updatedAt: new Date(),
               }
             })

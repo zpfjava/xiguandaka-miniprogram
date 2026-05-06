@@ -239,21 +239,76 @@ Page({
 
     doSave().then(function(res) {
       if (res.success) {
-        // API 成功：先重置 saving 状态，再刷新和关闭
+        // API 成功：先重置 saving 状态
         that.setData({ saving: false })
+
+        // 🔑🔑🔑 保存计划后检查成就（创建或编辑都检查，因为都可能达到成就条件）
+        var api = require('../../utils/api')
+        // 🔑 使用当前本地计划数：新建时 +1，编辑时用当前数
+        var currentPlanCount = editingPlan
+          ? (that.data.plans || []).length
+          : (that.data.plans || []).length + 1
+        console.log('[plans] 保存计划成功，开始检查成就, editingPlan=', !!editingPlan, ', currentPlanCount=', currentPlanCount, ', 原有计划数=', (that.data.plans || []).length)
+
+        api.achievementApi.check({ totalPlans: currentPlanCount }).then(function(achRes) {
+          console.log('[plans] 成就检查返回:', JSON.stringify(achRes))
+          if (achRes && achRes.success && achRes.data) {
+            var unlocked = achRes.data
+            if (!Array.isArray(unlocked)) {
+              unlocked = unlocked.unlocked || []
+            }
+            console.log('[plans] 解锁的成就数量:', unlocked.length)
+            if (unlocked && unlocked.length > 0) {
+              // 有新成就！展示弹窗
+              var names = unlocked.map(function(u) { return (u.name || u.id) }).join(', ')
+              console.log('[plans] 展示成就解锁弹窗:', names)
+              setTimeout(function() {
+                if (unlocked.length === 1) {
+                  var ach = unlocked[0]
+                  wx.showModal({
+                    title: '🎉 成就解锁！',
+                    content: (ach.icon || '🏆') + ' ' + (ach.name || '') + '\n' + (ach.description || ''),
+                    showCancel: false,
+                    confirmText: '太棒了',
+                    confirmColor: '#FF9A3C'
+                  })
+                  if (ach.starsReward > 0) {
+                    setTimeout(function() {
+                      wx.showToast({ title: '+' + ach.starsReward + ' ⭐', icon: 'success', duration: 1500 })
+                    }, 1800)
+                  }
+                } else {
+                  var allNames = []
+                  var totalBonus = 0
+                  for (var i = 0; i < unlocked.length; i++) {
+                    var a = unlocked[i]
+                    allNames.push((a.icon || '🏆') + ' ' + (a.name || ''))
+                    totalBonus += (a.starsReward || 0)
+                  }
+                  wx.showModal({
+                    title: '🏆 连续解锁成就！',
+                    content: '恭喜解锁 ' + unlocked.length + ' 个成就！\n\n' + allNames.join('\n') + (totalBonus > 0 ? '\n\n共获得 +' + totalBonus + ' ⭐' : ''),
+                    showCancel: false,
+                    confirmText: '查看全部',
+                    confirmColor: '#FF9A3C'
+                  })
+                }
+              }, 500)
+            }
+          }
+        }).catch(function(achErr) {
+          console.error('[plans] 成就检查异常:', achErr)
+        })
+
+        // 刷新计划列表并关闭弹窗
         that.loadPlans()
         that.hideAddModal()
-        // 🔑 创建新计划后检查成就（如"创建5个计划"）
+
         if (!editingPlan) {
-          var achievementUtil = require('../../utils/achievement')
-          // 🔑 传入当前计划数+1（刚创建了一个），避免再次查询的时序问题
-          var currentPlanCount = (that.data.plans || []).length + 1
-          // 🔑 先检查成就，再根据是否有成就决定是否显示 toast（避免 showModal 与 showToast 冲突）
-          achievementUtil.checkAndShow({ totalPlans: currentPlanCount })
-          // 延迟显示 toast，确保成就弹窗优先
+          // 延迟显示 toast，确保成就弹窗优先展示
           setTimeout(function() {
             wx.showToast({ title: '已创建', icon: 'success' })
-          }, 500)
+          }, 1000)
         } else {
           wx.showToast({ title: '已更新', icon: 'success' })
         }

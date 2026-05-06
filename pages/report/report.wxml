@@ -3,7 +3,7 @@
   <!-- 顶部 -->
   <view class="page-header">
     <view class="header-title">📈 学习报告</view>
-    <view class="header-subtitle">你的专属学习分析 <text class="beta-tag">即将上线</text></view>
+    <view class="header-subtitle">你的专属学习分析</view>
   </view>
 
   <!-- 时间范围 -->
@@ -34,12 +34,12 @@
           <view class="detail-label">总打卡</view>
         </view>
       </view>
-      
+
       <view class="detail-item">
         <view class="detail-icon">📚</view>
         <view class="detail-info">
-          <view class="detail-value">{{report.subjectCount || 0}} 科</view>
-          <view class="detail-label">涉及科目</view>
+          <view class="detail-value">{{report.subjectCount || 0}} 个</view>
+          <view class="detail-label">学习计划</view>
         </view>
       </view>
 
@@ -52,10 +52,26 @@
       </view>
 
       <view class="detail-item">
+        <view class="detail-icon">📅</view>
+        <view class="detail-info">
+          <view class="detail-value">{{report.activeDays || 0}} 天</view>
+          <view class="detail-label">活跃天数</view>
+        </view>
+      </view>
+
+      <view class="detail-item">
+        <view class="detail-icon">📊</view>
+        <view class="detail-info">
+          <view class="detail-value">{{report.avgPerDay || 0}}</view>
+          <view class="detail-label">日均打卡</view>
+        </view>
+      </view>
+
+      <view class="detail-item">
         <view class="detail-icon">🔥</view>
         <view class="detail-info">
           <view class="detail-value">{{report.streakDays || 0}} 天</view>
-          <view class="detail-label">连续天数</view>
+          <view class="detail-label">签到天数</view>
         </view>
       </view>
     </view>
@@ -113,7 +129,7 @@
           <view class="sr-stars">+{{item.stars}}⭐</view>
           
           <view class="sr-bar-bg">
-            <view class="sr-bar-fill" style="width: {{item.percent}}%"></view>
+            <view class="sr-bar-fill" style="width: {{item.percent}}%; background-color: {{item.color || '#FF9A3C'}}"></view>
           </view>
         </view>
       </view>

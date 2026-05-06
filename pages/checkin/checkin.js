@@ -172,9 +172,10 @@ Page({
             wx.removeStorageSync('stats_cache')
           } catch (e) {}
 
-          // 成就检查已由 checkin/create 云函数内部自动完成
-          // （云函数在打卡成功后会统计最新数据并检查成就解锁）
-          // 不再前端重复调用，避免双重触发导致重复弹窗/重复奖励
+          // 🔑 成就检查延迟到用户关闭打卡成功弹窗后再触发
+          //    原因：wx.showModal（成就弹窗）与自定义 success-modal 同时展示会冲突/被遮挡
+          //    方式：在 goBack 关闭弹窗时触发 checkAndShow
+          that._pendingAchievementCheck = true
         } else {
           // 后端返回业务错误
           wx.showToast({ title: res.message || '打卡失败', icon: 'none' })
@@ -223,6 +224,9 @@ Page({
             wx.removeStorageSync('mine_stats')
             wx.removeStorageSync('stats_cache')
           } catch (e) {}
+
+          // 🔑 同样设置成就检查标记（图片上传失败的 fallback 分支）
+          that._pendingAchievementCheck = true
         } else {
           wx.showToast({ title: res.message || '打卡失败', icon: 'none' })
           that.setData({ submitting: false })
@@ -319,6 +323,23 @@ Page({
   },
 
   goBack: function() {
+    var that = this
+    // 先关闭打卡成功弹窗
+    that.setData({ showSuccessModal: false })
+
+    // 🔑 延迟触发成就检查（等打卡弹窗完全关闭后再 showModal，避免冲突）
+    if (that._pendingAchievementCheck) {
+      that._pendingAchievementCheck = false
+      setTimeout(function() {
+        try {
+          achievementUtil.checkAndShow({ totalCheckins: 1 })
+        } catch (e) {
+          console.warn('[checkin] 成就检查异常:', e)
+        }
+      }, 500)
+    }
+
+    // 返回上一页
     wx.navigateBack()
-  }
+  },
 })

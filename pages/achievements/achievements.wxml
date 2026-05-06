@@ -24,10 +24,27 @@
     </view>
   </view>
 
-  <!-- 加载中 -->
-  <view class="loading-tip" wx:if="{{loading}}">
-    <text>正在加载成就数据...</text>
-  </view>
+  <!-- 骨架屏（加载中占位） -->
+  <block wx:if="{{loading}}">
+    <view class="section-title-bar">
+      <text class="shimmer" style="width:180rpx;height:32rpx;border-radius:8rpx;display:inline-block"></text>
+    </view>
+
+    <view class="achievement-list">
+      <view class="achievement-card skeleton-card" wx:for="{{[1,2,3,4]}}" wx:key="*this">
+        <view class="shimmer skeleton-icon"></view>
+        <view class="skeleton-info">
+          <view class="shimmer" style="width:55%;height:30rpx;border-radius:8rpx;margin-bottom:12rpx"></view>
+          <view class="shimmer" style="width:80%;height:22rpx;border-radius:6rpx;margin-bottom:14rpx"></view>
+          <view class="shimmer" style="width:45%;height:18rpx;border-radius:6rpx"></view>
+        </view>
+        <view class="skeleton-reward">
+          <view class="shimmer" style="width:80rpx;height:36rpx;border-radius:18rpx;margin-bottom:10rpx"></view>
+          <view class="shimmer" style="width:70rpx;height:32rpx;border-radius:16rpx"></view>
+        </view>
+      </view>
+    </view>
+  </block>
 
   <!-- 空状态 -->
   <view class="empty-state" wx:if="{{!loading && isEmpty}}">

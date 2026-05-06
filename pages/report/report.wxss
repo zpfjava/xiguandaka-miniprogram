@@ -71,15 +71,16 @@
   gap: 10rpx; 
 }
 .detail-item {
-  width: calc(50% - 5rpx);
+  width: calc(33.33% - 7rpx);
   display: flex;
+  flex-direction: column;
   align-items: center;
-  padding: 12rpx;
+  padding: 16rpx 8rpx;
   background-color: #FAFAFA;
   border-radius: 14rpx;
 }
-.detail-icon { font-size: 28rpx; margin-right: 10rpx; }
-.detail-info { }
+.detail-icon { font-size: 32rpx; margin-bottom: 6rpx; }
+.detail-info { text-align: center; }
 .detail-value { font-size: 26rpx; font-weight: bold; color: #333333; }
 .detail-label { font-size: 20rpx; color: #999999; }
 

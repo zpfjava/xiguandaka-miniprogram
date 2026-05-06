@@ -14,19 +14,37 @@ function padZero(n) {
 }
 
 /**
- * 构建默认热力图数据（最近 28 天 = 4 周，适合手机屏幕）
+ * 构建默认热力图数据（最近 N 天，从最近周一对齐，确保星期头正确）
+ * @param {number} totalDays - 显示的总天数（默认 28 = 4 周）
  */
-function _buildDefaultHeatmap() {
+function _buildDefaultHeatmap(totalDays) {
+  totalDays = totalDays || 28
   var now = new Date()
+  // 转为北京时间
+  var beijingOffset = 8 * 60 * 60 * 1000
+  var beijingNow = new Date(now.getTime() + beijingOffset)
+  // 北京时间的今天是星期几（0=周日, 1=周一, ..., 6=周六）
+  var beijingDay = beijingNow.getUTCDay()
+  // 转为 Monday=0 ... Sunday=6
+  var mondayIndex = beijingDay === 0 ? 6 : beijingDay - 1
+
+  // 回溯到最近的周一
+  var startDate = new Date(beijingNow)
+  startDate.setUTCDate(beijingNow.getUTCDate() - mondayIndex)
+
   var days = []
-  for (var i = 27; i >= 0; i--) {
-    var d = new Date(now)
-    d.setDate(d.getDate() - i)
+  for (var i = 0; i < totalDays; i++) {
+    var d = new Date(startDate)
+    d.setUTCDate(startDate.getUTCDate() + i)
+    // 用北京时间构造日期字符串
+    var dateStr = d.getUTCFullYear() + '-' + padZero(d.getUTCMonth() + 1) + '-' + padZero(d.getUTCDate())
+    var weekday = d.getUTCDay() // 0=周日 1=周一...6=周六
     days.push({
-      date: d.getFullYear() + '-' + padZero(d.getMonth() + 1) + '-' + padZero(d.getDate()),
-      day: d.getDate(),
+      date: dateStr,
+      day: d.getUTCDate(),
       level: 0,
-      count: 0
+      count: 0,
+      weekday: weekday
     })
   }
   return days
@@ -74,6 +92,8 @@ Page({
   },
 
   onShow: function() {
+    // 缓存优先：立即从本地缓存恢复数据，实现 0ms 响应
+    this._restoreFromCache()
     // 防抖：如果正在加载中则不重复请求
     if (!this.data._loadingLock) {
       this._fetchFreshData()
@@ -168,48 +188,40 @@ Page({
   processHeatmap: function(apiData) {
     if (!apiData) return
 
-    var heatmapData = []
+    var that = this
+    var days = that._getDaysForRange(that.data.activeRange)
+    // 始终从默认骨架开始（已对齐到周一），确保星期头正确
+    var heatmapData = _buildDefaultHeatmap(days)
     var timeSlots = []
 
     // 兼容两种返回格式：
-    // 旧格式: apiData 直接是 heatmap 对象 { '2026-05-01': 2, ... }
-    // 新格式: apiData = { heatmap: {...}, bySubject: {...} }
+    // 云函数返回: { heatmap: { '2026-05-01': 3, ... }, bySubject: {...}, timeSlots: [...] }
+    // 后端 NestJS 返回: { heatmap: [{date, day, count, level, ...}], ... }
     var rawHeatmap = apiData.heatmap || apiData
 
-    // 热力图数据转换
+    // 构建日期→数据的映射，用于快速查找
+    var dataMap = {}
+
     if (rawHeatmap && typeof rawHeatmap === 'object' && !Array.isArray(rawHeatmap)) {
+      // 云函数格式：{ '2026-05-01': 3, ... } 或 { '2026-05-01': {level:2, count:3}, ... }
       var keys = Object.keys(rawHeatmap)
       for (var i = 0; i < keys.length; i++) {
         var item = rawHeatmap[keys[i]]
         if (typeof item === 'object') {
-          heatmapData.push({
-            date: keys[i],
-            day: parseInt(keys[i].split('-')[2]) || 1,
-            level: item.level || Math.min(4, item.count || 0),
-            count: item.count || 0
-          })
+          dataMap[keys[i]] = { level: item.level || Math.min(4, item.count || 0), count: item.count || 0 }
         } else if (typeof item === 'number') {
-          heatmapData.push({
-            date: keys[i],
-            day: parseInt(keys[i].split('-')[2]) || 1,
-            level: Math.min(4, item),
-            count: item
-          })
+          dataMap[keys[i]] = { level: Math.min(4, item), count: item }
         }
-      }
-    } else if (Array.isArray(rawHeatmap)) {
-      for (var j = 0; j < rawHeatmap.length; j++) {
-        heatmapData.push({
-          date: rawHeatmap[j].date || '',
-          day: rawHeatmap[j].day || 1,
-          level: rawHeatmap[j].level || 0,
-          count: rawHeatmap[j].count || 0
-        })
       }
     }
 
-    if (heatmapData.length === 0) {
-      heatmapData = _buildDefaultHeatmap()
+    // 将 API 数据合并到骨架上（按 date 匹配）
+    for (var k = 0; k < heatmapData.length; k++) {
+      var cellDate = heatmapData[k].date
+      if (dataMap[cellDate]) {
+        heatmapData[k].level = dataMap[cellDate].level
+        heatmapData[k].count = dataMap[cellDate].count
+      }
     }
 
     // 时段数据转换（如果后端有返回）

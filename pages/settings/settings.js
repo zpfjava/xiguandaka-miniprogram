@@ -37,27 +37,70 @@ Page({
     this.calculateCacheSize()
   },
 
+  /**
+   * 根据 grade 值查找 GRADES 数组索引，确保 grade 文本与 picker 索引始终同步
+   * @param {string} gradeVal - 年级文本
+   * @returns {{ index: number, grade: string }}
+   */
+  _resolveGrade: function(gradeVal) {
+    var g = gradeVal || ''
+    // 精确匹配
+    for (var i = 0; i < GRADES.length; i++) {
+      if (GRADES[i] === g) return { index: i, grade: g }
+    }
+    // 去空格模糊匹配
+    var trimmed = g.replace(/\s+/g, '')
+    for (var j = 0; j < GRADES.length; j++) {
+      if (GRADES[j].replace(/\s+/g, '') === trimmed) return { index: j, grade: GRADES[j] }
+    }
+    // 默认 fallback
+    return { index: 2, grade: GRADES[2] } // 小学三年级
+  },
+
   loadUserInfo: function() {
     var that = this
+
+    // 🔑 先从本地缓存尝试恢复（确保即使 API 慢也能立即回显）
+    try {
+      var cachedUserInfo = wx.getStorageSync('home_userInfo')
+      if (cachedUserInfo) {
+        var cached = typeof cachedUserInfo === 'string' ? JSON.parse(cachedUserInfo) : cachedUserInfo
+        if (cached && (cached.nickname || cached.grade)) {
+          var resolved = that._resolveGrade(cached.grade)
+          that.setData({
+            userInfo: {
+              nickname: cached.nickname || '',
+              avatar: cached.avatar || '😊',
+              grade: resolved.grade
+            },
+            gradeIndex: resolved.index,
+            _originalInfo: {
+              nickname: cached.nickname || '',
+              grade: resolved.grade
+            }
+          })
+        }
+      }
+    } catch (e) {}
+
+    // 再从服务器拉取最新数据（覆盖缓存）
     userApi.getMe().then(function(res) {
+      console.log('[settings] getMe 返回:', JSON.stringify(res && res.data ? { nickname: res.data.nickname, grade: res.data.grade } : res))
       if (res.success && res.data) {
         var info = res.data
-        var gradeIndex = -1
-        for (var i = 0; i < GRADES.length; i++) {
-          if (GRADES[i] === (info.grade || '小学三年级')) { gradeIndex = i; break }
-        }
+        var resolved = that._resolveGrade(info.grade)
 
         that.setData({
           userInfo: {
             nickname: info.nickname || '',
             avatar: info.avatar || '😊',
-            grade: info.grade || ''
+            grade: resolved.grade
           },
-          gradeIndex: gradeIndex >= 0 ? gradeIndex : 2,
+          gradeIndex: resolved.index,
           // 🔑 保存原始值用于变更检测
           _originalInfo: {
             nickname: info.nickname || '',
-            grade: info.grade || ''
+            grade: resolved.grade
           }
         })
       }
@@ -161,6 +204,8 @@ Page({
       that._savingLock = false
 
       if (res.success) {
+        wx.showToast({ title: '保存成功', icon: 'success' })
+
         // 更新原始值为当前值（用于后续变更检测）→ 直接变灰
         that.setData({
           saving: false,
@@ -385,36 +430,76 @@ Page({
 
   /**
    * 显示云函数报告结果
+   * 弹窗和复制内容都是精美格式化文本（不是 JSON）
    */
   _showReportResult: function(report) {
-    var reportText = JSON.stringify(report, null, 2)
+    // 构建格式化报告文本（弹窗展示 + 复制内容共用）
+    var lines = []
+    lines.push('📋 成长习惯打卡 - 学习报告')
+    lines.push('═════════════════════════')
+    lines.push('')
 
-    var summary = '📋 学习报告\n'
     if (report.summary) {
-      summary += '⏰ 统计周期: ' + (report.period === 'week' ? '本周' : report.period === 'month' ? '本月' : '近30天') + '\n'
-      summary += '✅ 总打卡: ' + (report.summary.totalCheckins || 0) + ' 次\n'
-      summary += '⭐ 获得星星: ' + (report.summary.totalStars || 0) + ' 颗\n'
-      summary += '🔥 连续签到: ' + ((report.streak && report.streak.current) || 0) + ' 天\n'
-      summary += '📚 活跃计划: ' + (report.summary.totalPlans || 0) + ' 个\n'
-      summary += '📅 活跃天数: ' + (report.summary.activeDays || 0) + ' 天\n'
-      if (report.summary.avgPerDay > 0) {
-        summary += '📊 日均打卡: ' + report.summary.avgPerDay + ' 次\n'
+      var periodLabel = '近30天'
+      if (report.period === 'week') periodLabel = '本周'
+      else if (report.period === 'month') periodLabel = '本月'
+
+      lines.push('⏰ 统计周期：' + periodLabel)
+      lines.push('✅ 总打卡次数：' + (report.summary.totalCheckins || 0) + ' 次')
+      lines.push('⭐ 获得星星：' + (report.summary.totalStars || 0) + ' 颗')
+      lines.push('🔥 连续签到：' + ((report.streak && report.streak.current) || 0) + ' 天')
+      lines.push('📚 活跃计划：' + (report.summary.totalPlans || 0) + ' 个（其中 ' + (report.summary.activePlans || 0) + ' 个进行中）')
+      lines.push('📅 活跃天数：' + (report.summary.activeDays || 0) + ' 天')
+      if (report.summary.dailyCheckinDays > 0) {
+        lines.push('📝 签到天数：' + report.summary.dailyCheckinDays + ' 天（获得 ' + (report.summary.dailyCheckinStars || 0) + ' ⭐）')
       }
+      if (report.summary.avgPerDay > 0) {
+        lines.push('📊 日均打卡：' + report.summary.avgPerDay + ' 次')
+      }
+      lines.push('')
     }
 
     if (report.subjects && report.subjects.length > 0) {
-      summary += '\n📖 学科分布:\n'
-      for (var i = 0; i < Math.min(report.subjects.length, 5); i++) {
-        var s = report.subjects[i]
-        summary += '  · ' + s.subject + ': ' + s.count + '次 (' + (s.stars || 0) + '⭐)\n'
+      lines.push('📖 科目分布：')
+      // 按星星数降序排列
+      var sortedSubjects = report.subjects.slice().sort(function(a, b) { return (b.stars || 0) - (a.stars || 0) })
+      for (var i = 0; i < sortedSubjects.length; i++) {
+        var s = sortedSubjects[i]
+        lines.push('   ' + s.subject + ' — ' + s.count + ' 次，' + (s.stars || 0) + ' ⭐')
       }
+      lines.push('')
     }
 
-    summary += '\n💡 点击确定复制完整报告'
+    if (report.dailyStats && Object.keys(report.dailyStats).length > 0) {
+      lines.push('📅 每日打卡明细：')
+      var dailyKeys = Object.keys(report.dailyStats).sort()
+      for (var j = 0; j < dailyKeys.length; j++) {
+        lines.push('   ' + dailyKeys[j] + '：' + report.dailyStats[dailyKeys[j]] + ' 次')
+      }
+      lines.push('')
+    }
+
+    lines.push('═════════════════════════')
+    lines.push('生成时间：' + new Date().toLocaleString('zh-CN'))
+    lines.push('导出自：成长习惯打卡助手')
+    var reportText = lines.join('\n')
+
+    // 弹窗摘要（精简版，避免内容过长被截断）
+    var shortSummary = ''
+    if (report.summary) {
+      var pLabel2 = report.period === 'week' ? '本周' : report.period === 'month' ? '本月' : '近30天'
+      shortSummary += '周期：' + pLabel2 + '\n'
+      shortSummary += '打卡：' + (report.summary.totalCheckins || 0) + '次 | '
+      shortSummary += '星星：' + (report.summary.totalStars || 0) + '颗\n'
+      shortSummary += '连续：' + ((report.streak && report.streak.current) || 0) + '天 | '
+      shortSummary += '活跃：' + (report.summary.activeDays || 0) + '天'
+    }
+
+    shortSummary += '\n\n💡 点击确定复制完整报告'
 
     wx.showModal({
-      title: '学习报告',
-      content: summary,
+      title: '📋 学习报告',
+      content: shortSummary || '正在生成报告...',
       showCancel: true,
       cancelText: '关闭',
       confirmText: '复制详情',
