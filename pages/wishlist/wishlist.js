@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿/**
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿/**
  * 小打卡 - 愿望清单页
  * 首帧优化：onLoad 预渲染完整页面结构 → 页面出现即完整
  */
@@ -307,15 +307,30 @@ Page({
       confirmColor: '#FF9A3C',
       success: function(res) {
         if (res.confirm) {
+          wx.showLoading({ mask: true })
           wishlistApi.redeem(itemId).then(function(res) {
+            wx.hideLoading()
             if (res.success) {
-              // 兑换成功：重新加载数据
-              that.loadWishData()
+              // 🔑 乐观更新：立即标记为已兑换
+              var wishes = that.data.wishes
+              var updatedWishes = []
+              for (var i = 0; i < wishes.length; i++) {
+                var w = {}
+                for (var k in wishes[i]) { w[k] = wishes[i] }
+                if ((w.id || w._id) === itemId) { w.status = 'redeemed' }
+                updatedWishes.push(w)
+              }
+              that.setData({ wishes: updatedWishes })
+              that.filterWishes()
+              that._clearCache()
               wx.showToast({ title: '兑换成功！获得' + item.title + ' 🎉', icon: 'success' })
+              // 后台静默刷新
+              that.loadWishData()
             } else {
               wx.showToast({ title: res.message || '兑换失败', icon: 'none' })
             }
           }).catch(function(err) {
+            wx.hideLoading()
             console.error('兑换愿望失败:', err)
             wx.showToast({ title: '网络异常，请重试', icon: 'none' })
           })
@@ -334,11 +349,22 @@ Page({
       confirmColor: '#F44336',
       success: function(res) {
         if (res.confirm) {
+          // 🔑 乐观更新：立即从列表移除
+          var wishes = that.data.wishes
+          var newWishes = []
+          for (var i = 0; i < wishes.length; i++) {
+            if ((wishes[i].id || wishes[i]._id) !== id) { newWishes.push(wishes[i]) }
+          }
+          that.setData({ wishes: newWishes })
+          that.filterWishes()
+          that._clearCache()
+
           wishlistApi.remove(id).then(function(res) {
             if (res.success) {
-              that.loadWishData()
               wx.showToast({ title: '已删除', icon: 'success' })
             } else {
+              // 回滚：删除失败，恢复列表
+              that.loadWishData()
               wx.showToast({ title: res.message || '删除失败', icon: 'none' })
             }
           })
@@ -436,6 +462,7 @@ Page({
 
   /**
    * 执行存入操作（调用后端 API）
+   * 🔑 优化：乐观更新 UI，不等后端返回就立即刷新页面显示
    */
   doSaveStars: function(id, amount) {
     var that = this
@@ -444,9 +471,33 @@ Page({
     wishlistApi.saveStars(id, amount).then(function(res) {
       wx.hideLoading()
       if (res.success) {
-        // 存入成功：先清除缓存，再刷新数据（避免旧缓存覆盖新数据）
-        that._clearCache()
-        wx.showToast({ title: res.message || ('已存入 ' + amount + ' ⭐'), icon: 'success', duration: 2000 })
+        // 🔑 乐观更新：立即更新本地数据，不等 loadWishData 完成
+        var wishes = that.data.wishes
+        var newStars = (that.data.currentStars || 0) - amount
+        var updatedWishes = []
+        for (var i = 0; i < wishes.length; i++) {
+          var w = {}
+          for (var k in wishes[i]) { w[k] = wishes[i] }
+          if ((w.id || w._id) === id) {
+            w.savedStars = (w.savedStars || 0) + amount
+            w.progressPercent = w.costStars > 0 ? Math.min(100, Math.round((w.savedStars / w.costStars) * 100)) : 0
+            w.canSave = w.status === 'pending' && w.savedStars < w.costStars
+            w.canRedeem = w.status === 'pending' && w.savedStars >= w.costStars
+          }
+          updatedWishes.push(w)
+        }
+
+        // 立即更新 UI（用户瞬间看到变化）
+        that.setData({
+          currentStars: newStars,
+          wishes: updatedWishes
+        })
+        that.filterWishes()
+        that._clearCache() // 清除缓存确保下次 onShow 拉取最新
+
+        wx.showToast({ title: res.message || ('已存入 ' + amount + ' ⭐'), icon: 'success', duration: 1500 })
+
+        // 后台静默刷新（确保与服务器一致）
         that.loadWishData()
       } else {
         wx.showToast({ title: res.message || '存入失败', icon: 'none' })
