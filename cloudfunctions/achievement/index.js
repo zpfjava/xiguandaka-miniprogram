@@ -106,7 +106,9 @@ exports.main = async (event, context) => {
 
       // ========== 检查并解锁成就 ==========
       case 'check': {
-        const stats = data || {}
+        // 🔑 data 格式为 { stats: { totalCheckins, totalPlans, ... } }
+        const stats = (data && data.stats) ? data.stats : (data || {})
+        console.log('[achievement check] 收到 stats:', JSON.stringify(stats).slice(0, 300))
         const newUnlocks = []
 
         for (const ach of ACHIEVEMENTS) {
