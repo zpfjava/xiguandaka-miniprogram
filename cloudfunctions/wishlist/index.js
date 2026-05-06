@@ -158,7 +158,7 @@ exports.main = async (event, context) => {
           data: {
             userId,
             change: -amount,
-            reason: 'wish_save',
+            reason: '存入愿望：' + (wish.title || ''),
             relatedId: id,
             balance: 0,
             createdAt: now,

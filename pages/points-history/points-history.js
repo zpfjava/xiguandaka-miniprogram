@@ -77,10 +77,16 @@ function transformRecord(record) {
  */
 function translateReason(reason) {
   if (!reason) return ''
-  // 🔑 已是中文格式（如 "成就解锁：初次打卡"）直接返回
-  if (escape(reason).indexOf('%u') < 0 && reason.indexOf('achievement') < 0 && reason.indexOf('checkin') < 0 && reason.indexOf('daily') < 0) {
-    return reason
-  }
+  // 🔑 已是中文格式（包含中文 unicode 字符或已知的中文前缀）直接返回
+  var isChineseFormat = escape(reason).indexOf('%u') >= 0 ||
+                        reason.indexOf('成就解锁') >= 0 ||
+                        reason.indexOf('存入愿望') >= 0 ||
+                        reason.indexOf('兑换愿望') >= 0 ||
+                        reason.indexOf('学习打卡') >= 0 ||
+                        reason.indexOf('每日签到') >= 0 ||
+                        reason.indexOf('注册') >= 0
+  if (isChineseFormat) return reason
+
   var map = {
     'checkin_reward': '学习打卡奖励',
     'daily_checkin': '每日签到奖励',

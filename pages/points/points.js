@@ -12,20 +12,26 @@ var formatRelativeTime = constants.formatRelativeTime
  * 积分原因英文→中文映射
  */
 function translateReason(reason) {
-  if (!reason) return '获得星星'
-  // 🔑 已是中文格式（如 "成就解锁：初次打卡"）直接返回
-  if (escape(reason).indexOf('%u') < 0 && reason.indexOf('achievement') < 0 && reason.indexOf('checkin') < 0 && reason.indexOf('daily') < 0) {
-    return reason
-  }
-  var map = {
-    'checkin_reward': '学习打卡奖励',
-    'daily_checkin': '每日签到奖励',
-    'wish_redeem': '兑换愿望',
-    'wish_save': '存入愿望',
-    'bonus': '系统奖励',
-    '注册奖励': '注册欢迎奖励',
-    'achievement': '成就解锁奖励'
-  }
+if (!reason) return '获得星星'
+// 🔑 已是中文格式（包含中文 unicode 或已知中文前缀）直接返回
+var isChineseFormat = escape(reason).indexOf('%u') >= 0 ||
+                      reason.indexOf('成就解锁') >= 0 ||
+                      reason.indexOf('存入愿望') >= 0 ||
+                      reason.indexOf('兑换愿望') >= 0 ||
+                      reason.indexOf('学习打卡') >= 0 ||
+                      reason.indexOf('每日签到') >= 0 ||
+                      reason.indexOf('注册') >= 0
+if (isChineseFormat) return reason
+
+var map = {
+'checkin_reward': '学习打卡奖励',
+'daily_checkin': '每日签到奖励',
+'wish_redeem': '兑换愿望',
+'wish_save': '存入愿望',
+'bonus': '系统奖励',
+'注册奖励': '注册欢迎奖励',
+'achievement': '成就解锁奖励'
+}
   // 先尝试精确匹配
   if (map[reason]) return map[reason]
   // 再尝试模糊匹配（兼容旧数据）
