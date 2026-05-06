@@ -21,12 +21,21 @@ function safeData(result) {
 }
 
 /**
- * 根据 openid 获取 userId
+ * 根据 openid 或前端传入的 userId 获取数据库用户ID
  */
-async function getUserId(openid) {
-  const rawData = await db.collection('users').where({ openid }).get()
-  const list = safeData(rawData)
-  return list.length > 0 ? list[0]._id : null
+async function getUserId(openid, frontEndUserId) {
+  if (frontEndUserId) {
+    try {
+      const userRaw = await db.collection('users').doc(frontEndUserId).get()
+      if (userRaw && userRaw.data) return userRaw.data._id
+    } catch (e) {}
+  }
+  if (openid) {
+    const rawData = await db.collection('users').where({ openid }).get()
+    const list = safeData(rawData)
+    if (list.length > 0) return list[0]._id
+  }
+  return null
 }
 
 /**
@@ -58,10 +67,11 @@ async function getAllRecords(collectionName, query) {
 exports.main = async (event, context) => {
   const { action, data } = event || {}
   const wxContext = cloud.getWXContext()
-  const openid = wxContext.OPENID
+  const openid = wxContext ? wxContext.OPENID : null
+  const frontEndUserId = data && (data.userId || data._id)
 
   try {
-    const userId = await getUserId(openid)
+    const userId = await getUserId(openid, frontEndUserId)
     if (!userId) return { success: false, message: '请先登录' }
 
     switch (action) {
@@ -139,17 +149,19 @@ exports.main = async (event, context) => {
       case 'getReport': {
         const period = (data && data.period) || 'week'
 
-        // 计算时间范围
-        const now = new Date()
-        let startDate = new Date()
+        // 🔑 计算时间范围（使用北京时间）
+        const rawNow = new Date()
+        const beijingMs = rawNow.getTime() + 8 * 60 * 60 * 1000
+        const beijingNow = new Date(beijingMs)
+        let startDate = new Date(beijingNow)
         if (period === 'week') {
-          startDate.setDate(now.getDate() - 7)
+          startDate.setUTCDate(startDate.getUTCDate() - 7)
         } else if (period === 'month') {
-          startDate.setMonth(now.getMonth() - 1)
+          startDate.setUTCMonth(startDate.getUTCMonth() - 1)
         } else {
-          startDate.setDate(now.getDate() - 30)
+          startDate.setUTCDate(startDate.getUTCDate() - 30)
         }
-        startDate.setHours(0, 0, 0, 0)
+        startDate = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate(), 0, 0, 0, 0))
 
         // 并行查询各类数据
         const [checkinsRes, plansRes, dailyCheckinsRes] = await Promise.all([
@@ -172,7 +184,9 @@ exports.main = async (event, context) => {
         const dailyStats = {}
         for (var ci = 0; ci < checkins.length; ci++) {
           var d = new Date(checkins[ci].checkinAt)
-          var key = (d.getMonth() + 1) + '/' + d.getDate()
+          // 🔑 转为北京时间显示
+          var bd = new Date(d.getTime() + 8 * 60 * 60 * 1000)
+          var key = (bd.getUTCMonth() + 1) + '/' + bd.getUTCDate()
           if (!dailyStats[key]) dailyStats[key] = 0
           dailyStats[key]++
         }
@@ -259,7 +273,9 @@ exports.main = async (event, context) => {
         var csvRows = ''
         for (var ri = 0; ri < records.length; ri++) {
           var r = records[ri]
-          var dateStr = new Date(r.checkinAt).toLocaleDateString('zh-CN')
+          // 🔑 转为北京时间显示
+          var bjDate = new Date(r.checkinAt.getTime() + 8 * 60 * 60 * 1000)
+          var dateStr = bjDate.getUTCFullYear() + '-' + String(bjDate.getUTCMonth() + 1).padStart(2, '0') + '-' + String(bjDate.getUTCDate()).padStart(2, '0')
           var subj = r.subject || '学习'
           var stars = r.starsGot || 0
           var note = (r.note || '').replace(/"/g, '""')
@@ -284,7 +300,9 @@ exports.main = async (event, context) => {
         var pCsvRows = ''
         for (var pi2 = 0; pi2 < pointsRecords.length; pi2++) {
           var pr = pointsRecords[pi2]
-          var pDateStr = new Date(pr.createdAt).toLocaleDateString('zh-CN')
+          // 🔑 转为北京时间显示
+          var pBjDate = new Date(pr.createdAt.getTime() + 8 * 60 * 60 * 1000)
+          var pDateStr = pBjDate.getUTCFullYear() + '-' + String(pBjDate.getUTCMonth() + 1).padStart(2, '0') + '-' + String(pBjDate.getUTCDate()).padStart(2, '0')
           var pChange = pr.change || 0
           var pReason = (pr.reason || '').replace(/"/g, '""')
           var pType = pr.type || 'bonus'

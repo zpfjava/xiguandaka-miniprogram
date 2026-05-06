@@ -48,6 +48,14 @@ function cloudCall(name, action, data) {
       return
     }
 
+    // 🔑 关键修复：在每次云函数调用中自动附带 userId
+    // 这样即使云函数端通过 openid 找不到用户（如密码登录用户），也能通过 userId 识别
+    var payloadData = data || {}
+    var storedUserId = wx.getStorageSync('userId') || ''
+    if (storedUserId && !payloadData.userId) {
+      payloadData.userId = storedUserId
+    }
+
     // 确保云环境已初始化（防御性检查）
     var app = getApp()
     if (app && app.globalData && !app.globalData.cloudInitialized && config.getCloudEnv()) {
@@ -69,8 +77,8 @@ function cloudCall(name, action, data) {
     try {
       wx.cloud.callFunction({
         name: name,
-        data: { action: action, data: data || {} },
-        timeout: 15000, // 15秒超时
+        data: { action: action, data: payloadData },
+        timeout: 30000, // 30秒超时（从15秒增加，给云函数更多执行时间）
         success: function(res) {
           // 防御：res.result 可能为 undefined（如云函数超时/报错但仍走 success 回调）
           var d = res ? res.result : null

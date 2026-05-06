@@ -58,12 +58,13 @@ export class AuthController {
   ) {
     try {
       const ip = req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || 'unknown';
+      const isDev = process.env.NODE_ENV !== 'production';
       const result = await this.authService.sendSmsCode(body.phone, ip as string);
       return {
         success: true,
         message: result.message,
-        // 开发环境返回验证码方便调试；生产环境不应返回此字段
-        ...(result.code && { devCode: result.code }),
+        // 仅开发/模拟环境返回验证码方便调试；生产环境不返回此字段，避免泄露验证码
+        ...(isDev && result.code && { devCode: result.code }),
       };
     } catch (error) {
       return { success: false, message: error.message };

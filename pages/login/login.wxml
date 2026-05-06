@@ -23,6 +23,7 @@
       <text>仅微信登录（不绑定手机号）</text>
     </view>
 
+    <!-- 其他登录方式入口 -->
     <view class="other-login-entry" bindtap="toggleOtherLogin">
       <text>其他登录方式 ▼</text>
     </view>
@@ -36,8 +37,8 @@
       <text>返回微信登录</text>
     </view>
 
-    <!-- 切换标签：短信登录 / 密码登录 -->
-    <view class="form-tabs">
+    <!-- 切换标签：暂时仅保留密码登录（短信功能待签名审核通过后开启） -->
+    <!-- <view class="form-tabs">
       <view
         class="tab {{loginMode === 'sms' ? 'active' : ''}}"
         bindtap="switchLoginMode"
@@ -48,7 +49,7 @@
         bindtap="switchLoginMode"
         data-mode="password"
       >密码登录</view>
-    </view>
+    </view> -->
 
     <!-- ========== 统一表单区域 ========== -->
     <view class="form-fields">
@@ -115,13 +116,14 @@
     <view class="form-extra" wx:if="{{loginMode === 'password'}}">
       <text class="link" bindtap="showRegisterModal">注册新账号</text>
       <text class="divider">|</text>
-      <text class="link" bindtap="switchToSmsLogin">用验证码登录</text>
+      <!-- 短信登录入口（待签名审核通过后取消注释） -->
+      <!-- <text class="link" bindtap="switchToSmsLogin">用验证码登录</text> -->
     </view>
 
-    <!-- 开发环境演示入口 -->
-    <view class="demo-mode" wx:if="{{isDev}}">
+    <!-- 开发环境演示入口（上线后已隐藏，需要时取消注释） -->
+    <!-- <view class="demo-mode" wx:if="{{isDev}}">
       <text bindtap="handleDemoLogin">开发模式：跳过登录 →</text>
-    </view>
+    </view> -->
   </view>
 
   <!-- ==================== 注册弹窗（Modal）==================== -->

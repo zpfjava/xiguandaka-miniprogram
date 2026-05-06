@@ -6,18 +6,28 @@ const cloud = require('wx-server-sdk')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
 
-async function getUserId(openid) {
-  const user = (await db.collection('users').where({ openid })).data[0]
-  return user ? user._id : null
+async function getUserId(openid, frontEndUserId) {
+  if (frontEndUserId) {
+    try {
+      const userRaw = await db.collection('users').doc(frontEndUserId).get()
+      if (userRaw && userRaw.data) return userRaw.data._id
+    } catch (e) {}
+  }
+  if (openid) {
+    const user = (await db.collection('users').where({ openid })).data[0]
+    if (user) return user._id
+  }
+  return null
 }
 
 exports.main = async (event, context) => {
-  const { action, data } = event
+  const { action, data } = event || {}
   const wxContext = cloud.getWXContext()
-  const openid = wxContext.OPENID
+  const openid = wxContext ? wxContext.OPENID : null
+  const frontEndUserId = data && (data.userId || data._id)
 
   try {
-    const userId = await getUserId(openid)
+    const userId = await getUserId(openid, frontEndUserId)
     if (!userId) return { success: false, message: '请先登录' }
 
     switch (action) {

@@ -78,7 +78,11 @@ Page({
   },
 
   onShow: function() {
+    // 先从缓存快速恢复（避免骨架屏闪烁和状态回退）
+    this._restoreFromCache()
+    // 再从服务器拉最新数据（无缝覆盖）
     this._fetchFreshData()
+
   },
 
   /* ====== 缓存机制 ====== */
@@ -90,13 +94,28 @@ Page({
       var d = typeof cached === 'string' ? JSON.parse(cached) : cached
       if (!d) return
 
-      if (d.isCheckedIn !== undefined) this.setData({ isCheckedIn: d.isCheckedIn })
+      // 缓存日期校验：如果不是今天的数据则忽略
+      var cacheDate = d.cacheDate || ''
+      var todayStr = new Date().getFullYear() + '-' +
+        String(new Date().getMonth() + 1).padStart(2, '0') + '-' +
+        String(new Date().getDate()).padStart(2, '0')
+      if (cacheDate && cacheDate !== todayStr) {
+        return // 过期缓存，直接跳过所有恢复
+      }
+
+      // ⚠️ 关键：不恢复 isCheckedIn！签到状态必须以服务器为准
+      // 恢复 isCheckedIn 会导致：昨天签到了→今天缓存误判为已签到→无法点击签到按钮
+      // 只恢复辅助展示数据（连续天数、奖励数、日历等），让首帧不那么空白
       if (d.streakDays !== undefined) this.setData({ streakDays: d.streakDays })
       if (d.todayReward !== undefined) this.setData({ todayReward: d.todayReward })
-      if (d.earnedStars !== undefined) this.setData({ earnedStars: d.earnedStars })
-      if (d.checkedTime !== undefined) this.setData({ checkedTime: d.checkedTime })
       if (d.nextStreakRewardDay !== undefined) this.setData({ nextStreakRewardDay: d.nextStreakRewardDay })
       if (d.nextStreakBonus !== undefined) this.setData({ nextStreakBonus: d.nextStreakBonus })
+
+      // 只有确认已签到时才恢复签到结果展示（配合 isCheckedIn 一起才有意义，这里单独恢复不影响逻辑）
+      if (d.isCheckedIn === true) {
+        if (d.earnedStars !== undefined) this.setData({ earnedStars: d.earnedStars })
+        if (d.checkedTime !== undefined) this.setData({ checkedTime: d.checkedTime })
+      }
 
       if (d.checkedDates && d.checkedDates.length > 0 && d.year && d.month) {
         this.setData({
@@ -111,7 +130,12 @@ Page({
 
   _saveToCache: function() {
     try {
+      var now = new Date()
+      var todayStr = now.getFullYear() + '-' +
+        String(now.getMonth() + 1).padStart(2, '0') + '-' +
+        String(now.getDate()).padStart(2, '0')
       wx.setStorageSync('dc_cache', JSON.stringify({
+        cacheDate: todayStr,
         isCheckedIn: this.data.isCheckedIn,
         streakDays: this.data.streakDays,
         todayReward: this.data.todayReward,
@@ -130,71 +154,131 @@ Page({
 
   _fetchFreshData: function() {
     var that = this
-    Promise.all([
-      dailyCheckinApi.status(),
-      dailyCheckinApi.calendar()
-    ]).then(function(results) {
-      // 防御：确保 results 是有效数组
-      if (!results || !Array.isArray(results)) {
-        console.warn('[fetchFreshData] results 非数组:', results)
-        return
-      }
-      var sr = results[0] || {}, cr = results[1] || {}, hasData = false
 
-      // 签到状态数据（增加防御性检查）
-      if (sr.success && sr.data && typeof sr.data === 'object') {
-        hasData = true
-        var sd = sr.data
-        var ci = !!sd.checkedIn || !!sd.hasCheckedIn || !!sd.checked
+    // 独立请求 status 和 calendar，互不阻塞
+    var statusResult = null
+    var calendarResult = null
+    var finishCount = 0
+
+    function tryRender() {
+      finishCount++
+      if (finishCount < 2) return // 两个都回来后再渲染
+
+      // ===== 判断签到状态（多重来源，优先级从高到低）=====
+      var finalCheckedIn = null  // null=未知(保持加载中)
+
+      // 优先级1：status API 明确返回
+      if (statusResult && statusResult.success && statusResult.data && typeof statusResult.data === 'object') {
+        var sd = statusResult.data
+        finalCheckedIn = !!sd.checkedIn || !!sd.hasCheckedIn || !!sd.checked
+        console.log('[dailycheckin] status 返回:', JSON.stringify(sd), '→ isCheckedIn=', finalCheckedIn)
+
         that.setData({
-          isCheckedIn: ci,
+          isCheckedIn: finalCheckedIn,
           streakDays: sd.streak || sd.streakDays || 0,
           todayReward: sd.todayStars || sd.todayReward || sd.stars || 5
         })
         that.updateMilestones()
-        if (ci) {
+        if (finalCheckedIn) {
           var n = new Date()
           that.setData({
             checkedTime: padZero(n.getHours()) + ':' + padZero(n.getMinutes()),
             earnedStars: sd.todayStars || sd.todayReward || sd.stars || 5
           })
         }
-      } else if (!sr.success) {
-        console.warn('[fetchFreshData] status API 返回失败:', sr.message)
       }
+      // 优先级2：status 失败但日历有今天的数据 → 从日历反推
+      else if (calendarResult && calendarResult.success && calendarResult.data) {
+        var calData = calendarResult.data
+        var calDates = calData.days || calData.calendar || []
+        var todayStr = new Date().getFullYear() + '-' +
+          String(new Date().getMonth() + 1).padStart(2, '0') + '-' +
+          String(new Date().getDate()).padStart(2, '0')
 
-      // 日历数据（增加防御性检查）
-      if (cr.success && cr.data) {
-        that._handleCalendarData(cr.data)
+        // 检查日历中是否包含今天的日期
+        var todayInCalendar = false
+        if (Array.isArray(calDates)) {
+          for (var i = 0; i < calDates.length; i++) {
+            var d = calDates[i]
+            var dateStr = (typeof d === 'string') ? d : (d.date || '')
+            if (dateStr === todayStr) { todayInCalendar = true; break }
+          }
+        } else if (typeof calData === 'object' && calData[todayStr]) {
+          todayInCalendar = true
+        }
+
+        if (todayInCalendar) {
+          console.warn('[dailycheckin] status 失败但从日历反推→今天已签到')
+          finalCheckedIn = true
+          that.setData({
+            isCheckedIn: true,
+            streakDays: that.data.streakDays || 1,
+            earnedStars: that.data.todayReward || 5,
+            checkedTime: ''
+          })
+          that.updateMilestones()
+        } else {
+          // 日历也没有 → 确实未签到
+          finalCheckedIn = false
+          that.setData({ isCheckedIn: false, streakDays: that.data.streakDays || 0, todayReward: 5 })
+          that.updateMilestones()
+        }
       }
-
-      if (!hasData) {
+      // 优先级3：两个都失败 → 保持当前状态或默认未签到
+      else {
+        console.warn('[dailycheckin] status 和 calendar 都失败')
         that.setData({ isCheckedIn: false, streakDays: 0, todayReward: 5 })
         that.updateMilestones()
       }
+
+      // 处理日历数据
+      if (calendarResult && calendarResult.success && calendarResult.data) {
+        that._handleCalendarData(calendarResult.data)
+      }
+
       that._saveToCache()
+    }
+
+    // 请求1：签到状态
+    dailyCheckinApi.status().then(function(res) {
+      statusResult = res
+      tryRender()
     }).catch(function(err) {
-      console.error('加载签到数据失败:', err)
+      console.error('[dailycheckin] status 请求异常:', err)
+      statusResult = { success: false, message: String(err && err.message || err) }
+      tryRender()
+    })
+
+    // 请求2：日历数据
+    dailyCheckinApi.calendar().then(function(res) {
+      calendarResult = res
+      tryRender()
+    }).catch(function(err) {
+      console.error('[dailycheckin] calendar 请求异常:', err)
+      calendarResult = { success: false }
+      tryRender()
     })
   },
 
   /**
    * 处理日历数据（兼容多种返回格式）
+   * ⚠️ 核心原则：日历网格的年月必须以页面当前状态(currentYear/currentMonth)为准，
+   *    不能依赖后端返回的 year/month（后端可能返回默认当前月导致切换月份时日历错误）
+   *
    * 格式1（云函数新格式）: { year, month, days: [{date, checkedIn, stars}], calendar: {...} }
    * 格式2（字符串数组）: ['2026-04-29', '2026-04-28', ...]
    * 格式3（对象映射）: { '2026-04-29': {stars, streak}, ... }
    */
   _handleCalendarData: function(apiData) {
-    var now = new Date()
-
     // 防御：apiData 为空或非对象
     if (!apiData || typeof apiData !== 'object') return
 
+    // 🔑 使用页面当前的年月状态构建日历网格，而非后端返回值
+    var y = this.data.currentYear
+    var m = this.data.currentMonth
+
     // 格式1：{ year, month, days: [...] }
     if (apiData.days && Array.isArray(apiData.days)) {
-      var y = apiData.year || now.getFullYear()
-      var m = apiData.month || (now.getMonth() + 1)
-      this.setData({ currentYear: y, currentMonth: m })
       var dates = []
       for (var i = 0; i < apiData.days.length; i++) {
         var d = apiData.days[i]
@@ -212,7 +296,7 @@ Page({
     // 格式2：纯字符串数组
     if (Array.isArray(apiData)) {
       this.setData({
-        calendarDays: buildMonthCalendar(now.getFullYear(), now.getMonth() + 1, apiData)
+        calendarDays: buildMonthCalendar(y, m, apiData)
       })
       this._checkedDates = apiData
       return
@@ -229,7 +313,7 @@ Page({
       }
       if (objDates.length > 0) {
         this.setData({
-          calendarDays: buildMonthCalendar(now.getFullYear(), now.getMonth() + 1, objDates)
+          calendarDays: buildMonthCalendar(y, m, objDates)
         })
         this._checkedDates = objDates
       }
@@ -262,11 +346,25 @@ Page({
 
   doCheckin: function() {
     var that = this
-    if (that.data.checking) return
 
-    // 前端拦截：如果已经签到，直接提示
+    // 🔑 防重复点击：使用闭包变量（同步生效，不受 setData 异步影响）
+    if (that._checkingLock) return
+    that._checkingLock = true
+
+    // 前端状态检查：如果显示已签到，先询问是否要重试
     if (that.data.isCheckedIn === true) {
-      wx.showToast({ title: '今天已经签到过了~', icon: 'none' })
+      wx.showModal({
+        title: '提示',
+        content: '显示今天已签到，是否重新尝试？',
+        confirmText: '重试签到',
+        success: function(res) {
+          that._checkingLock = false // 解锁，允许用户选择后重试
+          if (res.confirm) {
+            that.setData({ isCheckedIn: false })
+            that.doCheckin()
+          }
+        }
+      })
       return
     }
 
@@ -280,6 +378,7 @@ Page({
         console.warn('[doCheckin] res 为空')
         wx.showToast({ title: '无响应，请重试', icon: 'none' })
         that.setData({ checking: false })
+        that._checkingLock = false
         return
       }
 
@@ -304,6 +403,7 @@ Page({
         if (errMsg.indexOf('已经签到') >= 0 || errMsg.indexOf('已签到') >= 0) {
           that.setData({ checking: false, isCheckedIn: true })
           wx.showToast({ title: '今天已经签到过了~', icon: 'none' })
+          that._checkingLock = false
           return
         }
         if (errMsg.indexOf('Cannot read') >= 0 ||
@@ -315,8 +415,12 @@ Page({
         }
         wx.showToast({ title: errMsg, icon: 'none' })
         that.setData({ checking: false })
+        that._checkingLock = false
         return
       }
+
+      // 🔑 全部成功后才解锁（放在 finally 位置确保一定执行）
+      that._checkingLock = false
       that.updateMilestones()
       that._saveToCache()
       wx.showToast({ title: '签到成功！+' + stars + ' ⭐', icon: 'success', duration: 2000 })
@@ -348,6 +452,7 @@ Page({
       console.error('签到失败(网络层):', err)
       wx.showToast({ title: '网络异常，请重试', icon: 'none' })
       that.setData({ checking: false })
+      that._checkingLock = false
     })
   },
 
@@ -367,16 +472,17 @@ Page({
 
   /**
    * 加载指定月份的签到日历数据
+   * 🔑 先更新页面年月状态，再请求后端数据填充签到标记
    */
   _loadCalendarForMonth: function(year, month) {
     var that = this
+    // ⚠️ 关键：先立即更新页面年月状态！这样无论后端返回什么，日历网格都是正确的
+    that.setData({ currentYear: year, currentMonth: month })
     dailyCheckinApi.calendar({ year: year, month: month }).then(function(res) {
       if (res && res.success && res.data) {
         that._handleCalendarData(res.data)
-        // 确保年月与请求一致（防止后端返回默认的当前月份）
-        that.setData({ currentYear: year, currentMonth: month })
       } else {
-        // 请求失败时显示空日历
+        // 请求失败时显示空日历（使用正确的年月）
         that.setData({ calendarDays: buildMonthCalendar(year, month) })
       }
     }).catch(function(err) {
@@ -384,4 +490,26 @@ Page({
       that.setData({ calendarDays: buildMonthCalendar(year, month) })
     })
   },
+
+  /**
+   * 分享给朋友
+   */
+  onShareAppMessage: function() {
+    return {
+      title: '我来「成长习惯打卡助手」签到啦，一起来打卡吧！⭐',
+      path: '/pages/dailycheckin/dailycheckin',
+      imageUrl: ''
+    }
+  },
+
+  /**
+   * 分享到朋友圈
+   */
+  onShareTimeline: function() {
+    return {
+      title: '我来「成长习惯打卡助手」签到啦，一起来打卡吧！⭐',
+      query: '',
+      imageUrl: ''
+    }
+  }
 })

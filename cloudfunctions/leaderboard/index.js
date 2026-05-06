@@ -15,8 +15,14 @@ exports.main = async (event, context) => {
       // ========== 周打卡排行榜 ==========
       case 'weeklyCheckins': {
         const limit = data?.limit || 20
-        const weekAgo = new Date()
-        weekAgo.setDate(weekAgo.getDate() - 7)
+        // 🔑 用北京时间计算一周前
+        const rawNow = new Date()
+        const weekAgo = new Date(Date.UTC(
+          new Date(rawNow.getTime() + 8 * 60 * 60 * 1000).getUTCFullYear(),
+          new Date(rawNow.getTime() + 8 * 60 * 60 * 1000).getUTCMonth(),
+          new Date(rawNow.getTime() + 8 * 60 * 60 * 1000).getUTCDate() - 7,
+          0, 0, 0, 0
+        ))
 
         // 使用 aggregate 聚合（如果支持），否则用基础查询
         const recentCheckins = (await db.collection('checkins')
@@ -51,8 +57,10 @@ exports.main = async (event, context) => {
       // ========== 月星星排行榜 ==========
       case 'monthlyStars': {
         const limit = data?.limit || 20
-        const monthAgo = new Date()
-        monthAgo.setMonth(monthAgo.getMonth() - 1)
+        // 🔑 用北京时间计算一个月前
+        const rawNow2 = new Date()
+        const bjNow2 = new Date(rawNow2.getTime() + 8 * 60 * 60 * 1000)
+        const monthAgo = new Date(Date.UTC(bjNow2.getUTCFullYear(), bjNow2.getUTCMonth() - 1, bjNow2.getUTCDate(), 0, 0, 0, 0))
 
         const records = (await db.collection('points_history')
           .where({ change: _.gt(0), createdAt: _.gte(monthAgo) })

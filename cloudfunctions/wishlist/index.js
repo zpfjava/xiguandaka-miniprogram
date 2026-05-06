@@ -14,10 +14,19 @@ function safeData(result) {
   return (result && result.data) ? result.data : []
 }
 
-async function getUserId(openid) {
-  const rawData = await db.collection('users').where({ openid }).get()
-  const list = safeData(rawData)
-  return list.length > 0 ? list[0]._id : null
+async function getUserId(openid, frontEndUserId) {
+  if (frontEndUserId) {
+    try {
+      const userRaw = await db.collection('users').doc(frontEndUserId).get()
+      if (userRaw && userRaw.data) return userRaw.data._id
+    } catch (e) {}
+  }
+  if (openid) {
+    const rawData = await db.collection('users').where({ openid }).get()
+    const list = safeData(rawData)
+    if (list.length > 0) return list[0]._id
+  }
+  return null
 }
 
 /**
@@ -33,12 +42,13 @@ function toFrontendFormat(record) {
 }
 
 exports.main = async (event, context) => {
-  const { action, data } = event
+  const { action, data } = event || {}
   const wxContext = cloud.getWXContext()
-  const openid = wxContext.OPENID
+  const openid = wxContext ? wxContext.OPENID : null
+  const frontEndUserId = data && (data.userId || data._id)
 
   try {
-    const userId = await getUserId(openid)
+    const userId = await getUserId(openid, frontEndUserId)
     if (!userId) return { success: false, message: '请先登录' }
 
     switch (action) {

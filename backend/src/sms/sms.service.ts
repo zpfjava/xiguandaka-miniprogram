@@ -1,20 +1,47 @@
 // 短信验证码服务
-// 开发环境：验证码直接返回给前端（打印到日志），不真正发送短信
-// 生产环境：可对接腾讯云 SMS / 阿里云 SMS 等服务
-import { Injectable, BadRequestException } from '@nestjs/common';
+// 支持三种短信服务商：
+// 1. mock    - 开发模拟模式（不发送真实短信，仅打印日志并返回验证码）
+// 2. tencent - 腾讯云 SMS
+// 3. aliyun  - 阿里云 SMS（预留）
+//
+// 通过环境变量 SMS_PROVIDER 切换服务商
+import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { TencentSmsService } from './tencent-sms.service';
+
+export interface SendCodeResult {
+  success: boolean;
+  code?: string;       // 仅开发/模拟模式下返回，用于前端调试
+  message: string;
+}
 
 @Injectable()
 export class SmsService {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(SmsService.name);
+
+  // 当前短信服务商
+  private readonly provider: string;
+
+  constructor(
+    private prisma: PrismaService,
+    private readonly tencentSms: TencentSmsService,
+  ) {
+    this.provider = (process.env.SMS_PROVIDER || 'mock').toLowerCase();
+    this.logger.log(`短信服务已初始化，当前服务商：${this.provider}`);
+  }
 
   // 生成 6 位随机验证码
   private generateCode(): string {
     return Math.floor(100000 + Math.random() * 900000).toString();
   }
 
+  // 判断是否为开发/模拟模式
+  private isMockMode(): boolean {
+    return this.provider === 'mock' || process.env.NODE_ENV === 'development';
+  }
+
   // 发送验证码
-  async sendCode(phone: string, ip?: string): Promise<{ success: boolean; code?: string; message: string }> {
+  async sendCode(phone: string, ip?: string): Promise<SendCodeResult> {
     // 1. 验证手机号格式
     if (!/^1[3-9]\d{9}$/.test(phone)) {
       throw new BadRequestException('手机号格式不正确');
@@ -68,17 +95,72 @@ export class SmsService {
       },
     });
 
-    // 7. 开发环境：直接返回验证码（生产环境中这里调用短信 API）
-    console.log(`📱 [SMS] 验证码已生成：${code}，手机号：${phone}，有效期 5 分钟`);
-    // TODO: 生产环境对接短信服务，例如：
-    // await this.tencentSms.send(phone, `【成长习惯打卡助手】您的验证码是${code}，5分钟内有效。`);
+    // 7. 根据配置选择短信发送方式
+    if (this.isMockMode()) {
+      return this.sendMock(phone, code);
+    }
+
+    if (this.provider === 'tencent') {
+      return this.sendViaTencent(phone, code);
+    }
+
+    if (this.provider === 'aliyun') {
+      return this.sendViaAliyun(phone, code);
+    }
+
+    // 未知的短信服务商，回退到模拟模式
+    this.logger.warn(`未知的短信服务商 "${this.provider}"，回退到模拟模式`);
+    return this.sendMock(phone, code);
+  }
+
+  // ==================== 私有方法：各渠道发送实现 ====================
+
+  /**
+   * 模拟模式（开发环境）：打印日志，返回验证码供调试
+   */
+  private sendMock(phone: string, code: string): SendCodeResult {
+    console.log(`📱 [SMS-模拟] 验证码：${code}，手机号：${phone}，有效期 5 分钟`);
+    this.logger.log(`[SMS-模拟] 验证码已生成：${code} → ${phone}`);
 
     return {
       success: true,
-      code: code, // 开发环境返回验证码方便调试；生产环境应移除此字段
+      code: code, // 模拟模式返回验证码方便调试
       message: '验证码已发送',
     };
   }
+
+  /**
+   * 腾讯云 SMS：调用真实 API 发送短信
+   */
+  private async sendViaTencent(phone: string, code: string): Promise<SendCodeResult> {
+    try {
+      const result = await this.tencentSms.sendCode(phone, code, 5);
+
+      if (!result.success) {
+        throw new Error(result.message);
+      }
+
+      // 生产环境不返回验证码
+      return {
+        success: true,
+        message: '验证码已发送',
+      };
+    } catch (error: any) {
+      this.logger.error(`[腾讯云SMS] 发送失败：${error.message}`);
+      throw new BadRequestException(error.message || '短信发送失败');
+    }
+  }
+
+  /**
+   * 阿里云 SMS（预留接口，后续可扩展）
+   * TODO: 安装 @alicloud/dysmsapi20170525 后实现
+   */
+  private async sendViaAliyun(_phone: string, _code: string): Promise<SendCodeResult> {
+    this.logger.warn('[阿里云SMS] 尚未实现，回退到模拟模式');
+    return this.sendMock(_phone, _code);
+  }
+
+  // ==================== 验证码校验 ====================
 
   // 校验验证码
   async verifyCode(phone: string, code: string): Promise<boolean> {

@@ -159,10 +159,22 @@ exports.main = async (event, context) => {
 
       // ========== 获取当前用户 ==========
       case 'getMe': {
-        if (!openid) return { success: false, message: '未登录' }
-        const rawData = await db.collection(USERS).where({ openid }).get()
-        const list = safeData(rawData)
-        const user = list[0]
+        // 支持两种方式识别用户：1. 前端传入 userId  2. 通过 openid 查找
+        let user = null
+        const frontEndUserId = data && (data.userId || data._id)
+        if (frontEndUserId) {
+          try {
+            const userRaw = await db.collection(USERS).doc(frontEndUserId).get()
+            user = userRaw.data
+          } catch (e) {
+            // doc() 查不到会抛异常，忽略
+          }
+        }
+        if (!user && openid) {
+          const rawData = await db.collection(USERS).where({ openid }).get()
+          const list = safeData(rawData)
+          user = list[0]
+        }
         if (!user) return { success: false, message: '用户不存在' }
 
         // 防御：如果 currentStars 为负数（数据异常），自动修正为 0
@@ -180,16 +192,30 @@ exports.main = async (event, context) => {
 
       // ========== 更新用户资料 ==========
       case 'updateProfile': {
-        if (!openid) return { success: false, message: '未登录' }
+        // 支持通过 userId 或 openid 识别用户
+        let targetUser = null
+        const frontEndUserId = data && (data.userId || data._id)
+        if (frontEndUserId) {
+          try {
+            const uRaw = await db.collection(USERS).doc(frontEndUserId).get()
+            targetUser = uRaw.data
+          } catch (e) {}
+        }
+        if (!targetUser && openid) {
+          const rRaw = await db.collection(USERS).where({ openid }).get()
+          targetUser = safeData(rRaw)[0]
+        }
+        if (!targetUser) return { success: false, message: '未登录' }
+
         const updateData = {}
         if (data.nickname !== undefined) updateData.nickname = String(data.nickname).trim()
         if (data.avatar !== undefined) updateData.avatar = String(data.avatar).trim()
         if (data.grade !== undefined) updateData.grade = String(data.grade).trim()
         updateData.updatedAt = new Date()
 
-        await db.collection(USERS).where({ openid }).update({ data: updateData })
-        const rawData2 = await db.collection(USERS).where({ openid }).get()
-        const user = safeData(rawData2)[0]
+        await db.collection(USERS).doc(targetUser._id).update({ data: updateData })
+        const rawData2 = await db.collection(USERS).doc(targetUser._id).get()
+        const user = rawData2.data
         delete user.password
         return { success: true, data: toFrontendFormat(user) }
       }
@@ -208,13 +234,19 @@ exports.main = async (event, context) => {
         const users = safeData(rawData)
         if (!users.length) return { success: false, message: '手机号或密码错误' }
         const user = users[0]
+
+        // 注意：不再自动绑定 openid
+        // 原因：自动绑定会导致密码账户和微信账户混淆（同一个 openid 被绑定到多个账户，
+        // 或密码登录后返回了微信用户的信息）
+        // 正确做法：依赖前端 cloudCall 自动传入的 userId 来识别用户身份
+
         delete user.password
         return { success: true, data: toFrontendFormat(user) }
       }
 
       // ========== 注册（手机号+密码）==========
       case 'register': {
-        const { phone, password, nickname } = data || {}
+        const { phone, password, nickname, grade } = data || {}
         if (!phone || !password) {
           return { success: false, message: '手机号和密码不能为空' }
         }
@@ -226,6 +258,7 @@ exports.main = async (event, context) => {
           phone,
           password: hashPassword(password),
           nickname: nickname || ('用户' + phone.slice(-4)),
+          grade: grade || '',
           totalStars: REGISTER_BONUS_STARS,
           currentStars: REGISTER_BONUS_STARS,
           createdAt: new Date(),
@@ -283,6 +316,7 @@ exports.main = async (event, context) => {
           user = userData
           try { await addPointsRecord(res._id, REGISTER_BONUS_STARS, '注册奖励', 'register') } catch (e) {}
         }
+        // 注意：不再自动绑定 openid，原因同 login action——避免账户混淆
         delete user.password
         return { success: true, data: toFrontendFormat(user), isNewUser: isNewUser, bonusStars: isNewUser ? REGISTER_BONUS_STARS : 0 }
       }

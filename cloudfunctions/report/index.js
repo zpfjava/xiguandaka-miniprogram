@@ -7,33 +7,45 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
 const _ = db.command
 
-async function getUserId(openid) {
-  const user = (await db.collection('users').where({ openid })).data[0]
-  return user ? user._id : null
+async function getUserId(openid, frontEndUserId) {
+  if (frontEndUserId) {
+    try {
+      const userRaw = await db.collection('users').doc(frontEndUserId).get()
+      if (userRaw && userRaw.data) return userRaw.data._id
+    } catch (e) {}
+  }
+  if (openid) {
+    const user = (await db.collection('users').where({ openid })).data[0]
+    if (user) return user._id
+  }
+  return null
 }
 
 exports.main = async (event, context) => {
-  const { action, data } = event
+  const { action, data } = event || {}
   const wxContext = cloud.getWXContext()
-  const openid = wxContext.OPENID
+  const openid = wxContext ? wxContext.OPENID : null
+  const frontEndUserId = data && (data.userId || data._id)
 
   try {
-    const userId = await getUserId(openid)
+    const userId = await getUserId(openid, frontEndUserId)
     if (!userId) return { success: false, message: '请先登录' }
 
     const period = data?.period || 'week'
 
-    // 计算时间范围
-    const now = new Date()
-    let startDate = new Date()
+    // 🔑 计算时间范围（使用北京时间）
+    const rawNow = new Date()
+    const beijingMs = rawNow.getTime() + 8 * 60 * 60 * 1000
+    const beijingNow = new Date(beijingMs)
+    let startDate = new Date(beijingNow)
     if (period === 'week') {
-      startDate.setDate(now.getDate() - 7)
+      startDate.setUTCDate(startDate.getUTCDate() - 7)
     } else if (period === 'month') {
-      startDate.setMonth(now.getMonth() - 1)
+      startDate.setUTCMonth(startDate.getUTCMonth() - 1)
     } else {
-      startDate.setDate(now.getDate() - 30)
+      startDate.setUTCDate(startDate.getUTCDate() - 30)
     }
-    startDate.setHours(0, 0, 0, 0)
+    startDate = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate(), 0, 0, 0, 0))
 
     // 并行查询各类数据
     const [checkinsRes, plansRes, dailyCheckinsRes] = await Promise.all([
@@ -52,7 +64,9 @@ exports.main = async (event, context) => {
     const dailyStats = {}
     for (const c of checkinsRes.data) {
       const d = new Date(c.checkinAt)
-      const key = `${d.getMonth() + 1}/${d.getDate()}`
+      // 🔑 转为北京时间显示
+      const bd = new Date(d.getTime() + 8 * 60 * 60 * 1000)
+      const key = `${bd.getUTCMonth() + 1}/${bd.getUTCDate()}`
       if (!dailyStats[key]) dailyStats[key] = 0
       dailyStats[key]++
     }

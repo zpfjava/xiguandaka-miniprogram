@@ -6,6 +6,7 @@ page{background-color:#FFF8E1;color:#333;font-family:-apple-system,BlinkMacSyste
 .card{background:#FFF;border-radius:24rpx;padding:30rpx;box-shadow:0 4rpx 16rpx rgba(0,0,0,.05)}
 .section-header{display:flex;justify-content:space-between;align-items:center;padding:20rpx 30rpx 16rpx}
 .section-title{font-size:32rpx;font-weight:bold;color:#333;display:flex;align-items:center}
+.refresh-hint{font-size:22rpx;color:#bbb;font-weight:normal;margin-left:12rpx}
 .btn-primary{background:linear-gradient(135deg,#FFD93D 0%,#FF9A3C 100%);color:#333;font-size:30rpx;font-weight:bold;padding:20rpx 48rpx;border-radius:9999rpx;text-align:center;border:none}
 .btn-primary::after{border:none}
 .btn-secondary{background:#FFF;color:#FF9A3C;font-size:28rpx;padding:18rpx 40rpx;border-radius:9999rpx;border:2rpx solid #FFD93D;text-align:center}
