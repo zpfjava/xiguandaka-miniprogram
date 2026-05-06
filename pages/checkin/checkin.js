@@ -172,8 +172,9 @@ Page({
             wx.removeStorageSync('stats_cache')
           } catch (e) {}
 
-          // 成就自动检查（异步，不阻塞用户操作）
-          achievementUtil.checkAndShow({ totalCheckins: 1 })
+          // 成就检查已由 checkin/create 云函数内部自动完成
+          // （云函数在打卡成功后会统计最新数据并检查成就解锁）
+          // 不再前端重复调用，避免双重触发导致重复弹窗/重复奖励
         } else {
           // 后端返回业务错误
           wx.showToast({ title: res.message || '打卡失败', icon: 'none' })

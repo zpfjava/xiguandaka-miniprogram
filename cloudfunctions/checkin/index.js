@@ -24,19 +24,31 @@ function toFrontendFormat(record) {
   return obj
 }
 
-async function getUserId(openid) {
-  const rawData = await db.collection('users').where({ openid }).get()
-  const list = safeData(rawData)
-  return list.length > 0 ? list[0]._id : null
+async function getUserId(openid, frontEndUserId) {
+  // 方式1：优先使用前端传入的 userId
+  if (frontEndUserId) {
+    try {
+      const userRaw = await db.collection('users').doc(frontEndUserId).get()
+      if (userRaw && userRaw.data) return userRaw.data._id
+    } catch (e) {}
+  }
+  // 方式2：通过 openid 查找
+  if (openid) {
+    const rawData = await db.collection('users').where({ openid }).get()
+    const list = safeData(rawData)
+    if (list.length > 0) return list[0]._id
+  }
+  return null
 }
 
 exports.main = async (event, context) => {
-  const { action, data } = event
+  const { action, data } = event || {}
   const wxContext = cloud.getWXContext()
-  const openid = wxContext.OPENID
+  const openid = wxContext ? wxContext.OPENID : null
+  const frontEndUserId = data && (data.userId || data._id)
 
   try {
-    const userId = await getUserId(openid)
+    const userId = await getUserId(openid, frontEndUserId)
     if (!userId) return { success: false, message: '请先登录' }
 
     switch (action) {
@@ -55,11 +67,13 @@ exports.main = async (event, context) => {
         if (!plan.isActive) return { success: false, message: '该计划已暂停' }
 
         // 检查今天是否已打卡（同一计划同一天只能打卡一次）
-        const today = new Date()
-        today.setHours(0, 0, 0, 1)
-        const tomorrow = new Date(today)
-        tomorrow.setDate(tomorrow.getDate() + 1)
-        console.log('[checkin create] 查询已有打卡时间范围:', today.toISOString(), '~', tomorrow.toISOString())
+        // 🔧 使用北京时间(UTC+8)，与 todayProgress 保持一致的 Date.UTC 方式
+        const rawNow = new Date()
+        const bMs = rawNow.getTime() + 8 * 60 * 60 * 1000
+        const bDate = new Date(bMs)
+        const by = bDate.getUTCFullYear(), bm = bDate.getUTCMonth(), bd = bDate.getUTCDate()
+        const today = new Date(Date.UTC(by, bm, bd, 0, 0, 0, 1))
+        const tomorrow = new Date(Date.UTC(by, bm, bd + 1, 0, 0, 0, 0))
         const existingRaw = await db.collection(CHECKINS).where({
           userId,
           planId,
@@ -118,12 +132,13 @@ exports.main = async (event, context) => {
             .get()
           const allCheckins = safeData(statsRes)
 
-          // 按日期去重计算连续天数
+          // 🔑 按北京日期去重计算连续天数（避免 UTC 时区导致日期偏移）
           const dateSet = new Set()
           const uniqueDates = []
           for (const c of allCheckins) {
             const d = new Date(c.checkinAt)
-            const dateKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+            const beijingD = new Date(d.getTime() + 8 * 60 * 60 * 1000)
+            const dateKey = `${beijingD.getUTCFullYear()}-${beijingD.getUTCMonth()}-${beijingD.getUTCDate()}`
             if (!dateSet.has(dateKey)) {
               dateSet.add(dateKey)
               uniqueDates.push(d)
@@ -132,10 +147,16 @@ exports.main = async (event, context) => {
 
           let checkinStreak = 0
           if (uniqueDates.length > 0) {
-            const today = new Date(); today.setHours(0, 0, 0, 0)
-            const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1)
-            const lastDate = new Date(uniqueDates[0]); lastDate.setHours(0, 0, 0, 0)
-            if (lastDate.getTime() === today.getTime() || lastDate.getTime() === yesterday.getTime()) {
+            // 🔑 使用北京时间判断今天/昨天（统一用 getUTC* 方法）
+            const streakNow = new Date()
+            const streakOffset = 8 * 60 * 60 * 1000
+            const streakBeijingNow = new Date(streakNow.getTime() + streakOffset)
+            const today = new Date(Date.UTC(streakBeijingNow.getUTCFullYear(), streakBeijingNow.getUTCMonth(), streakBeijingNow.getUTCDate(), 0, 0, 0, 0))
+            const yesterdayMs = today.getTime() - 24 * 60 * 60 * 1000
+            const yesterday = new Date(yesterdayMs)
+            // 比较 lastDate 的原始时间戳与今天/昨天起点（避免 setHours 改变引用）
+            const lastTs = uniqueDates[0].getTime()
+            if (lastTs >= today.getTime() || (lastTs >= yesterday.getTime() && lastTs < today.getTime())) {
               checkinStreak = 1
               for (let i = 1; i < uniqueDates.length; i++) {
                 const prev = new Date(uniqueDates[i]); prev.setHours(0, 0, 0, 0)
@@ -149,10 +170,11 @@ exports.main = async (event, context) => {
           let totalStarsEarned = 0
           for (const c of allCheckins) totalStarsEarned += c.starsGot || 0
 
-          let activePlansCount = 0
+          // 🔑 统计全部计划数（不限制 isActive，因为 plans_5 成就是"创建5个计划"）
+          let totalPlansCount = 0
           try {
-            const plansCountRes = await db.collection('study_plans').where({ userId, isActive: true }).count()
-            activePlansCount = plansCountRes.total || 0
+            const plansCountRes = await db.collection('study_plans').where({ userId }).count()
+            totalPlansCount = plansCountRes.total || 0
           } catch (e) { /* ignore */ }
 
           // 调用成就云函数内部逻辑检查解锁
@@ -160,7 +182,7 @@ exports.main = async (event, context) => {
             totalCheckins: allCheckins.length,
             currentStreak: checkinStreak,
             totalStars: totalStarsEarned,
-            totalPlans: activePlansCount,
+            totalPlans: totalPlansCount,
           }
 
           // 遍历所有成就定义，逐个检查并解锁
@@ -216,12 +238,13 @@ exports.main = async (event, context) => {
                 }
               })
               // 记录积分历史
+              // 🔑 积分历史记录具体成就名称，便于积分明细区分显示
               try {
                 await db.collection('points_history').add({
                   data: {
                     userId,
                     change: ach.starsReward,
-                    reason: 'achievement',
+                    reason: '成就解锁：' + ach.name,
                     relatedId: ach.id,
                     balance: 0,
                     createdAt: new Date(),
@@ -275,13 +298,13 @@ exports.main = async (event, context) => {
 
         console.log('[checkin stats] userId=', userId, '总打卡记录数=', totalCount)
 
-        // 按日期去重（同一天多个计划只算一次）
+        // 🔑 按北京日期去重（同一天多个计划只算一次）
         const dateSet = new Set()
-        // 用排序后的日期列表计算连续天数
         const uniqueDates = []
         for (const c of allCheckins) {
           const d = new Date(c.checkinAt)
-          const dateKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+          const beijingD = new Date(d.getTime() + 8 * 60 * 60 * 1000)
+          const dateKey = `${beijingD.getUTCFullYear()}-${beijingD.getUTCMonth()}-${beijingD.getUTCDate()}`
           if (!dateSet.has(dateKey)) {
             dateSet.add(dateKey)
             uniqueDates.push(d)
@@ -292,19 +315,20 @@ exports.main = async (event, context) => {
         let totalStars = 0
         for (const c of allCheckins) totalStars += c.starsGot || 0
 
-        // 计算连续打卡天数（从最近一天往前推）
+        // 🔑 计算连续打卡天数（从最近一天往前推，使用北京时间）
         let streak = 0
         if (uniqueDates.length > 0) {
-          const today = new Date()
-          today.setHours(0, 0, 0, 0)
-          const yesterday = new Date(today)
-          yesterday.setDate(yesterday.getDate() - 1)
+          const now = new Date()
+          const beijingOffset = 8 * 60 * 60 * 1000
+          const beijingNow = new Date(now.getTime() + beijingOffset)
+          // 统一用 Date.UTC 构造北京时间今天的零点
+          const today = new Date(Date.UTC(beijingNow.getUTCFullYear(), beijingNow.getUTCMonth(), beijingNow.getUTCDate(), 0, 0, 0, 0))
+          const yesterdayMs = today.getTime() - 24 * 60 * 60 * 1000
+          const yesterday = new Date(yesterdayMs)
 
-          // 检查最近一次打卡是否是今天或昨天
-          const lastDate = new Date(uniqueDates[0])
-          lastDate.setHours(0, 0, 0, 0)
-
-          if (lastDate.getTime() === today.getTime() || lastDate.getTime() === yesterday.getTime()) {
+          // 检查最近一次打卡是否是今天或昨天（直接比较时间戳）
+          const lastTs = uniqueDates[0].getTime()
+          if (lastTs >= today.getTime() || (lastTs >= yesterday.getTime() && lastTs < today.getTime())) {
             streak = 1
             // 往前遍历计算连续天数
             for (let i = 1; i < uniqueDates.length; i++) {
@@ -386,7 +410,9 @@ exports.main = async (event, context) => {
 
         for (const r of records) {
           const d = new Date(r.checkinAt)
-          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+          // 🔑 转为北京时间显示
+          const beijingD = new Date(d.getTime() + 8 * 60 * 60 * 1000)
+          const key = `${beijingD.getUTCFullYear()}-${String(beijingD.getUTCMonth() + 1).padStart(2, '0')}-${String(beijingD.getUTCDate()).padStart(2, '0')}`
           heatmap[key] = (heatmap[key] || 0) + 1
 
           // 获取打卡对应的计划科目

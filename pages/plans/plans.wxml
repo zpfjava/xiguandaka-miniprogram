@@ -58,15 +58,22 @@
           <block wx:if="{{item.isActive}}">
             <!-- 已打卡：显示已完成 -->
             <block wx:if="{{item.checkedInToday === true}}">
-              <view class="action-btn checkedin-btn-card">✓ 已完成</view>
+              <button class="action-btn checkedin-btn-card" disabled>✓ 已完成</button>
             </block>
-            <!-- 未打卡或状态未知：显示去打卡（null 时默认为未打卡，避免闪烁） -->
+            <!-- 未打卡或状态未知 -->
             <block wx:else>
-              <button
-                class="action-btn checkin-btn-card"
-                data-plan="{{item}}"
-                bindtap="goToCheckin"
-              >去打卡</button>
+              <!-- 非打卡日（按频率判断）：显示禁用按钮 -->
+              <block wx:if="{{item.isCheckinDay === false}}">
+                <button class="action-btn rest-day-btn" disabled>📅 非打卡时间</button>
+              </block>
+              <!-- 打卡日：显示去打卡 -->
+              <block wx:else>
+                <button
+                  class="action-btn checkin-btn-card"
+                  data-plan="{{item}}"
+                  bindtap="goToCheckin"
+                >去打卡</button>
+              </block>
             </block>
             <button
               class="action-btn edit-btn"

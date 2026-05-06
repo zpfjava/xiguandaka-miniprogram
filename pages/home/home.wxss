@@ -320,6 +320,15 @@
   border-radius: 9999rpx;
 }
 
+/* 非打卡日（休息日） */
+.rest-day-text {
+  background-color: #F5F5F5;
+  color: #BBBBBB;
+  font-size: 22rpx;
+  padding: 14rpx 20rpx;
+  border-radius: 9999rpx;
+}
+
 /* ====== 统计卡片 ====== */
 .stats-grid {
   display: flex;

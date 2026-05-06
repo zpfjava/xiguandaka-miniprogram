@@ -315,6 +315,10 @@ Page({
     if (String(form.password) !== String(form.confirmPassword)) {
       wx.showToast({ title: '两次密码不一致', icon: 'none' }); return
     }
+    // 🔑 校验年级必选
+    if (!form.grade || !form.grade.trim()) {
+      wx.showToast({ title: '请选择年级', icon: 'none' }); return
+    }
 
     that.setData({ regLoading: true })
 

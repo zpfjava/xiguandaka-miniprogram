@@ -27,19 +27,29 @@ function safeData(result) {
   return (result && result.data) ? result.data : []
 }
 
-async function getUserId(openid) {
-  const rawData = await db.collection('users').where({ openid }).get()
-  const list = safeData(rawData)
-  return list.length > 0 ? list[0]._id : null
+async function getUserId(openid, frontEndUserId) {
+  if (frontEndUserId) {
+    try {
+      const userRaw = await db.collection('users').doc(frontEndUserId).get()
+      if (userRaw && userRaw.data) return userRaw.data._id
+    } catch (e) {}
+  }
+  if (openid) {
+    const rawData = await db.collection('users').where({ openid }).get()
+    const list = safeData(rawData)
+    if (list.length > 0) return list[0]._id
+  }
+  return null
 }
 
 exports.main = async (event, context) => {
-  const { action, data } = event
+  const { action, data } = event || {}
   const wxContext = cloud.getWXContext()
-  const openid = wxContext.OPENID
+  const openid = wxContext ? wxContext.OPENID : null
+  const frontEndUserId = data && (data.userId || data._id)
 
   try {
-    const userId = await getUserId(openid)
+    const userId = await getUserId(openid, frontEndUserId)
     if (!userId) return { success: false, message: '请先登录' }
 
     switch (action) {
@@ -158,13 +168,13 @@ exports.main = async (event, context) => {
                 updatedAt: new Date(),
               }
             })
-            // 记录积分历史（用于积分明细展示）
+            // 记录积分历史（用于积分明细展示，包含具体成就名称）
             try {
               await db.collection('points_history').add({
                 data: {
                   userId,
                   change: ach.starsReward,
-                  reason: 'achievement',
+                  reason: '成就解锁：' + ach.name,
                   relatedId: ach.id,
                   balance: 0,
                   createdAt: new Date(),
@@ -192,12 +202,13 @@ exports.main = async (event, context) => {
         const allCheckins = safeData(allCheckinsRaw)
         const totalCheckins = allCheckins.length
 
-        // 按日期去重计算连续天数
+        // 🔑 按北京日期去重计算连续天数（避免 UTC 时区导致日期偏移）
         const dateSet = new Set()
         const uniqueDates = []
         for (const c of allCheckins) {
           const d = new Date(c.checkinAt)
-          const dateKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+          const beijingD = new Date(d.getTime() + 8 * 60 * 60 * 1000)
+          const dateKey = `${beijingD.getUTCFullYear()}-${beijingD.getUTCMonth()}-${beijingD.getUTCDate()}`
           if (!dateSet.has(dateKey)) {
             dateSet.add(dateKey)
             uniqueDates.push(d)
@@ -206,10 +217,16 @@ exports.main = async (event, context) => {
 
         let currentStreak = 0
         if (uniqueDates.length > 0) {
-          const today = new Date(); today.setHours(0, 0, 0, 0)
-          const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1)
-          const lastDate = new Date(uniqueDates[0]); lastDate.setHours(0, 0, 0, 0)
-          if (lastDate.getTime() === today.getTime() || lastDate.getTime() === yesterday.getTime()) {
+          // 🔑 用北京时间判断今天/昨天
+          const rawNow = new Date()
+          const bMs = rawNow.getTime() + 8 * 60 * 60 * 1000
+          const bDate = new Date(bMs)
+          const today = new Date(Date.UTC(bDate.getUTCFullYear(), bDate.getUTCMonth(), bDate.getUTCDate(), 0, 0, 0, 0))
+          const yesterdayMs = today.getTime() - 24 * 60 * 60 * 1000
+          const yesterday = new Date(yesterdayMs)
+          // 直接比较原始时间戳
+          const lastTs = uniqueDates[0].getTime()
+          if (lastTs >= today.getTime() || (lastTs >= yesterday.getTime() && lastTs < today.getTime())) {
             currentStreak = 1
             for (let i = 1; i < uniqueDates.length; i++) {
               const prev = new Date(uniqueDates[i]); prev.setHours(0, 0, 0, 0)
@@ -285,13 +302,13 @@ exports.main = async (event, context) => {
                 updatedAt: new Date(),
               }
             })
-            // 记录积分历史
+            // 记录积分历史（包含具体成就名称）
             try {
               await db.collection('points_history').add({
                 data: {
                   userId,
                   change: ach.starsReward,
-                  reason: 'achievement',
+                  reason: '成就解锁：' + ach.name,
                   relatedId: ach.id,
                   balance: 0,
                   createdAt: new Date(),

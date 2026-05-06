@@ -77,6 +77,10 @@ function transformRecord(record) {
  */
 function translateReason(reason) {
   if (!reason) return ''
+  // 🔑 已是中文格式（如 "成就解锁：初次打卡"）直接返回
+  if (escape(reason).indexOf('%u') < 0 && reason.indexOf('achievement') < 0 && reason.indexOf('checkin') < 0 && reason.indexOf('daily') < 0) {
+    return reason
+  }
   var map = {
     'checkin_reward': '学习打卡奖励',
     'daily_checkin': '每日签到奖励',
@@ -86,11 +90,12 @@ function translateReason(reason) {
     '注册奖励': '注册欢迎奖励',
     'achievement': '成就解锁奖励'
   }
+  // 精确匹配
   if (map[reason]) return map[reason]
+  // 模糊匹配（兼容旧数据）
   for (var k in map) {
     if (reason.indexOf(k) >= 0 || k.indexOf(reason) >= 0) return map[k]
   }
-  if (escape(reason).indexOf('%u') < 0) return reason
   return reason
 }
 

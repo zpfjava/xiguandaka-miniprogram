@@ -90,6 +90,12 @@ Page({
       return
     }
 
+    // 🔑 校验年级必选（不能为空，不能是默认占位）
+    if (!userInfo.grade || !userInfo.grade.trim()) {
+      wx.showToast({ title: '请选择年级', icon: 'none' })
+      return
+    }
+
     that.setData({ saving: true, saved: false })
 
     userApi.updateProfile(userInfo).then(function(res) {

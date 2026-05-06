@@ -6,6 +6,7 @@ var api = require('./api')
 
 var achievementApi = api.achievementApi
 var checkinApi = api.checkinApi
+var planApi = api.planApi
 
 /**
  * 获取用户最新统计数据，用于成就条件判断
@@ -16,10 +17,12 @@ function fetchStatsForAchievement() {
     // 并行请求多个统计接口，合并数据
     Promise.all([
       checkinApi.stats(),
-      achievementApi.getUserAchievements()
+      achievementApi.getUserAchievements(),
+      planApi.getAll()  // 🔑 获取计划列表以计算 totalPlans
     ]).then(function(results) {
       var statsRes = results[0]
       var achRes = results[1]
+      var plansRes = results[2]
 
       var stats = {
         totalCheckins: 0,
@@ -46,6 +49,11 @@ function fetchStatsForAchievement() {
         if (achRes.data.stats) {
           stats.unlockedCount = achRes.data.stats.unlocked || 0
         }
+      }
+
+      // 🔑 从计划列表获取 totalPlans（用于 "plans_5" 等成就判断）
+      if (plansRes && plansRes.success && Array.isArray(plansRes.data)) {
+        stats.totalPlans = plansRes.data.length
       }
 
       resolve(stats)

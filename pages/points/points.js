@@ -13,6 +13,10 @@ var formatRelativeTime = constants.formatRelativeTime
  */
 function translateReason(reason) {
   if (!reason) return '获得星星'
+  // 🔑 已是中文格式（如 "成就解锁：初次打卡"）直接返回
+  if (escape(reason).indexOf('%u') < 0 && reason.indexOf('achievement') < 0 && reason.indexOf('checkin') < 0 && reason.indexOf('daily') < 0) {
+    return reason
+  }
   var map = {
     'checkin_reward': '学习打卡奖励',
     'daily_checkin': '每日签到奖励',
@@ -24,12 +28,10 @@ function translateReason(reason) {
   }
   // 先尝试精确匹配
   if (map[reason]) return map[reason]
-  // 再尝试模糊匹配
+  // 再尝试模糊匹配（兼容旧数据）
   for (var k in map) {
     if (reason.indexOf(k) >= 0 || k.indexOf(reason) >= 0) return map[k]
   }
-  // 含中文则直接返回
-  if (escape(reason).indexOf('%u') < 0) return reason
   return reason
 }
 
@@ -75,15 +77,27 @@ Page({
     var that = this
     that.setData({ _loadingLock: true })
 
-    // 同时请求积分摘要、积分历史和用户信息（用于获取 currentStars 兜底）
+    // 优化：分批请求，避免同时发起过多云函数调用导致超时
+    // 第一批（核心）：积分摘要 + 积分历史
+    // 第二次（兜底）：用户信息（仅在 summary 失败时需要）
     Promise.all([
       pointsApi.summary(),
-      pointsApi.history({ limit: 5 }),
-      api.userApi.getMe()
-    ]).then(function(results) {
-      var summaryRes = results[0]
-      var historyRes = results[1]
-      var userRes = results[2]
+      pointsApi.history({ page: 1, pageSize: 5 })
+    ]).then(function(batch1Results) {
+      var summaryRes = batch1Results[0]
+      var historyRes = batch1Results[1]
+      // summary 失败时，尝试用用户信息兜底（串行请求）
+      var userResPromise = (!summaryRes.success || !summaryRes.data)
+        ? api.userApi.getMe()
+        : Promise.resolve({ success: false })
+
+      return userResPromise.then(function(userRes) {
+        return { summaryRes: summaryRes, historyRes: historyRes, userRes: userRes }
+      })
+    }).then(function(allData) {
+      var summaryRes = allData.summaryRes
+      var historyRes = allData.historyRes
+      var userRes = allData.userRes
       var hasData = false
 
       // 构建最终渲染数据
@@ -163,5 +177,27 @@ Page({
   },
 
   goToHistory: function() { wx.navigateTo({ url: '/pages/points-history/points-history' }) },
-  goToWishlist: function() { wx.navigateTo({ url: '/pages/wishlist/wishlist' }) }
+  goToWishlist: function() { wx.navigateTo({ url: '/pages/wishlist/wishlist' }) },
+
+  /**
+   * 分享给朋友
+   */
+  onShareAppMessage: function() {
+    return {
+      title: '成长习惯打卡助手 - 积分星星换礼物 🎁',
+      path: '/pages/points/points',
+      imageUrl: ''
+    }
+  },
+
+  /**
+   * 分享到朋友圈
+   */
+  onShareTimeline: function() {
+    return {
+      title: '成长习惯打卡助手 - 积分星星换礼物 🎁',
+      query: '',
+      imageUrl: ''
+    }
+  }
 })

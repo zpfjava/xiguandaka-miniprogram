@@ -115,7 +115,7 @@
   </view>
 
   <!-- 今日任务 -->
-  <view class="section">
+  <view class="section" bindlongpress="forceRefreshTasks">
     <view class="section-header">
       <view class="section-title">
         <text class="section-title-icon">📝</text>
@@ -138,9 +138,9 @@
     <!-- 任务列表 -->
     <block wx:else>
       <view class="task-list">
-        <view 
-          wx:for="{{todayTasks}}" 
-          wx:key="_id" 
+        <view
+          wx:for="{{todayTasks}}"
+          wx:key="_id"
           class="task-item {{item.isCompleted ? 'completed' : ''}}"
         >
           <view class="task-icon">{{item.subjectIcon}}</view>
@@ -158,11 +158,18 @@
               </view>
             </block>
             <block wx:else>
-              <view 
-                class="checkin-btn" 
-                data-plan-id="{{item.id || item._id}}"
-                bindtap="goToCheckin"
-              >去打卡</view>
+              <!-- 非打卡日（按频率判断） -->
+              <block wx:if="{{item.isCheckinDay === false}}">
+                <view class="checkin-btn rest-day-text">休息日</view>
+              </block>
+              <!-- 打卡日：显示去打卡 -->
+              <block wx:else>
+                <view
+                  class="checkin-btn"
+                  data-plan-id="{{item.id || item._id}}"
+                  bindtap="goToCheckin"
+                >去打卡</view>
+              </block>
             </block>
           </view>
         </view>

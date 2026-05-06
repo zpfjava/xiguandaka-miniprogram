@@ -53,19 +53,22 @@ Page({
           app.globalData._markPlanCompleted = null
           this.markTaskCompleted(markPlanId)
         }
-        // 有刷新标记 → 强制重新加载
-        this.setData({ _skeleton: true, _loadingLock: false })
+        // 有刷新标记 → 静默刷新数据（不显示骨架屏，避免闪烁卡顿）
+        this.setData({ _loadingLock: false })
         this.loadHomeData()
         return
       }
     } catch (e) {}
 
-    // 防抖：如果正在加载中则不重复请求
+    // 每次进入首页都重新加载最新数据，不再依赖缓存状态
+    // 缓存只用于骨架屏期间的临时展示，最终以服务器为准
     if (!this.data._loadingLock) {
-      // 首次进入或无缓存时显示骨架屏；有缓存且数据已就绪则保持当前状态
       var hasCachedTasks = wx.getStorageSync('home_tasks')
       if (!hasCachedTasks || !this.data.todayTasks || this.data.todayTasks.length === 0) {
         this.setData({ _skeleton: true })
+      } else {
+        // 有缓存先快速展示（丝滑），同时后台静默刷新
+        this._restoreFromCache()
       }
       this.loadHomeData()
     }
@@ -83,18 +86,20 @@ Page({
 
   /**
    * 从缓存快速恢复上次数据，让页面切换更丝滑
-   * 注意：只恢复非用户信息（任务、统计），避免昵称闪烁
+   * ⚠️ 不恢复 isCompleted 状态！打卡状态必须以服务器 todayProgress 接口为准
+   * 只恢复非关键展示数据（标题、科目、图标等）
    */
   _restoreFromCache: function() {
     try {
-      // 不再从缓存恢复 userInfo，避免昵称闪烁（如 "小明" → "微信用户"）
-      // 用户信息由 loadHomeData 从服务器实时获取
       var cachedTasks = wx.getStorageSync('home_tasks')
       if (cachedTasks) {
         var tasks = typeof cachedTasks === 'string' ? JSON.parse(cachedTasks) : cachedTasks
         if (tasks && tasks.length > 0) {
           for (var i = 0; i < tasks.length; i++) {
             tasks[i].subjectIcon = getSubjectIcon(tasks[i].subject)
+            // 强制将 isCompleted 设为 null（加载中），等服务器数据来覆盖
+            // 这样用户看到的是 "···" 占位而不是错误的 ✓ 或 "去打卡"
+            tasks[i].isCompleted = null
           }
           this.setData({ todayTasks: tasks })
           this.updateProgress()
@@ -156,6 +161,8 @@ Page({
           for (var tk in t) { task[tk] = t[tk] }
           task.isCompleted = task.isCompleted != null ? task.isCompleted : null
           task.subjectIcon = getSubjectIcon(task.subject)
+          // 🔑 按频率判断今天是否为该计划的打卡日
+          task.isCheckinDay = that._isTodayCheckinDay(task.frequency)
           tasks.push(task)
         }
       }
@@ -345,5 +352,70 @@ Page({
   goToCheckin: function(e) {
     var planId = e.currentTarget.dataset.planId
     wx.navigateTo({ url: '/pages/checkin/checkin?planId=' + planId })
+  },
+
+  /**
+   * 🔑 判断今天是否为某计划的打卡日（根据频率）
+   * 与 plans.js 中的实现保持一致
+   */
+  _isTodayCheckinDay: function(frequency) {
+    if (!frequency) return true
+    var freq = String(frequency).trim()
+    if (freq === '每天' || freq === 'daily') return true
+    if (freq === '工作日' || freq === 'weekdays') {
+      var dow = new Date().getDay()
+      return dow >= 1 && dow <= 5
+    }
+    if (freq.indexOf('每周') === 0 && (freq.includes('3 次') || freq.includes('5 次'))) {
+      return true
+    }
+    if (freq === 'weekly_3' || freq === 'weekly_5' || freq === 'weekly') return true
+    // 自定义频率："每周 一、三、五" 格式
+    if (freq.indexOf('每周 ') === 0 || freq.indexOf('每周') === 0) {
+      var todayDow = new Date().getDay()
+      var cnToDow = { '日': 0, '一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6 }
+      for (var cn in cnToDow) {
+        if (cnToDow[cn] === todayDow && freq.indexOf(cn) !== -1) {
+          return true
+        }
+      }
+      if (/[一二三四五六日]/.test(freq)) {
+        return false
+      }
+    }
+    return true
+  },
+
+  /**
+   * 长按强制刷新任务数据（清除缓存 + 重新请求）
+   */
+  forceRefreshTasks: function() {
+    wx.removeStorageSync('home_tasks')
+    wx.removeStorageSync('home_stats')
+    this.setData({ _skeleton: true, todayTasks: [], _loadingLock: false })
+    this.loadHomeData()
+    wx.showToast({ title: '刷新中...', icon: 'loading' })
+  },
+
+  /**
+   * 分享给朋友
+   */
+  onShareAppMessage: function() {
+    return {
+      title: '成长习惯打卡助手 - 每天坚持一点点，进步看得见！🌟',
+      path: '/pages/home/home',
+      imageUrl: ''
+    }
+  },
+
+  /**
+   * 分享到朋友圈
+   */
+  onShareTimeline: function() {
+    return {
+      title: '成长习惯打卡助手 - 每天坚持一点点，进步看得见！🌟',
+      query: '',
+      imageUrl: ''
+    }
   }
 })
