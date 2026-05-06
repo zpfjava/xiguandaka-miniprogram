@@ -161,11 +161,10 @@ Page({
       that._savingLock = false
 
       if (res.success) {
-        // 更新原始值为当前值（用于后续变更检测）
+        // 更新原始值为当前值（用于后续变更检测）→ 直接变灰
         that.setData({
           saving: false,
-          saveStatus: 'success',
-          saveMsg: '保存成功',
+          saveStatus: '',
           hasChanges: false,
           _originalInfo: {
             nickname: userInfo.nickname,
@@ -182,13 +181,6 @@ Page({
         for (var k2 in userInfo) { newGlobalUserInfo[k2] = userInfo[k2] }
         if (app.globalData) { app.globalData.userInfo = newGlobalUserInfo }
         wx.setStorageSync('home_userInfo', JSON.stringify(userInfo))
-
-        // 3秒后恢复按钮可点击状态
-        setTimeout(function() {
-          if (that.data.saveStatus === 'success') {
-            that.setData({ saveStatus: '', saveMsg: '' })
-          }
-        }, 3000)
       } else {
         that.setData({
           saving: false,

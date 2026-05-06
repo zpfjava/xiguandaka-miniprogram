@@ -3,7 +3,7 @@
   <!-- 个人信息编辑区 -->
   <view class="profile-section">
     <view class="profile-header">
-      <view class="profile-avatar" bindtap="changeAvatar">
+      <view class="profile-avatar" hover-class="avatar-hover" bindtap="changeAvatar">
         <image
           wx:if="{{userInfo.avatar && userInfo.avatar !== '😊'}}"
           src="{{userInfo.avatar}}"
@@ -32,25 +32,15 @@
       </view>
     </view>
     
-    <!-- 保存按钮 + 状态提示 -->
+    <!-- 保存按钮 -->
     <view class="save-area">
       <button 
-        class="save-profile-btn {{saving ? 'saving' : ''}} {{saveStatus === 'success' ? 'btn-success' : ''}} {{!hasChanges && !saveStatus ? 'btn-idle' : ''}}" 
+        class="save-profile-btn {{!hasChanges ? 'btn-idle' : ''}}" 
         bindtap="saveProfile"
-        disabled="{{saving || saveStatus === 'success' || (!hasChanges && !saveStatus)}}"
-      >
-        <text wx:if="{{saving}}" class="btn-loading">⟳</text>
-        <text wx:if="{{saving}}"> 保存中...</text>
-        <text wx:elif="{{saveStatus === 'success'}}">✓ 保存成功</text>
-        <text wx:else>保存修改</text>
-      </button>
-      <!-- 内联状态提示 -->
-      <view wx:if="{{saveStatus === 'success'}}" class="save-tip save-tip-success">
-        <text class="tip-icon">✅</text>
-        <text>{{saveMsg}}</text>
-      </view>
+        disabled="{{saving || !hasChanges}}"
+      >保存修改</button>
+      <!-- 仅错误时显示提示 -->
       <view wx:if="{{saveStatus === 'error'}}" class="save-tip save-tip-error">
-        <text class="tip-icon">⚠️</text>
         <text>{{saveMsg}}</text>
       </view>
     </view>

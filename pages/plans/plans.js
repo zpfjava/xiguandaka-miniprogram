@@ -243,12 +243,19 @@ Page({
         that.setData({ saving: false })
         that.loadPlans()
         that.hideAddModal()
-        wx.showToast({ title: editingPlan ? '已更新' : '已创建', icon: 'success' })
         // 🔑 创建新计划后检查成就（如"创建5个计划"）
         if (!editingPlan) {
           var achievementUtil = require('../../utils/achievement')
-          // 传入 totalPlans 提示（创建后数量未知，由 fetchStatsForAchievement 获取）
-          achievementUtil.checkAndShow()
+          // 🔑 传入当前计划数+1（刚创建了一个），避免再次查询的时序问题
+          var currentPlanCount = (that.data.plans || []).length + 1
+          // 🔑 先检查成就，再根据是否有成就决定是否显示 toast（避免 showModal 与 showToast 冲突）
+          achievementUtil.checkAndShow({ totalPlans: currentPlanCount })
+          // 延迟显示 toast，确保成就弹窗优先
+          setTimeout(function() {
+            wx.showToast({ title: '已创建', icon: 'success' })
+          }, 500)
+        } else {
+          wx.showToast({ title: '已更新', icon: 'success' })
         }
       } else {
         // API 失败：提示错误
