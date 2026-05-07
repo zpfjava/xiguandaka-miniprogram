@@ -14,6 +14,8 @@ var getSubjectIcon = constants.getSubjectIcon
 
 Page({
   data: {
+    // 🔑 登录状态标记（初始值 false = 未登录）
+    isLoggedIn: false,
     plans: [],
     showModal: false,
     editingPlan: null,
@@ -27,7 +29,9 @@ Page({
     showCustomWeekdays: false,
     customWeekdaySelected: [false, false, false, false, false, false, false],
     loading: false,
-    isEmpty: false,
+    // 🔑 isEmpty 初始值 true（= 游客模式），避免首次渲染闪烁已登录内容
+    // onShow 中检测到已登录后会设为 false
+    isEmpty: true,
     _loadingLock: false
   },
 
@@ -50,6 +54,26 @@ Page({
         }
       }
     } catch (e) {}
+
+    // 判断是否已登录（未登录则展示游客模式，不加载数据）
+    var userId = wx.getStorageSync('userId')
+    if (!userId) {
+      // 未登录：确保显示游客模式（仅在状态不一致时才 setData，避免不必要的渲染）
+      if (that.data.isLoggedIn || !that.data.isEmpty) {
+        that.setData({
+          isLoggedIn: false,
+          plans: [],
+          isEmpty: true,
+          _loadingLock: false
+        })
+      }
+      return
+    }
+
+    // 已登录：先切换出游客模式，再加载数据（防御性：确保 isLoggedIn 同步）
+    if (!that.data.isLoggedIn || that.data.isEmpty) {
+      that.setData({ isLoggedIn: true, isEmpty: false })
+    }
 
     // 每次进入都重新加载最新数据（不再因缓存跳过请求）
     // 缓存只用于 loadPlans 内部的首帧展示，最终状态以服务器为准
@@ -100,13 +124,36 @@ Page({
           var total = plan.totalCount > 0 ? plan.totalCount : 0
           var completed = plan.completedCount || 0
           plan.progressPercent = total > 0 ? Math.round((completed / total) * 100) : 0
-          // 不再使用缓存的 checkedInToday！始终从服务器获取最新状态
-          // 缓存优先会导致：昨天打卡了→今天缓存残留true→永远显示已完成→无法打卡
-          plan.checkedInToday = null
+          // 🔑 checkedInToday 初始值：优先从缓存恢复（避免先闪"去打卡"再变"已完成"）
+          //    缓存值只是首帧优化，后续 _loadTodayCheckins 会用服务器数据覆盖
+          plan.checkedInToday = false // 默认未打卡
           // 🔑 按频率判断今天是否为该计划的打卡日
           plan.isCheckinDay = that._isTodayCheckinDay(plan.frequency)
           plans.push(plan)
         }
+
+        // 🔑 从本地缓存快速恢复 checkedInToday 状态（同步，零延迟）
+        //    这样首次 setData 时就能正确显示"已完成"，避免按钮闪烁
+        try {
+          var cachedPlans = wx.getStorageSync('plans')
+          if (cachedPlans) {
+            var cached = typeof cachedPlans === 'string' ? JSON.parse(cachedPlans) : cachedPlans
+            if (cached && Array.isArray(cached)) {
+              var cacheMap = {}
+              for (var ci = 0; ci < cached.length; ci++) {
+                var cpId = cached[ci].id || cached[ci]._id
+                if (cpId) cacheMap[cpId] = cached[ci]
+              }
+              for (var pi = 0; pi < plans.length; pi++) {
+                var pId = plans[pi].id || plans[pi]._id
+                if (pId && cacheMap[pId] && cacheMap[pId].checkedInToday === true) {
+                  plans[pi].checkedInToday = true
+                }
+              }
+            }
+          }
+        } catch (e) {}
+
         that.setData({ plans: plans, isEmpty: false })
         wx.setStorageSync('plans', JSON.stringify(plans))
         // 加载每个计划的今日打卡状态
@@ -243,62 +290,14 @@ Page({
         that.setData({ saving: false })
 
         // 🔑🔑🔑 保存计划后检查成就（创建或编辑都检查，因为都可能达到成就条件）
-        var api = require('../../utils/api')
-        // 🔑 使用当前本地计划数：新建时 +1，编辑时用当前数
+        //    使用 checkAndShow 统一处理：后端判断 → 写入 → 前端弹窗
+        //    传入 totalPlans 让后端判断 plans_5（计划达人）等成就
+        var achievementUtil = require('../../utils/achievement')
         var currentPlanCount = editingPlan
           ? (that.data.plans || []).length
           : (that.data.plans || []).length + 1
-        console.log('[plans] 保存计划成功，开始检查成就, editingPlan=', !!editingPlan, ', currentPlanCount=', currentPlanCount, ', 原有计划数=', (that.data.plans || []).length)
-
-        api.achievementApi.check({ totalPlans: currentPlanCount }).then(function(achRes) {
-          console.log('[plans] 成就检查返回:', JSON.stringify(achRes))
-          if (achRes && achRes.success && achRes.data) {
-            var unlocked = achRes.data
-            if (!Array.isArray(unlocked)) {
-              unlocked = unlocked.unlocked || []
-            }
-            console.log('[plans] 解锁的成就数量:', unlocked.length)
-            if (unlocked && unlocked.length > 0) {
-              // 有新成就！展示弹窗
-              var names = unlocked.map(function(u) { return (u.name || u.id) }).join(', ')
-              console.log('[plans] 展示成就解锁弹窗:', names)
-              setTimeout(function() {
-                if (unlocked.length === 1) {
-                  var ach = unlocked[0]
-                  wx.showModal({
-                    title: '🎉 成就解锁！',
-                    content: (ach.icon || '🏆') + ' ' + (ach.name || '') + '\n' + (ach.description || ''),
-                    showCancel: false,
-                    confirmText: '太棒了',
-                    confirmColor: '#FF9A3C'
-                  })
-                  if (ach.starsReward > 0) {
-                    setTimeout(function() {
-                      wx.showToast({ title: '+' + ach.starsReward + ' ⭐', icon: 'success', duration: 1500 })
-                    }, 1800)
-                  }
-                } else {
-                  var allNames = []
-                  var totalBonus = 0
-                  for (var i = 0; i < unlocked.length; i++) {
-                    var a = unlocked[i]
-                    allNames.push((a.icon || '🏆') + ' ' + (a.name || ''))
-                    totalBonus += (a.starsReward || 0)
-                  }
-                  wx.showModal({
-                    title: '🏆 连续解锁成就！',
-                    content: '恭喜解锁 ' + unlocked.length + ' 个成就！\n\n' + allNames.join('\n') + (totalBonus > 0 ? '\n\n共获得 +' + totalBonus + ' ⭐' : ''),
-                    showCancel: false,
-                    confirmText: '查看全部',
-                    confirmColor: '#FF9A3C'
-                  })
-                }
-              }, 500)
-            }
-          }
-        }).catch(function(achErr) {
-          console.error('[plans] 成就检查异常:', achErr)
-        })
+        console.log('[plans] 保存计划成功，开始检查成就, editingPlan=', !!editingPlan, ', currentPlanCount=', currentPlanCount)
+        achievementUtil.checkAndShow({ totalPlans: currentPlanCount })
 
         // 刷新计划列表并关闭弹窗
         that.loadPlans()
@@ -624,6 +623,8 @@ Page({
     }
     wx.navigateTo({ url: '/pages/checkin/checkin?planId=' + planId })
   },
+
+  goToLogin: function() { wx.navigateTo({ url: '/pages/login/login' }) },
 
   /**
    * 分享给朋友

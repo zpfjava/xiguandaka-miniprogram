@@ -44,6 +44,8 @@ function clearLoginState(appInstance) {
     wx.removeStorageSync('userId')
     wx.removeStorageSync('userInfo')
     wx.removeStorageSync('token')
+    // 🔑 清除隐私协议缓存
+    wx.removeStorageSync('privacy_agreed')
   } catch (e) {}
 }
 

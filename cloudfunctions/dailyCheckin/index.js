@@ -131,6 +131,12 @@ exports.main = async (event, context) => {
 
         if (todayRecord.length > 0) {
           var rec = todayRecord[0]
+          // 查询累计签到总次数
+          var totalCount = 0
+          try {
+            var countRes2 = await db.collection('daily_checkins').where({ userId }).count()
+            totalCount = countRes2.total || 0
+          } catch (e) {}
           return {
             success: true,
             data: {
@@ -140,13 +146,20 @@ exports.main = async (event, context) => {
               todayStars: rec.stars || 5,
               todayReward: rec.stars || 5,
               streak: rec.streak || 1,
-              streakDays: rec.streak || 1
+              streakDays: rec.streak || 1,
+              totalCount: totalCount
             }
           }
         }
 
-        // 未签到：也尝试返回历史连续天数（从最近一条记录获取）
+        // 未签到：也尝试返回历史连续天数和累计签到总次数
         var historyStreak = 0
+        var totalCount = 0
+        try {
+          var countRes = await db.collection('daily_checkins').where({ userId }).count()
+          totalCount = countRes.total || 0
+        } catch (e) {}
+
         try {
           var lastRaw = await db.collection('daily_checkins')
             .where({ userId })
@@ -170,7 +183,8 @@ exports.main = async (event, context) => {
             todayStars: 5,
             todayReward: 5,
             streak: historyStreak,
-            streakDays: historyStreak
+            streakDays: historyStreak,
+            totalCount: totalCount
           }
         }
       }
@@ -214,9 +228,14 @@ exports.main = async (event, context) => {
           console.error('[doCheckin] 计算连续天数失败:', e.message)
         }
 
-        // 奖励星星
+        // 奖励星星：基础5星 + 连续签到额外奖励
+        //    规则：3天+5, 7天+10, 15天+15, 30天+20（达到最高档位取该档奖励）
         const baseStars = 5
-        const bonusStars = Math.min(Math.floor(streak / 7) * 2, 10)
+        let bonusStars = 0
+        if (streak >= 30) bonusStars = 20
+        else if (streak >= 15) bonusStars = 15
+        else if (streak >= 7) bonusStars = 10
+        else if (streak >= 3) bonusStars = 5
         const totalStars = baseStars + bonusStars
 
         const now = new Date()

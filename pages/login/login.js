@@ -8,7 +8,6 @@
 var auth = require('../../utils/auth')
 var constants = require('../../utils/constants')
 var config = require('../../utils/config')
-var achievementUtil = require('../../utils/achievement')
 
 var smsLogin = auth.smsLogin
 var phoneLogin = auth.phoneLogin
@@ -33,6 +32,13 @@ Page({
     loading: false,
     wxLoggingIn: false,
 
+    // 隐私政策弹窗
+    showPrivacyModal: false,
+    privacyAgreed: false,
+
+    // 底部协议勾选框（默认不勾选）
+    agreementChecked: false,
+
     // ========== 登录表单 ==========
     form: {
       phone: '',
@@ -51,6 +57,7 @@ Page({
       grade: ''
     },
     regGradeIndex: 2,
+    regAgreementChecked: false,
 
     grades: GRADES,
     gradeIndex: 2,
@@ -63,7 +70,28 @@ Page({
   },
 
   onLoad: function() {
-    if (isLoggedIn()) { wx.switchTab({ url: '/pages/home/home' }) }
+    if (isLoggedIn()) { wx.switchTab({ url: '/pages/home/home' }); return }
+
+    // 检查用户是否已同意隐私政策
+    var agreed = wx.getStorageSync('privacy_agreed')
+    if (!agreed) {
+      // 未同意：显示隐私政策弹窗
+      this.setData({ showPrivacyModal: true })
+    } else {
+      this.setData({ privacyAgreed: true })
+    }
+  },
+
+  /**
+   * 返回上一页（允许用户取消登录，继续浏览小程序）
+   */
+  goBack: function() {
+    wx.navigateBack({
+      fail: function() {
+        // 如果没有上一页历史，跳转到首页（允许用户继续浏览）
+        wx.switchTab({ url: '/pages/home/home' })
+      }
+    })
   },
 
   onUnload: function() {
@@ -95,21 +123,25 @@ Page({
   /** 打开注册弹窗 */
   showRegisterModal: function() {
     var prefillPhone = this.data.form.phone || ''
+    // 🔑 保留已填写的注册数据，只在手机号为空时用登录表单的手机号预填充
+    var currentReg = this.data.regForm || {}
     this.setData({
       showRegisterModal: true,
       regForm: {
-        phone: prefillPhone,
-        password: '',
-        confirmPassword: '',
-        nickname: '',
-        grade: ''
+        phone: currentReg.phone || prefillPhone,
+        password: currentReg.password || '',
+        confirmPassword: currentReg.confirmPassword || '',
+        nickname: currentReg.nickname || '',
+        grade: currentReg.grade || ''
       },
-      regGradeIndex: 2
+      regGradeIndex: currentReg.grade ? (GRADES.indexOf(currentReg.grade) >= 0 ? GRADES.indexOf(currentReg.grade) : 2) : (this.data.regGradeIndex || 2)
+      // 🔑 不重置 regAgreementChecked，保留用户之前的勾选状态
     })
   },
 
-  /** 关闭注册弹窗 */
+  /** 关闭注册弹窗（保留已填写的数据） */
   hideRegisterModal: function() {
+    // 🔑 只关闭弹窗，不重置 regForm 数据，用户再次打开时数据还在
     this.setData({ showRegisterModal: false, regLoading: false })
   },
 
@@ -183,6 +215,10 @@ Page({
     var that = this
     var form = that.data.form
 
+    // 先检查隐私政策和协议勾选
+    if (!that.checkPrivacyAgreed()) return
+    if (!that.checkAgreementChecked()) return
+
     if (that.data.loading) return
     if (!form.phone || !form.phone.trim()) {
       wx.showToast({ title: '请输入手机号', icon: 'none' }); return
@@ -213,12 +249,16 @@ Page({
       wx.removeStorageSync('mine_userInfo')
     } catch (e) {}
 
-    // 🔑 登录/注册成功后主动触发成就检查（异步，不阻塞跳转）
-    try {
-      achievementUtil.checkAndShow({})
-    } catch (e) {
-      console.warn('[login] 成就检查异常:', e)
-    }
+    // 🔑 登录成功不展示成就弹窗！
+    //    原因：登录 ≠ 解锁成就。之前调用 showNewAchievements 会导致：
+    //    1. 缓存被清除后（退出登录/换设备），所有已解锁成就都被当作"新成就"弹出
+    //    2. 用户只是登录，并没有做任何触发成就的操作（打卡/签到/创建计划）
+    //    3. "计划达人"等成就会在每次登录时反复弹出，体验极差
+    //
+    //    成就弹窗只在以下场景触发：
+    //    - 签到成功 → dailycheckin.js 调用 showNewAchievements({ currentStreak })
+    //    - 打卡成功 → checkin.js 调用 showNewAchievements({ totalCheckins })
+    //    - 创建计划 → plans.js 调用 showNewAchievements({ totalPlans })
 
     // 新用户注册奖励 / 老用户补发奖励提示
     if (extra && extra.bonusStars > 0) {
@@ -307,6 +347,11 @@ Page({
     var that = this
     var form = that.data.regForm
 
+    // 🔑 使用注册弹窗内的协议勾选状态（而非底部协议）
+    if (!that.data.regAgreementChecked) {
+      wx.showToast({ title: '请先阅读并勾选用户协议和隐私政策', icon: 'none' })
+      return
+    }
     if (that.data.regLoading) return
     if (!form.phone || !form.phone.trim()) {
       wx.showToast({ title: '请输入手机号', icon: 'none' }); return
@@ -349,9 +394,113 @@ Page({
     })
   },
 
+  // ==================== 隐私政策 ====================
+
+  /**
+   * 同意隐私政策
+   */
+  agreePrivacy: function() {
+    wx.setStorageSync('privacy_agreed', true)
+    this.setData({ showPrivacyModal: false, privacyAgreed: true })
+  },
+
+  /**
+   * 拒绝隐私政策 → 清除登录状态 + 返回首页浏览
+   * 用户不同意隐私政策时，应视为未登录状态，不能查看任何个人数据
+   */
+  disagreePrivacy: function() {
+    var that = this
+    that.setData({ showPrivacyModal: false })
+
+    // 🔑 关键：清除登录状态和隐私协议缓存
+    // 用户不同意隐私政策 = 不授权使用其数据 = 等效于未登录
+    try {
+      wx.removeStorageSync('userId')
+      wx.removeStorageSync('userInfo')
+      wx.removeStorageSync('token')
+      wx.removeStorageSync('privacy_agreed')
+    } catch (e) {}
+
+    // 清除全局登录状态
+    try {
+      var app = getApp()
+      if (app && app.globalData) {
+        app.globalData.userId = null
+        app.globalData.userInfo = null
+        app.globalData.isLoggedIn = false
+      }
+    } catch (e) {}
+
+    // 清除各页面数据缓存
+    try {
+      wx.removeStorageSync('home_tasks')
+      wx.removeStorageSync('home_stats')
+      wx.removeStorageSync('home_userInfo')
+      wx.removeStorageSync('plans')
+      wx.removeStorageSync('points_summary')
+      wx.removeStorageSync('points_recent_records')
+      wx.removeStorageSync('mine_userInfo')
+      wx.removeStorageSync('mine_stats')
+      wx.removeStorageSync('dc_cache')
+    } catch (e) {}
+
+    wx.showToast({
+      title: '已返回浏览模式',
+      icon: 'none',
+      duration: 1500
+    })
+
+    setTimeout(function() {
+      wx.navigateBack({ fail: function() {
+        wx.switchTab({ url: '/pages/home/home' })
+      }})
+    }, 1200)
+  },
+
+  /**
+   * 检查是否已同意隐私政策，未同意则弹窗提示
+   * @returns {boolean} 是否已同意
+   */
+  checkPrivacyAgreed: function() {
+    if (!this.data.privacyAgreed && !wx.getStorageSync('privacy_agreed')) {
+      this.setData({ showPrivacyModal: true })
+      return false
+    }
+    return true
+  },
+
+  /**
+   * 切换注册弹窗内的协议勾选框状态
+   */
+  toggleRegAgreementCheck: function() {
+    this.setData({ regAgreementChecked: !this.data.regAgreementChecked })
+  },
+
+  /**
+   * 切换底部协议勾选框状态
+   */
+  toggleAgreementCheck: function() {
+    this.setData({ agreementChecked: !this.data.agreementChecked })
+  },
+
+  /**
+   * 检查用户是否已勾选底部协议，未勾选则提示
+   * @returns {boolean} 是否已勾选
+   */
+  checkAgreementChecked: function() {
+    if (!this.data.agreementChecked) {
+      wx.showToast({ title: '请先阅读并勾选用户协议和隐私政策', icon: 'none' })
+      return false
+    }
+    return true
+  },
+
   // ==================== 微信登录 ====================
 
   onGetWxPhoneNumber: function(e) {
+    // 先检查隐私政策和协议勾选
+    if (!this.checkPrivacyAgreed()) return
+    if (!this.checkAgreementChecked()) return
     var that = this
     var detail = e.detail || {}
 
@@ -378,6 +527,8 @@ Page({
 
   handleWxSilentLogin: function() {
     var that = this
+    // 静默登录也需要勾选协议
+    if (!that.checkAgreementChecked()) return
     that.setData({ wxLoggingIn: true })
 
     wxLogin().then(function(result) {

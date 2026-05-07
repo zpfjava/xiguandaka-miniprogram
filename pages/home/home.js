@@ -18,6 +18,9 @@ var ENCOURAGEMENTS = constants.ENCOURAGEMENTS
 
 Page({
   data: {
+    // 🔑 登录状态标记
+    // 初始值 false（未登录），onShow 中检测到已登录后切换为 true
+    isLoggedIn: false,
     greeting: '早上好',
     todayDate: '',
     userInfo: {},
@@ -60,8 +63,32 @@ Page({
       }
     } catch (e) {}
 
-    // 每次进入首页都重新加载最新数据，不再依赖缓存状态
-    // 缓存只用于骨架屏期间的临时展示，最终以服务器为准
+    // 判断是否已登录
+    var userId = wx.getStorageSync('userId')
+
+    if (!userId) {
+      // 未登录：确保显示游客模式（避免重复 setData）
+      if (this.data.isLoggedIn || !this.data.isEmpty) {
+        this.setData({
+          isLoggedIn: false,
+          _skeleton: false,
+          _loadingLock: false,
+          isEmpty: true,
+          emptyTip: '登录后可查看个人数据，开启习惯养成之旅~',
+          todayTasks: [],
+          userInfo: {},
+          stats: { totalPlans: 0, totalCheckins: 0, totalStars: 0, streak: 0 }
+        })
+      }
+      return
+    }
+
+    // 已登录：先切换出游客模式（避免闪烁），再加载数据
+    if (!this.data.isLoggedIn || this.data.isEmpty) {
+      this.setData({ isLoggedIn: true, isEmpty: false })
+    }
+
+    // 已登录：正常加载数据
     if (!this.data._loadingLock) {
       var hasCachedTasks = wx.getStorageSync('home_tasks')
       if (!hasCachedTasks || !this.data.todayTasks || this.data.todayTasks.length === 0) {
@@ -330,6 +357,7 @@ Page({
   },
 
   goToPlans: function() { wx.switchTab({ url: '/pages/plans/plans' }) },
+  goToLogin: function() { wx.reLaunch({ url: '/pages/login/login' }) },
   goToDailyCheckin: function() {
     this._blankAndGo('/pages/dailycheckin/dailycheckin')
   },

@@ -13,6 +13,9 @@ var getGrowthStage = constants.getGrowthStage
 
 Page({
   data: {
+    // 🔑 登录状态标记（模板层 wx:if 依赖此字段）
+    // 初始值 false = 未登录，匹配 wxml 中 wx:if="{{isEmpty}}" 的游客模式
+    isLoggedIn: false,
     userInfo: {},
     stats: { totalPlans: 0, totalCheckins: 0, streak: 0 },
     stageName: '种子期',
@@ -20,7 +23,9 @@ Page({
     growthState: 'idle',
     dailyCheckedIn: false,
     loading: false,
-    isEmpty: false,
+    // 🔑 isEmpty 初始值 true（= 游客模式），避免首次渲染闪烁已登录内容
+    // onShow 中检测到已登录后会设为 false
+    isEmpty: true,
     _loadingLock: false
   },
 
@@ -32,6 +37,31 @@ Page({
         this._clearCache()
       }
     } catch (e) {}
+
+    // 判断是否已登录（未登录则展示游客模式，不加载数据）
+    var userId = wx.getStorageSync('userId')
+    if (!userId) {
+      // 未登录：确保显示游客模式
+      if (this.data.isLoggedIn) {
+        this.setData({
+          isLoggedIn: false,
+          _loadingLock: false,
+          isEmpty: true,
+          userInfo: {},
+          stats: { totalPlans: 0, totalCheckins: 0, streak: 0 },
+          stageName: '种子期',
+          stageDesc: '登录后查看个人信息',
+          growthState: 'idle',
+          dailyCheckedIn: false
+        })
+      }
+      return
+    }
+
+    // 已登录：先切换出游客模式（避免闪烁），再加载数据
+    if (!this.data.isLoggedIn || this.data.isEmpty) {
+      this.setData({ isLoggedIn: true, isEmpty: false })
+    }
 
     // 防抖：如果正在加载中则不重复请求
     if (!this.data._loadingLock) {
@@ -177,10 +207,11 @@ Page({
     var hasUserData = !!(results.userRes && results.userRes.success && results.userRes.data)
 
     if (!hasUserData) {
-      // 用户信息获取失败
+      // 用户信息获取失败 → 二次确认登录状态（防止 API 异常导致误判为未登录）
       var storedUserId = wx.getStorageSync('userId')
       if (!storedUserId) {
-        // 未登录
+        // 确实未登录
+        renderData.isLoggedIn = false
         renderData.isEmpty = true
         renderData.userInfo = {}
         renderData.stats = { totalPlans: 0, totalCheckins: 0, streak: 0, streakDays: 0 }
@@ -188,11 +219,17 @@ Page({
         renderData.stageDesc = '请先登录'
         renderData.growthState = 'idle'
       } else {
-        // 已登录但 API 失败 → 不覆盖 userInfo（保留之前的或默认空对象）
-        // 不再显示"网络异常"，而是静默保持当前状态
-        console.warn('[mine] getMe 失败，本地 userId=', storedUserId)
+        // 🔑 已登录但 getMe API 失败 → 保持已登录状态！不要设 isEmpty:true
+        // 只更新统计和阶段信息，保留 userInfo 为之前缓存或空对象
+        console.warn('[mine] getMe 失败，本地 userId=', storedUserId, '→ 保持已登录状态')
+        renderData.isLoggedIn = true
+        renderData.isEmpty = false
         renderData.stageDesc = '部分数据加载失败'
       }
+    } else {
+      // 🔑 有有效用户数据 → 明确标记已登录
+      renderData.isLoggedIn = true
+      renderData.isEmpty = false
     }
 
     that.setData(renderData)
@@ -201,6 +238,7 @@ Page({
 
   goToSettings: function() { wx.navigateTo({ url: '/pages/settings/settings' }) },
   goToWishlist: function() { wx.navigateTo({ url: '/pages/wishlist/wishlist' }) },
+  goToLogin: function() { wx.navigateTo({ url: '/pages/login/login' }) },
   goToDailyCheckin: function() { wx.navigateTo({ url: '/pages/dailycheckin/dailycheckin' }) },
   goToAchievements: function() { wx.navigateTo({ url: '/pages/achievements/achievements' }) },
   goToStats: function() { wx.navigateTo({ url: '/pages/stats/stats' }) },

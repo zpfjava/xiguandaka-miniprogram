@@ -35,6 +35,21 @@ function safeClearLoginStatus() {
     wx.removeStorageSync('userId')
     wx.removeStorageSync('userInfo')
     wx.removeStorageSync('token')
+    // 🔑 退出登录时同时清除隐私协议缓存，确保下次进入登录页重新展示隐私政策
+    wx.removeStorageSync('privacy_agreed')
+  } catch (e) {}
+  // 🔑 清除所有页面数据缓存，防止退出后泄露已登录状态的数据
+  try {
+    var cacheKeys = [
+      'home_tasks', 'home_stats', 'home_userInfo',
+      'plans',
+      'points_summary', 'points_recent_records',
+      'mine_userInfo', 'mine_stats',
+      'dc_cache'
+    ]
+    for (var i = 0; i < cacheKeys.length; i++) {
+      wx.removeStorageSync(cacheKeys[i])
+    }
   } catch (e) {}
   try {
     var a = getApp()

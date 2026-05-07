@@ -6,8 +6,8 @@
     <view class="header-subtitle">坚持每天打卡，养成好习惯</view>
   </view>
 
-  <!-- 计划列表 -->
-  <block wx:if="{{plans.length > 0}}">
+  <!-- 计划列表（仅已登录时显示） -->
+  <block wx:if="{{isLoggedIn && plans.length > 0}}">
     <!-- 新增按钮（始终显示） -->
     <view class="add-plan-bar">
       <view class="add-plan-btn" bindtap="showAddModal">
@@ -97,10 +97,20 @@
     </view>
   </block>
 
-  <!-- 空状态 -->
-  <block wx:else>
+  <!-- 空状态：区分未登录 / 已登录但无计划 -->
+  <block wx:elif="{{!isLoggedIn}}">
+    <!-- 未登录：游客模式 -->
     <view class="empty-state">
       <view class="empty-icon">🌱</view>
+      <view class="empty-text">登录后可管理学习计划</view>
+      <view class="empty-desc">先去登录，开启习惯养成之旅~</view>
+      <view class="empty-btn" bindtap="goToLogin">去登录</view>
+    </view>
+  </block>
+  <block wx:elif="{{isEmpty}}">
+    <!-- 已登录但无计划 -->
+    <view class="empty-state">
+      <view class="empty-icon">📚</view>
       <view class="empty-text">还没有学习计划哦</view>
       <view class="empty-desc">创建你的第一个学习计划，开始养成好习惯吧！</view>
       <view class="empty-btn" bindtap="showAddModal">+ 创建第一个计划</view>

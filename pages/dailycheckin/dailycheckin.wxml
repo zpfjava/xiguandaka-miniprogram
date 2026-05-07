@@ -118,6 +118,10 @@
       </view>
       <view class="rule-item">
         <view class="rule-dot"></view>
+        <view class="rule-text">每月1号重置连续签到天数</view>
+      </view>
+      <view class="rule-item">
+        <view class="rule-dot"></view>
         <view class="rule-text">签到奖励自动发放，可在积分明细中查看</view>
       </view>
     </view>

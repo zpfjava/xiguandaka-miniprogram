@@ -1,5 +1,71 @@
 <!-- 小打卡 - 登录页（支持三种登录方式） -->
 <view class="login-page">
+
+  <!-- 返回按钮（允许用户取消登录，返回浏览） -->
+  <view class="back-nav" bindtap="goBack">
+    <text class="back-nav-text">← 返回</text>
+  </view>
+
+  <!-- ==================== 隐私政策弹窗 ==================== -->
+  <view class="privacy-mask" wx:if="{{showPrivacyModal}}" catchtouchmove="preventMove">
+    <view class="privacy-modal">
+      <view class="privacy-header">
+        <text class="privacy-title">隐私政策</text>
+      </view>
+
+      <scroll-view class="privacy-body" scroll-y="true">
+        <view class="privacy-content">
+          <view class="privacy-section">
+            <view class="privacy-section-title">一、我们收集的信息</view>
+            <view class="privacy-text">
+              为提供打卡服务，我们需要收集以下信息：
+            </view>
+            <view class="privacy-text">• 手机号码：用于账号注册和身份验证</view>
+            <view class="privacy-text">• 昵称、头像：用于个性化展示</view>
+            <view class="privacy-text">• 学习计划、打卡记录：用于核心功能服务</view>
+            <view class="privacy-text">• 设备信息：用于保障服务安全稳定运行</view>
+          </view>
+
+          <view class="privacy-section">
+            <view class="privacy-section-title">二、信息使用范围</view>
+            <view class="privacy-text">
+              您提供的个人信息将仅用于以下用途：
+            </view>
+            <view class="privacy-text">• 创建和管理您的学习打卡账户</view>
+            <view class="privacy-text">• 提供学习计划管理、打卡签到等核心功能</view>
+            <view class="privacy-text">• 生成个人学习统计和报告</view>
+            <view class="privacy-text">• 改善和优化产品体验</view>
+          </view>
+
+          <view class="privacy-section">
+            <view class="privacy-section-title">三、信息保护</view>
+            <view class="privacy-text">
+              我们采取业界标准的安全措施保护您的个人信息，包括数据加密存储、访问控制等技术手段。我们不会向任何第三方出售或共享您的个人信息。
+            </view>
+          </view>
+
+          <view class="privacy-section">
+            <view class="privacy-section-title">四、用户权利</view>
+            <view class="privacy-text">
+              您有权访问、更正、删除您的个人信息。如需相关操作，请通过设置页面中的"导出我的数据"功能，或联系客服处理。
+            </view>
+          </view>
+
+          <view class="privacy-section">
+            <view class="privacy-section-title">五、未成年人保护</view>
+            <view class="privacy-text">
+              我们非常重视未成年人个人信息保护。若您是未成年人，请在监护人的陪同下阅读本政策，并在取得监护人同意后使用我们的服务。
+            </view>
+          </view>
+        </view>
+      </scroll-view>
+
+      <view class="privacy-footer">
+        <button class="privacy-btn privacy-disagree-btn" bindtap="disagreePrivacy">不同意</button>
+        <button class="privacy-btn privacy-agree-btn" bindtap="agreePrivacy">同意并继续</button>
+      </view>
+    </view>
+  </view>
   <!-- Logo 区域 -->
   <view class="login-header">
     <view class="logo">🌱</view>
@@ -196,6 +262,16 @@
     </view>
 
     <view class="modal-footer">
+      <!-- 注册弹窗内的协议勾选 -->
+      <view class="reg-agreement-row" bindtap="toggleRegAgreementCheck">
+        <view class="checkbox-wrap {{regAgreementChecked ? 'checked' : ''}}">
+          <text wx:if="{{regAgreementChecked}}" class="check-icon">✓</text>
+        </view>
+        <view class="reg-agreement-text">
+          我已阅读并同意
+          <text class="link">《用户协议》</text>和<text class="link">《隐私政策》</text>
+        </view>
+      </view>
       <button
         class="submit-btn reg-submit-btn {{regLoading ? 'disabled' : ''}}"
         bindtap="handleRegisterFromModal"
@@ -207,11 +283,16 @@
     </view>
   </view>
 
-  <!-- 底部说明 -->
+  <!-- 底部协议勾选 -->
   <view class="login-footer">
-    <view class="footer-text">
-      登录即表示同意
-      <text class="link">《用户协议》</text>和<text class="link">《隐私政策》</text>
+    <view class="agreement-row" bindtap="toggleAgreementCheck">
+      <view class="checkbox-wrap {{agreementChecked ? 'checked' : ''}}">
+        <text wx:if="{{agreementChecked}}" class="check-icon">✓</text>
+      </view>
+      <view class="agreement-text">
+        我已阅读并同意
+        <text class="link">《用户协议》</text>和<text class="link">《隐私政策》</text>
+      </view>
     </view>
   </view>
 

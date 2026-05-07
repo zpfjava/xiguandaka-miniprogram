@@ -124,34 +124,27 @@ function checkAndShow(extraStats, options) {
 
 /**
  * 展示成就解锁弹窗
- * 支持同时解锁多个成就（逐个或合并展示）
+ * 🔑 优化：多个成就时只展示最重要（星星奖励最高）的一个，避免"连续解锁成就"刷屏
  *
- * 🔑 修复：增加延迟显示，避免与页面的 setData/hideAddModal 等操作冲突导致弹窗被吞
+ * @param {Array} unlockedList - 解锁的成就列表
  */
 function showAchievementUnlocked(unlockedList) {
   if (!unlockedList || unlockedList.length === 0) return
 
   // 🔑 延迟一小段时间再显示弹窗，确保页面状态稳定
-  //    问题背景：创建计划成功后会依次执行 setData、loadPlans、hideAddModal 等
-  //    这些操作触发页面重绘，如果立即 showModal 可能被微信框架吞掉
   setTimeout(function() {
     if (unlockedList.length === 1) {
       // 单个成就：直接展示
       var item = unlockedList[0]
       var ach = item.achievement || item
       var content = ach.icon + ' ' + ach.name + '\n' + (ach.description || '')
-      var title = '🎉 成就解锁！'
 
       wx.showModal({
-        title: title,
+        title: '🎉 成就解锁！',
         content: content,
         showCancel: false,
         confirmText: '太棒了',
-        confirmColor: '#FF9A3C',
-        success: function() {
-          // 可选：跳转到成就页
-          // wx.navigateTo({ url: '/pages/achievements/achievements' })
-        }
+        confirmColor: '#FF9A3C'
       })
 
       // 如果有星星奖励，额外提示
@@ -161,44 +154,52 @@ function showAchievementUnlocked(unlockedList) {
         }, 1800)
       }
     } else {
-      // 多个成就：合并展示
-      var names = []
-      var totalBonus = 0
-      for (var i = 0; i < unlockedList.length; i++) {
-        var a = (unlockedList[i].achievement || unlockedList[i])
-        names.push(a.icon + ' ' + a.name)
-        totalBonus += (a.starsReward || 0)
-      }
+      // 多个成就：按星星奖励排序，只展示最重要的一个，其余用 toast 提示
+      var sorted = unlockedList.slice().sort(function(a, b) {
+        var rewardA = (a.achievement || a).starsReward || 0
+        var rewardB = (b.achievement || b).starsReward || 0
+        return rewardB - rewardA
+      })
 
-      var multiContent = '恭喜解锁 ' + unlockedList.length + ' 个成就！\n\n' + names.join('\n')
-      if (totalBonus > 0) {
-        multiContent += '\n\n共获得 +' + totalBonus + ' ⭐'
+      var best = sorted[0]
+      var bestAch = best.achievement || best
+      var content = bestAch.icon + ' ' + bestAch.name + '\n' + (bestAch.description || '')
+      if (sorted.length > 1) {
+        content += '\n\n还有 ' + (sorted.length - 1) + ' 个成就也解锁了~'
       }
 
       wx.showModal({
-        title: '🏆 连续解锁成就！',
-        content: multiContent,
+        title: '🎉 成就解锁！',
+        content: content,
         showCancel: false,
-        confirmText: '查看全部',
-        confirmColor: '#FF9A3C',
-        success: function(res) {
-          if (res.confirm) {
-            wx.navigateTo({ url: '/pages/achievements/achievements' })
-          }
-        }
+        confirmText: '太棒了',
+        confirmColor: '#FF9A3C'
       })
+
+      // 星星奖励提示（取最高奖励）
+      if (bestAch.starsReward > 0) {
+        setTimeout(function() {
+          wx.showToast({ title: '+' + bestAch.starsReward + ' ⭐', icon: 'success', duration: 1500 })
+        }, 1800)
+      }
     }
-  }, 300) // 🔑 延迟 300ms 确保页面渲染稳定
+  }, 300)
 }
 
 /**
- * 🔑 只读展示新解锁的成就（不触发 check 写入，不发放积分）
- * 用于打卡成功后展示弹窗：checkin 云函数已负责写入，前端只负责展示
+ * 🔑 展示本次操作新解锁的成就（只读对比，不触发 check 写入）
  * 
- * 原理：对比本地缓存的"上次已知已解锁成就"和当前实际已解锁成就，
- *       多出来的就是"新解锁的"，然后弹窗展示并更新缓存
+ * 原理：对比本地缓存的"上次已知已解锁成就"和服务器实际已解锁成就列表，
+ *       多出来的就是「本次操作新解锁」的，然后弹窗展示并更新缓存
  * 
- * @param {Object} extraStats - 额外统计信息（用于日志，不影响查询）
+ * 使用场景：
+ *   - 签到成功 → showNewAchievements()  → 后端 doCheckin 已写入，前端只展示
+ *   - 打卡成功 → showNewAchievements()  → 后端 create 已写入，前端只展示
+ *   - 创建计划 → showNewAchievements() → 后端 check 已写入，前端只展示
+ *   
+ * ⚠️ 不应在登录等非成就操作中调用此函数！
+ *
+ * @param {Object} extraStats - 额外统计信息（仅用于日志，不影响查询逻辑）
  */
 function showNewAchievements(extraStats) {
   var api = require('./api')
@@ -212,9 +213,11 @@ function showNewAchievements(extraStats) {
     
     // 读取上次缓存的已解锁成就 ID 集合
     var cachedIds = {}
+    var cacheExists = false
     try {
       var cached = wx.getStorageSync('knownUnlockedAchievements') || ''
-      if (cached) {
+      if (cached && cached !== '' && cached !== '[]') {
+        cacheExists = true
         cached = typeof cached === 'string' ? JSON.parse(cached) : cached
         if (Array.isArray(cached)) {
           for (var i = 0; i < cached.length; i++) { cachedIds[cached[i]] = true }
@@ -231,7 +234,21 @@ function showNewAchievements(extraStats) {
       }
     }
     
-    console.log('[achievement] showNewAchievements: 当前已解锁=', currentUnlocked.length, ', 新增=', newOnes.length)
+    console.log('[achievement] showNewAchievements: 当前已解锁=', currentUnlocked.length, ', 缓存存在=', cacheExists, ', 新增=', newOnes.length)
+    
+    // 🔑 防重复：缓存不存在（被清除/首次使用）→ 不是本次操作新解锁的，静默更新缓存不弹窗
+    //    正确做法：只在真正产生成就的操作（签到/打卡/创建计划）后才调用此函数
+    if (!cacheExists) {
+      console.log('[achievement] 缓存不存在，视为历史成就，静默更新缓存不弹窗')
+      try {
+        var allIds = []
+        for (var k = 0; k < currentUnlocked.length; k++) {
+          allIds.push(currentUnlocked[k].achievementId || currentUnlocked[k].id)
+        }
+        wx.setStorageSync('knownUnlockedAchievements', JSON.stringify(allIds))
+      } catch (e) {}
+      return
+    }
     
     if (newOnes.length > 0) {
       // 更新缓存

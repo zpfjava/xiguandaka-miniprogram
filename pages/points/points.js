@@ -43,17 +43,42 @@ var map = {
 
 Page({
   data: {
+    // 🔑 登录状态标记（模板层 wx:if 依赖此字段）
+    // 初始值必须为 false（匹配未登录），避免首次渲染闪烁已登录内容
+    isLoggedIn: false,
     // 初始值用 null/空，避免显示 0 后跳变
     summary: null,
     recentRecords: [],
     loading: false,
     isEmpty: false,
     _loadingLock: false,
-    // 骨架屏状态
-    _skeleton: true
+    // 骨架屏：初始值 false（未登录时不显示骨架屏，直接显示游客提示）
+    _skeleton: false
   },
 
   onShow: function() {
+    // 判断是否已登录（未登录则展示游客模式，不加载数据）
+    var userId = wx.getStorageSync('userId')
+    if (!userId) {
+      // 未登录：保持在初始的游客状态（isLoggedIn:false, _skeleton:false, isEmpty:true）
+      if (this.data.isLoggedIn) {
+        this.setData({
+          isLoggedIn: false,
+          _skeleton: false,
+          _loadingLock: false,
+          isEmpty: true,
+          summary: null,
+          recentRecords: []
+        })
+      }
+      return
+    }
+
+    // 已登录：先切换到骨架屏/登录状态，再异步加载数据（避免闪烁游客模式）
+    if (!this.data.isLoggedIn) {
+      this.setData({ isLoggedIn: true, _skeleton: true, isEmpty: false })
+    }
+
     // 防抖：如果正在加载中则不重复请求
     if (!this.data._loadingLock) {
       this.loadPointsData()
@@ -81,7 +106,25 @@ Page({
 
   loadPointsData: function() {
     var that = this
-    that.setData({ _loadingLock: true })
+
+    // 🔑 关键：每次加载数据前重新检查登录状态（防止退出登录后缓存泄露）
+    var userId = wx.getStorageSync('userId')
+    if (!userId) {
+      this.setData({
+        isLoggedIn: false,
+        _skeleton: false,
+        _loadingLock: false,
+        isEmpty: true,
+        summary: null,
+        recentRecords: []
+      })
+      return
+    }
+
+    this.setData({ isLoggedIn: true, _loadingLock: true })
+
+    // 有缓存先快速恢复展示（丝滑），同时后台静默刷新
+    this._restoreFromCache()
 
     // 优化：分批请求，避免同时发起过多云函数调用导致超时
     // 第一批（核心）：积分摘要 + 积分历史
@@ -184,6 +227,7 @@ Page({
 
   goToHistory: function() { wx.navigateTo({ url: '/pages/points-history/points-history' }) },
   goToWishlist: function() { wx.navigateTo({ url: '/pages/wishlist/wishlist' }) },
+  goToLogin: function() { wx.navigateTo({ url: '/pages/login/login' }) },
 
   /**
    * 分享给朋友

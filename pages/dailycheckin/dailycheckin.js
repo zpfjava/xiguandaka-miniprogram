@@ -58,10 +58,11 @@ Page({
     checkedTime: '',
     streakDays: 0,
     nextStreakRewardDay: 3,
-    nextStreakBonus: 10,
+    nextStreakBonus: 5,
     milestones: [
+      { day: 3, bonus: 5, achieved: false, current: false },
       { day: 7, bonus: 10, achieved: false, current: false },
-      { day: 14, bonus: 15, achieved: false, current: false },
+      { day: 15, bonus: 15, achieved: false, current: false },
       { day: 30, bonus: 20, achieved: false, current: false }
     ],
     weekdays: ['日', '一', '二', '三', '四', '五', '六'],
@@ -436,12 +437,13 @@ Page({
         wx.removeStorageSync('mine_stats')
       } catch (e) {}
 
-      // 🔑 延迟展示成就解锁弹窗（等 showToast 结束后再弹 modal，避免被覆盖）
-      //    微信 showToast 和 showModal 不能同时存在，toast 会"吃掉"紧随其后的 modal
+      // 🔑 签到成功后检查成就（连续签到 streak_3/7/30 是成就的一种）
+      //    签到云函数(dailyCheckin)只负责写 daily_checkins 表和发星星，
+      //    不负责检查/写入成就。需要通过 achievementApi.check 由后端判断并写入。
       setTimeout(function() {
         try {
           var achievementUtil = require('../../utils/achievement')
-          achievementUtil.showNewAchievements({ currentStreak: ns, totalCheckins: 1 })
+          achievementUtil.checkAndShow({ currentStreak: ns })
         } catch (e) {
           console.warn('[doCheckin] 成就展示异常:', e)
         }

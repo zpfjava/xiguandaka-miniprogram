@@ -187,11 +187,13 @@ exports.main = async (event, context) => {
           }
 
           // 遍历所有成就定义，逐个检查并解锁（仅打卡相关成就）
+          // 🔑 streak_3/7/30 是签到成就（连续签到），不在打卡时触发！由 dailyCheckin 签到云函数触发
           const ACHIEVEMENTS_DEFS = [
             { id: 'first_checkin', name: '初次打卡', starsReward: 10 },
-            { id: 'streak_3', name: '坚持3天', starsReward: 15 },
-            { id: 'streak_7', name: '一周达人', starsReward: 30 },
-            { id: 'streak_30', name: '月度之星', starsReward: 100 },
+            // 🔑 streak_3/7/30 已移除：它们是"连续签到X天"的签到成就，不应由学习打卡触发
+            // { id: 'streak_3', name: '坚持3天', starsReward: 15 },
+            // { id: 'streak_7', name: '一周达人', starsReward: 30 },
+            // { id: 'streak_30', name: '月度之星', starsReward: 100 },
             // 🔑 plans_5 不在这里检查！由 plans.js 创建计划时通过 achievement 云函数的 check action 触发
             // { id: 'plans_5', name: '计划达人', starsReward: 20 },
             { id: 'checkin_10', name: '十全十美', starsReward: 15 },
@@ -221,10 +223,12 @@ exports.main = async (event, context) => {
             let shouldUnlock = false
             switch (ach.id) {
               case 'first_checkin': shouldUnlock = achievementStats.totalCheckins >= 1; break
-              case 'streak_3': shouldUnlock = achievementStats.currentStreak >= 3; break
-              case 'streak_7': shouldUnlock = achievementStats.currentStreak >= 7; break
-              case 'streak_30': shouldUnlock = achievementStats.currentStreak >= 30; break
-              case 'plans_5': shouldUnlock = achievementStats.totalPlans >= 5; break
+              // 🔑 streak_3/7/30 已移除（签到成就，不由打卡触发）
+              // case 'streak_3': shouldUnlock = achievementStats.currentStreak >= 3; break
+              // case 'streak_7': shouldUnlock = achievementStats.currentStreak >= 7; break
+              // case 'streak_30': shouldUnlock = achievementStats.currentStreak >= 30; break
+              // 🔑 plans_5 不在这里检查
+              // case 'plans_5': shouldUnlock = achievementStats.totalPlans >= 5; break
               case 'checkin_10': shouldUnlock = achievementStats.totalCheckins >= 10; break
               case 'checkin_50': shouldUnlock = achievementStats.totalCheckins >= 50; break
               case 'checkin_100': shouldUnlock = achievementStats.totalCheckins >= 100; break

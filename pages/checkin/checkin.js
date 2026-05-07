@@ -327,14 +327,15 @@ Page({
     // 先关闭打卡成功弹窗
     that.setData({ showSuccessModal: false })
 
-    // 🔑 延迟触发成就检查（等打卡弹窗完全关闭后再 showModal，避免冲突）
+    // 🔑 展示本次打卡新解锁的成就（后端 checkin/create 已负责写入，前端只展示）
+    //    使用 showNewAchievements（只读对比缓存），不使用 checkAndShow（会重复调用后端 check 写入）
     if (that._pendingAchievementCheck) {
       that._pendingAchievementCheck = false
       setTimeout(function() {
         try {
-          achievementUtil.checkAndShow({ totalCheckins: 1 })
+          achievementUtil.showNewAchievements()
         } catch (e) {
-          console.warn('[checkin] 成就检查异常:', e)
+          console.warn('[checkin] 成就展示异常:', e)
         }
       }, 500)
     }

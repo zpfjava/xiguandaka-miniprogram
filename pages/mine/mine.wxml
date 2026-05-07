@@ -1,5 +1,30 @@
 <!-- 小打卡 - 我的页面 -->
 <view class="mine-page">
+
+  <!-- 未登录游客状态 -->
+  <block wx:if="{{!isLoggedIn || isEmpty}}">
+    <view class="guest-state">
+      <view class="guest-avatar">😊</view>
+      <view class="guest-text">登录后查看个人信息</view>
+      <view class="guest-btn" bindtap="goToLogin">去登录</view>
+    </view>
+
+    <!-- 游览版功能菜单（部分功能无需登录也可预览） -->
+    <view class="menu-section">
+      <view class="menu-group">
+        <view class="menu-item" bindtap="goToHelp">
+          <view class="menu-icon">❓</view>
+          <view class="menu-text">帮助与反馈</view>
+          <view class="menu-arrow">›</view>
+        </view>
+      </view>
+    </view>
+
+    <view class="version-info">成长习惯打卡助手 v1.0.0 · 让好习惯伴你成长 🌱</view>
+  </block>
+
+  <!-- 已登录状态 -->
+  <block wx:else>
   <!-- 用户信息卡片 -->
   <view class="user-card">
     <view class="user-avatar">
@@ -129,4 +154,5 @@
 
   <!-- 版本信息 -->
   <view class="version-info">成长习惯打卡助手 v1.0.0 · 让好习惯伴你成长 🌱</view>
+  </block>
 </view>

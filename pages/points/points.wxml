@@ -1,7 +1,7 @@
 <!-- 小打卡 - 积分（星星）页 -->
 <view class="points-page">
-  <!-- 骨架屏：数据加载中显示 -->
-  <block wx:if="{{_skeleton}}">
+  <!-- 骨架屏：数据加载中显示（仅已登录时展示） -->
+  <block wx:if="{{isLoggedIn && _skeleton}}">
     <view class="points-skeleton">
       <!-- 星星卡片骨架 -->
       <view class="skeleton-stars-card">
@@ -29,16 +29,70 @@
     </view>
   </block>
 
-  <!-- 正式内容：数据就绪后显示 -->
-  <block wx:if="{{!_skeleton}}">
-  <!-- 星星卡片 -->
+  <!-- ==================== 未登录游客模式 ==================== -->
+  <block wx:elif="{{!isLoggedIn}}">
+    <!-- 空状态提示 -->
+    <view class="empty-tip guest-empty">
+      <view class="empty-icon-large">⭐</view>
+      <view class="empty-text-large">登录后可查看积分详情</view>
+      <view class="empty-text-desc">完成学习打卡、每日签到、解锁成就都可以获得星星哦~</view>
+      <view class="empty-btn" bindtap="goToLogin">去登录</view>
+    </view>
+
+    <!-- 获取星星的方式（游客也可浏览的公开信息） -->
+    <view class="section-card">
+      <view class="section-title">🌟 如何获取星星？</view>
+
+      <view class="ways-list">
+        <view class="way-item">
+          <view class="way-icon">✅</view>
+          <view class="way-content">
+            <view class="way-name">完成学习打卡</view>
+            <view class="way-desc">每次打卡获得该计划设定的星星奖励</view>
+          </view>
+          <view class="way-reward">+5</view>
+        </view>
+
+        <view class="way-item">
+          <view class="way-icon">📅</view>
+          <view class="way-content">
+            <view class="way-name">每日签到</view>
+            <view class="way-desc">连续签到天数越多，奖励越丰厚</view>
+          </view>
+          <view class="way-reward">+5~20</view>
+        </view>
+
+        <view class="way-item">
+          <view class="way-icon">🏆</view>
+          <view class="way-content">
+            <view class="way-name">解锁成就</view>
+            <view class="way-desc">达成特定目标可获得大量星星奖励</view>
+          </view>
+          <view class="way-reward">+10~200</view>
+        </view>
+
+        <view class="way-item">
+          <view class="way-icon">💰</view>
+          <view class="way-content">
+            <view class="way-name">系统奖励</view>
+            <view class="way-desc">管理员可发放额外星星奖励</view>
+          </view>
+          <view class="way-reward">不定</view>
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <!-- ==================== 已登录正式内容 ==================== -->
+  <block wx:else>
+  <!-- 星星卡片（含个人积分数据） -->
   <view class="stars-card">
     <view class="stars-bg">
       <view class="stars-emoji">⭐</view>
       <view class="stars-label">我的星星</view>
       <view class="stars-count">{{summary ? (summary.currentStars || 0) : ''}}</view>
       <view class="stars-subtitle">累计获得 {{summary ? (summary.totalEarned || 0) : ''}} 颗</view>
-      
+
       <!-- 快捷操作 -->
       <view class="stars-actions">
         <button class="action-btn" bindtap="goToHistory">
@@ -54,7 +108,7 @@
   <!-- 获取星星的方式 -->
   <view class="section-card">
     <view class="section-title">🌟 如何获取星星？</view>
-    
+
     <view class="ways-list">
       <view class="way-item">
         <view class="way-icon">✅</view>
@@ -64,7 +118,7 @@
         </view>
         <view class="way-reward">+5</view>
       </view>
-      
+
       <view class="way-item">
         <view class="way-icon">📅</view>
         <view class="way-content">
@@ -73,7 +127,7 @@
         </view>
         <view class="way-reward">+5~20</view>
       </view>
-      
+
       <view class="way-item">
         <view class="way-icon">🏆</view>
         <view class="way-content">
@@ -94,16 +148,16 @@
     </view>
   </view>
 
-  <!-- 最近积分记录 -->
+  <!-- 最近积分记录（含个人敏感数据） -->
   <view class="section-card" wx:if="{{recentRecords.length > 0}}">
     <view class="section-header-row">
       <view class="section-title">📊 最近记录</view>
       <view class="section-more" bindtap="goToHistory">查看全部 →</view>
     </view>
-    
+
     <view class="records-list">
-      <view 
-        wx:for="{{recentRecords}}" 
+      <view
+        wx:for="{{recentRecords}}"
         wx:key="id"
         class="record-item"
       >
@@ -121,8 +175,8 @@
     </view>
   </view>
 
-  <!-- 空状态提示：只有星星数为0且无记录时才显示 -->
-  <view class="empty-tip" wx:if="{{(summary && summary.currentStars || 0) === 0 && recentRecords.length === 0}}">
+  <!-- 空状态：已登录但无数据 -->
+  <view class="empty-tip" wx:if="{{isEmpty}}">
     <text>还没有积分记录哦，快去打卡赚取第一颗星星吧！🌟</text>
   </view>
 

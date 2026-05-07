@@ -355,6 +355,157 @@
   margin-top: 6rpx; 
 }
 
+/* ====== 游客模式横幅（未登录首页顶部） ====== */
+.guest-banner {
+  display: flex;
+  align-items: center;
+  background: linear-gradient(135deg, #FFD93D 0%, #FF9A3C 100%);
+  padding: 32rpx 30rpx;
+  margin-bottom: 20rpx;
+  border-radius: 24rpx;
+}
+
+.guest-banner-icon {
+  font-size: 64rpx;
+  margin-right: 20rpx;
+  flex-shrink: 0;
+}
+
+.guest-banner-text {
+  flex: 1;
+}
+
+.guest-banner-title {
+  font-size: 30rpx;
+  font-weight: bold;
+  color: #333333;
+  margin-bottom: 6rpx;
+}
+
+.guest-banner-desc {
+  font-size: 24rpx;
+  color: rgba(51, 51, 51, 0.7);
+}
+
+.guest-banner-btn {
+  background-color: #333333;
+  color: #FFD93D;
+  font-size: 26rpx;
+  font-weight: bold;
+  padding: 14rpx 36rpx;
+  border-radius: 9999rpx;
+  flex-shrink: 0;
+}
+.guest-banner-btn:active { opacity: 0.85; }
+
+/* ====== 游客功能介绍卡片 ====== */
+.guest-features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+  padding: 0 30rpx;
+  margin-bottom: 24rpx;
+}
+
+.guest-feature-item {
+  width: calc(50% - 8rpx);
+  display: flex;
+  align-items: center;
+  background-color: #FFFFFF;
+  border-radius: 20rpx;
+  padding: 28rpx 24rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+}
+
+.guest-feature-icon {
+  font-size: 40rpx;
+  margin-right: 16rpx;
+  flex-shrink: 0;
+}
+
+.guest-feature-text {
+  font-size: 26rpx;
+  color: #555555;
+  font-weight: 500;
+}
+
+/* ====== 游客模式空状态（任务区域，未登录时展示） ====== */
+.guest-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 80rpx 48rpx 40rpx;
+}
+
+.guest-empty-icon {
+  font-size: 120rpx;
+  margin-bottom: 24rpx;
+  animation: guest-bounce 2s ease-in-out infinite;
+}
+
+@keyframes guest-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12rpx); }
+}
+
+.guest-empty-title {
+  font-size: 32rpx;
+  color: #333333;
+  font-weight: bold;
+  margin-bottom: 12rpx;
+}
+
+.guest-empty-desc {
+  font-size: 26rpx;
+  color: #999999;
+  text-align: center;
+  line-height: 1.6;
+  margin-bottom: 40rpx;
+}
+
+.guest-login-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10rpx;
+  background: linear-gradient(135deg, #FFD93D 0%, #FF9A3C 100%);
+  color: #333333;
+  font-size: 30rpx;
+  font-weight: bold;
+  padding: 22rpx 64rpx;
+  border-radius: 9999rpx;
+  box-shadow: 0 8rpx 24rpx rgba(255, 154, 60, 0.3);
+}
+
+.guest-login-btn:active {
+  opacity: 0.85;
+  transform: scale(0.96);
+}
+
+.guest-login-icon { font-size: 32rpx; }
+
+/* ====== 已登录空状态（无任务时展示） ====== */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 80rpx 48rpx;
+}
+
+.empty-icon { font-size: 96rpx; margin-bottom: 20rpx; }
+.empty-text { font-size: 30rpx; color: #666666; margin-bottom: 16rpx; }
+
+.add-task-btn {
+  background: linear-gradient(135deg, #7ED957 0%, #5BC030 100%);
+  color: #FFFFFF;
+  font-size: 28rpx;
+  font-weight: bold;
+  padding: 18rpx 48rpx;
+  border-radius: 9999rpx;
+  box-shadow: 0 4rpx 16rpx rgba(126, 217, 87, 0.3);
+}
+.add-task-btn:active { opacity: 0.85; transform: scale(0.96); }
+
 /* ====== 底部小贴士 ====== */
 .tips-section {
   display: flex;

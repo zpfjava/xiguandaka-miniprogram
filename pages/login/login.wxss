@@ -1,4 +1,102 @@
 /* 登录页样式（支持三种登录方式） */
+
+/* ==================== 隐私政策弹窗 ==================== */
+.privacy-mask {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.privacy-modal {
+  width: 600rpx;
+  max-height: 80vh;
+  background-color: #FFFFFF;
+  border-radius: 24rpx;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.privacy-header {
+  padding: 32rpx 36rpx 20rpx;
+  text-align: center;
+  border-bottom: 1rpx solid #F0F0F0;
+}
+
+.privacy-title {
+  font-size: 34rpx;
+  font-weight: bold;
+  color: #333333;
+}
+
+.privacy-body {
+  max-height: 55vh;
+  padding: 24rpx 36rpx;
+  box-sizing: border-box;
+}
+
+.privacy-content {
+  font-size: 26rpx;
+  color: #666666;
+  line-height: 1.8;
+}
+
+.privacy-section {
+  margin-bottom: 28rpx;
+}
+
+.privacy-section-title {
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #333333;
+  margin-bottom: 12rpx;
+}
+
+.privacy-text {
+  font-size: 26rpx;
+  color: #666666;
+  line-height: 1.8;
+  margin-bottom: 6rpx;
+}
+
+.privacy-footer {
+  padding: 20rpx 36rpx 32rpx;
+  display: flex;
+  gap: 20rpx;
+  border-top: 1rpx solid #F0F0F0;
+}
+
+.privacy-btn {
+  flex: 1;
+  height: 80rpx;
+  line-height: 80rpx;
+  border-radius: 40rpx;
+  font-size: 30rpx;
+  text-align: center;
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+.privacy-btn::after {
+  display: none;
+}
+
+.privacy-disagree-btn {
+  background-color: #F5F5F5;
+  color: #999999;
+}
+
+.privacy-agree-btn {
+  background: linear-gradient(135deg, #FFD93D 0%, #FF9A3C 100%);
+  color: #333333;
+  font-weight: bold;
+}
+
 .login-page {
   min-height: 100vh;
   background: linear-gradient(180deg, #FFF8E1 0%, #FFFFFF 100%);
@@ -6,6 +104,19 @@
   flex-direction: column;
   align-items: center;
   padding: 0 48rpx;
+}
+
+/* 返回导航 */
+.back-nav {
+  width: 100%;
+  padding: 20rpx 0 0;
+  display: flex;
+  align-items: center;
+}
+
+.back-nav-text {
+  font-size: 28rpx;
+  color: #999999;
 }
 
 /* Logo 区域 */
@@ -331,6 +442,25 @@
   color: #FF9A3C;
 }
 
+/* 注册弹窗内的协议勾选 */
+.reg-agreement-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  margin-bottom: 20rpx;
+  padding: 0 8rpx;
+}
+
+.reg-agreement-text {
+  font-size: 22rpx;
+  color: #BBBBBB;
+  line-height: 1.6;
+}
+
+.reg-agreement-text .link {
+  color: #FF9A3C;
+}
+
 /* 演示模式 */
 .demo-mode {
   text-align: center;
@@ -342,20 +472,50 @@
   color: #CCCCCC;
 }
 
-/* 底部说明 */
+/* 底部协议勾选 */
 .login-footer {
   margin-top: auto;
   padding: 40rpx 0 60rpx;
 }
 
-.footer-text {
+.agreement-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.checkbox-wrap {
+  width: 36rpx;
+  height: 36rpx;
+  border-radius: 6rpx;
+  border: 2rpx solid #CCCCCC;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-right: 12rpx;
+  background-color: #FFFFFF;
+  transition: all 0.2s ease;
+}
+
+.checkbox-wrap.checked {
+  background-color: #FF9A3C;
+  border-color: #FF9A3C;
+}
+
+.check-icon {
+  font-size: 24rpx;
+  color: #FFFFFF;
+  font-weight: bold;
+}
+
+.agreement-text {
   font-size: 22rpx;
   color: #BBBBBB;
-  text-align: center;
   line-height: 1.6;
 }
 
-.footer-text .link {
+.agreement-text .link {
   color: #FF9A3C;
 }
 

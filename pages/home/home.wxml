@@ -46,14 +46,48 @@
 
   <!-- 正式内容：数据就绪后显示 -->
   <view wx:if="{{!_skeleton}}" class="home-content">
+
+  <!-- ====== 游客模式（未登录时展示） ====== -->
+  <block wx:if="{{!isLoggedIn}}">
+  <view class="guest-banner">
+    <view class="guest-banner-icon">🌱</view>
+    <view class="guest-banner-text">
+      <view class="guest-banner-title">{{greeting}}，欢迎来到成长习惯打卡助手！</view>
+      <view class="guest-banner-desc">登录后开启你的习惯养成之旅</view>
+    </view>
+    <view class="guest-banner-btn" bindtap="goToLogin">去登录</view>
+  </view>
+
+  <view class="guest-features">
+    <view class="guest-feature-item">
+      <view class="guest-feature-icon">📚</view>
+      <view class="guest-feature-text">制定学习计划</view>
+    </view>
+    <view class="guest-feature-item">
+      <view class="guest-feature-icon">✅</view>
+      <view class="guest-feature-text">每日签到打卡</view>
+    </view>
+    <view class="guest-feature-item">
+      <view class="guest-feature-icon">⭐</view>
+      <view class="guest-feature-text">积累星星奖励</view>
+    </view>
+    <view class="guest-feature-item">
+      <view class="guest-feature-icon">🏆</view>
+      <view class="guest-feature-text">解锁成长成就</view>
+    </view>
+  </view>
+  </block>
+
+  <!-- ====== 已登录内容（含个人数据，游客不可见） ====== -->
+  <block wx:if="{{isLoggedIn}}">
   <!-- 顶部区域 - 问候 + 吉祥物 + 日期 -->
   <view class="home-header">
     <view class="greeting-row">
       <view class="greeting-left">
         <view class="mascot-mini">
-          <mascot 
-            totalDays="{{stats.totalCheckins || 0}}" 
-            size="small" 
+          <mascot
+            totalDays="{{stats.totalCheckins || 0}}"
+            size="small"
             state="idle"
           />
         </view>
@@ -75,9 +109,9 @@
     <view class="progress-card">
       <view class="progress-card-title">今日完成</view>
       <view class="progress-ring-wrapper">
-        <progress-ring 
-          progress="{{progressPercent}}" 
-          size="medium" 
+        <progress-ring
+          progress="{{progressPercent}}"
+          size="medium"
           label=""
         />
       </view>
@@ -85,7 +119,7 @@
         {{completedCount}}/{{totalCount}} 任务
       </view>
     </view>
-    
+
     <!-- 右侧：星星卡片 -->
     <view class="stars-card-mini">
       <view class="stars-icon-big">⭐</view>
@@ -113,6 +147,7 @@
       <view class="action-label">愿望清单</view>
     </view>
   </view>
+  </block>
 
   <!-- 今日任务 -->
   <view class="section" bindlongpress="forceRefreshTasks">
@@ -128,8 +163,19 @@
 
     <!-- 空状态 -->
     <block wx:if="{{todayTasks.length === 0}}">
-      <view class="empty-state">
-        <view class="empty-icon">🌱</view>
+      <!-- 未登录：游客模式空状态 -->
+      <view class="guest-empty-state" wx:if="{{isEmpty}}">
+        <view class="guest-empty-icon">🌱</view>
+        <view class="guest-empty-title">{{emptyTip}}</view>
+        <view class="guest-empty-desc">登录后开启习惯养成之旅，记录每一天的成长~</view>
+        <view class="guest-login-btn" bindtap="goToLogin">
+          <text class="guest-login-icon">🚀</text>
+          <text>去登录</text>
+        </view>
+      </view>
+      <!-- 已登录但无任务 -->
+      <view class="empty-state" wx:else>
+        <view class="empty-icon">📝</view>
         <view class="empty-text">今天还没有任务哦</view>
         <view class="add-task-btn" bindtap="goToPlans">添加任务</view>
       </view>
@@ -177,7 +223,8 @@
     </block>
   </view>
 
-  <!-- 统计数据 -->
+  <!-- 统计数据（仅已登录时显示） -->
+  <block wx:if="{{isLoggedIn}}">
   <view class="section">
     <view class="section-header">
       <view class="section-title">
@@ -203,6 +250,7 @@
       </view>
     </view>
   </view>
+  </block>
 
   <!-- 底部小贴士 -->
   <view class="tips-section">
