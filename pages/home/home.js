@@ -291,10 +291,14 @@ Page({
   updateProgress: function() {
     var todayTasks = this.data.todayTasks
     var completedCount = 0
+    var totalCount = 0
     for (var i = 0; i < todayTasks.length; i++) {
-      if (todayTasks[i].isCompleted) completedCount++
+      // 🔑 只统计今天实际需要打卡的计划（过滤掉非打卡日任务）
+      if (todayTasks[i].isCheckinDay) {
+        totalCount++
+        if (todayTasks[i].isCompleted) completedCount++
+      }
     }
-    var totalCount = todayTasks.length
     var progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0
     this.setData({ completedCount: completedCount, totalCount: totalCount, progressPercent: progressPercent })
   },

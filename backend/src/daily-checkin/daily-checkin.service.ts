@@ -21,8 +21,8 @@ export class DailyCheckinService {
       },
     });
 
-    // 获取连续签到天数
-    const streak = await this.calculateStreak(userId);
+    // 获取连续签到天数（今天已签到才计算，否则返回 0）
+    const streak = todayCheckin ? await this.calculateStreak(userId) : 0;
 
     return {
       hasCheckedIn: !!todayCheckin,
@@ -171,12 +171,16 @@ export class DailyCheckinService {
     return streak;
   }
 
-  // 计算奖励星星
+  // 计算奖励星星（基础5星 + 里程碑一次性奖励）
   private calculateReward(streak: number): number {
-    if (streak >= 30) return 20;
-    if (streak >= 14) return 15;
-    if (streak >= 7) return 10;
-    return 5;
+    // 基础奖励固定 5 星
+    let stars = 5;
+    // 里程碑额外奖励（一次性，只在达到当天生效）
+    if (streak === 30) stars += 20;
+    else if (streak === 15) stars += 15;
+    else if (streak === 7) stars += 10;
+    else if (streak === 3) stars += 5;
+    return stars;
   }
 
   // 获取下次奖励

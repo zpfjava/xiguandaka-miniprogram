@@ -152,7 +152,7 @@ exports.main = async (event, context) => {
           }
         }
 
-        // 未签到：也尝试返回历史连续天数和累计签到总次数
+        // 未签到：检查最后一次签到是否是昨天/今天，决定是否保持连续
         var historyStreak = 0
         var totalCount = 0
         try {
@@ -168,7 +168,13 @@ exports.main = async (event, context) => {
             .get()
           var lastList = safeData(lastRaw)
           if (lastList.length > 0) {
-            historyStreak = lastList[0].streak || 0
+            var lastDateTs = new Date(lastList[0].createdAt).getTime()
+            var range2 = getBeijingTodayRange()
+            var yesterdayMs = range2.todayMs - 24 * 60 * 60 * 1000
+            // 只有最后一次签到在昨天或今天范围内，才算连续
+            if (lastDateTs >= yesterdayMs && lastDateTs < range2.tomorrowMs) {
+              historyStreak = lastList[0].streak || 0
+            }
           }
         } catch (e) {}
 
@@ -228,14 +234,14 @@ exports.main = async (event, context) => {
           console.error('[doCheckin] 计算连续天数失败:', e.message)
         }
 
-        // 奖励星星：基础5星 + 连续签到额外奖励
-        //    规则：3天+5, 7天+10, 15天+15, 30天+20（达到最高档位取该档奖励）
+        // 奖励星星：基础5星 + 连续签到里程碑额外奖励（一次性，只在达到当天生效）
+        //    规则：第3天+5, 第7天+10, 第15天+15, 第30天+20（仅到达里程碑当日额外给一次）
         const baseStars = 5
         let bonusStars = 0
-        if (streak >= 30) bonusStars = 20
-        else if (streak >= 15) bonusStars = 15
-        else if (streak >= 7) bonusStars = 10
-        else if (streak >= 3) bonusStars = 5
+        if (streak === 30) bonusStars = 20
+        else if (streak === 15) bonusStars = 15
+        else if (streak === 7) bonusStars = 10
+        else if (streak === 3) bonusStars = 5
         const totalStars = baseStars + bonusStars
 
         const now = new Date()
